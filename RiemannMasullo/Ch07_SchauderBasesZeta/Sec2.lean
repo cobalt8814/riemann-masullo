@@ -3499,9 +3499,95 @@ theorem sLocalPrincipalValue_tfae {S₀ : Finset Places} (h₀ : S₀ ⊆ S) (_h
 local notation "polarValuesₛ" =>
   (fun f : ℬₛ ↦ (f (Multiplicative.ofAdd 0), sAdeleSchwartzFourier f (Multiplicative.ofAdd 0)))
 
+/-- A Schwartz test is integrable against the additive S-adelic Tamagawa measure. -/
+private theorem sAdelePolarValues_integrable (f : ℬₛ) :
+    MeasureTheory.Integrable (fun x : Aₛ ↦ f (Multiplicative.ofAdd x)) (sAdditiveTamagawaMeasure F S) := by
+  let (v : Places) : MeasurableSpace (v.adicCompletion F) := borel _
+  let (v : Places) : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
+  let (v : Places) : ProperSpace (v.adicCompletion F) := properSpace_adicCompletion v
+  let (v : Places) : (finiteLocalAdditiveTamagawaMeasure F v).IsAddHaarMeasure :=
+    finiteLocalAdditiveTamagawaMeasure_isAddHaar F v
+  let (w : InfinitePlace F) : MeasurableSpace w.Completion := borel _
+  let (w : InfinitePlace F) : BorelSpace w.Completion := ⟨rfl⟩
+  let (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  let (w : InfinitePlace F) : (infiniteLocalAdditiveTamagawaMeasure F w).IsAddHaarMeasure := by
+    by_cases h : w.IsReal
+    · rw [infiniteLocalAdditiveTamagawaMeasure, dite_eq_left h]
+      exact (InfinitePlace.Completion.ringEquivRealOfIsReal h).symm.toAddEquiv.isAddHaarMeasure_map
+        MeasureTheory.volume (InfinitePlace.Completion.isometryEquivRealOfIsReal h).symm.continuous
+        (InfinitePlace.Completion.isometryEquivRealOfIsReal h).continuous
+    · have hc := InfinitePlace.not_isReal_iff_isComplex.mp h
+      rw [infiniteLocalAdditiveTamagawaMeasure, dite_eq_right h]
+      have : (2 • (MeasureTheory.volume : MeasureTheory.Measure ℂ)).IsAddHaarMeasure := by
+        rw [show 2 • (MeasureTheory.volume : MeasureTheory.Measure ℂ) =
+          (2 : ENNReal) • MeasureTheory.volume by simp [two_smul]]
+        exact MeasureTheory.Measure.IsAddHaarMeasure.smul
+          (μ := (MeasureTheory.volume : MeasureTheory.Measure ℂ)) (by norm_num) (by simp)
+      exact (InfinitePlace.Completion.ringEquivComplexOfIsComplex hc).symm.toAddEquiv.isAddHaarMeasure_map _
+        (InfinitePlace.Completion.isometryEquivComplexOfIsComplex hc).symm.continuous
+        (InfinitePlace.Completion.isometryEquivComplexOfIsComplex hc).continuous
+  let : MeasurableSpace (SAdeleRing F S) := instMeasurableSpaceSAdeleRing F S
+  let : BorelSpace (SAdeleRing F S) := inferInstanceAs (BorelSpace
+    (((w : InfinitePlace F) → w.Completion) × ((v : S) → v.val.adicCompletion F)))
+  let : T2Space (SAdeleRing F S) := inferInstanceAs (T2Space
+    (((w : InfinitePlace F) → w.Completion) × ((v : S) → v.val.adicCompletion F)))
+  let : T2Space (Multiplicative (SAdeleRing F S)) := inferInstanceAs (T2Space (SAdeleRing F S))
+  let : LocallyCompactSpace (Multiplicative (SAdeleRing F S)) :=
+    inferInstanceAs (LocallyCompactSpace (SAdeleRing F S))
+  let : BorelSpace (Multiplicative (SAdeleRing F S)) :=
+    inferInstanceAs (BorelSpace (SAdeleRing F S))
+  let G := Multiplicative (SAdeleRing F S)
+  let m : MeasureTheory.Measure G := sAdditiveTamagawaMeasure F S
+  let : (MeasureTheory.Measure.pi (infiniteLocalAdditiveTamagawaMeasure F)).IsAddHaarMeasure :=
+    MeasureTheory.Measure.pi.isAddHaarMeasure _
+  let : (MeasureTheory.Measure.pi (fun v : S ↦ finiteLocalAdditiveTamagawaMeasure F v.val)).IsAddHaarMeasure :=
+    MeasureTheory.Measure.pi.isAddHaarMeasure _
+  have hm : (sAdditiveTamagawaMeasure F S).IsAddHaarMeasure :=
+    MeasureTheory.Measure.prod.instIsAddHaarMeasure _ _
+  let : m.IsHaarMeasure :=
+    { toIsFiniteMeasureOnCompacts := hm.toIsFiniteMeasureOnCompacts
+      toIsOpenPosMeasure := hm.toIsOpenPosMeasure
+      map_mul_left_eq_self := fun x ↦ hm.map_add_left_eq_self x.toAdd }
+  exact SchwartzBruhat.integrable m f
+
+/-- The integral of a sum of two Schwartz tests is the sum of the integrals. -/
+private theorem sAdelePolarValues_integral_add (f g : ℬₛ) :
+    (∫ x : Aₛ, (f + g) (Multiplicative.ofAdd x) ∂sAdditiveTamagawaMeasure F S) =
+      (∫ x : Aₛ, f (Multiplicative.ofAdd x) ∂sAdditiveTamagawaMeasure F S) +
+        (∫ x : Aₛ, g (Multiplicative.ofAdd x) ∂sAdditiveTamagawaMeasure F S) := by
+  rw [show (fun x : Aₛ ↦ (f + g) (Multiplicative.ofAdd x)) =
+      (fun x : Aₛ ↦ f (Multiplicative.ofAdd x) + g (Multiplicative.ofAdd x)) from rfl]
+  exact MeasureTheory.integral_add (sAdelePolarValues_integrable f) (sAdelePolarValues_integrable g)
+
+/-- The Fourier transform at zero is additive in the test. -/
+private theorem sAdelePolarValues_fourier_add (f g : ℬₛ) :
+    sAdeleSchwartzFourier (f + g) (Multiplicative.ofAdd 0) =
+      sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) +
+        sAdeleSchwartzFourier g (Multiplicative.ofAdd 0) := by
+  rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero,
+    sAdeleSchwartzFourier_apply_zero]
+  exact sAdelePolarValues_integral_add f g
+
+/-- The Fourier transform at zero is homogeneous in the test. -/
+private theorem sAdelePolarValues_fourier_smul (c : ℂ) (f : ℬₛ) :
+    sAdeleSchwartzFourier (c • f) (Multiplicative.ofAdd 0) =
+      c • sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) := by
+  rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero]
+  rw [show (fun x : Aₛ ↦ (c • f) (Multiplicative.ofAdd x)) =
+      (fun x : Aₛ ↦ c • f (Multiplicative.ofAdd x)) from rfl]
+  exact MeasureTheory.integral_smul c _
+
 /-- Paper: Equation (7.2.2.3), p. 340.
 Evaluation at zero before and after S-adelic Fourier transform is complex linear. -/
-theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by sorry
+theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by
+  refine ⟨fun f g ↦ ?_, fun c f ↦ ?_⟩
+  · refine Prod.ext ?_ ?_
+    · rfl
+    · exact sAdelePolarValues_fourier_add f g
+  · refine Prod.ext ?_ ?_
+    · rfl
+    · exact sAdelePolarValues_fourier_smul c f
 
 variable (F S) in
 /-- Paper: Equation (7.2.2.3), p. 340.
