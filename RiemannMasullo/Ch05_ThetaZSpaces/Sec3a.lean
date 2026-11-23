@@ -2509,6 +2509,48 @@ theorem distribution_coordinatePlane_decomposition_tempered {N : ℕ} (T : 𝒟'
       ∀ f : 𝒮(ι ⊕ κ), U f = ∑ α : index(N), B α (R𝒮 (∂𝒮[ι ⊕ κ, multi(α)] f)) := by sorry
 
 /-- Paper: Remark 5.3.2.4, p. 246.
+The canonical product map, from the completed inductive tensor product onto the test space on
+the product, is a linear topological isomorphism, with the pure-tensor formula.
+
+Four steps make up the paper's argument for this clause, and each is separately attackable:
+the bilinear product of test functions is separately continuous in the finest locally convex
+topologies of the two factors, hence continuous for the inductive topology, so it extends to the
+completion; the extension is injective (the inductive tensor product has no relations that the
+products do not see); it is surjective (the kernel-theorem half, which uses that the first
+factor is a test space and not merely a topological vector space); and the inverse is
+continuous (the open mapping theorem for the strict LF presentation of the test space). -/
+private theorem testFunction_inductiveTensor_equiv_iso :
+    let W := InductiveTensor 𝒟(ι) 𝒟(κ)
+    letI : ContinuousSMul ℂ W := WithSeminorms.continuousSMul (E := W)
+      (withGeneratingSeminorms_spec _ _)
+    letI : UniformContinuousConstSMul ℂ W := uniformContinuousConstSMul_of_continuousConstSMul ℂ W
+    ∃ e : UniformSpace.Completion W ≃L[ℂ] 𝒟(ι ⊕ κ),
+      ∀ (f : 𝒟(ι)) (g : 𝒟(κ)) (x : Eᵣ(ι ⊕ κ)),
+        e (UniformSpace.Completion.coe' (α := W) (f ⊗ₜ[ℂ] g)) x = factors(f, g, x) := by
+  sorry
+
+/-- Paper: Remark 5.3.2.4, p. 246.
+The products of test functions are sequentially dense in the test space on the product, in the
+sense that every test function on the product is the limit of the images of a sequence drawn
+from the inductive tensor product *itself*, not merely from its completion. This is the
+sequential density of `𝒟(ι) ⊗ 𝒟(κ)` in `𝒟(ι ⊕ κ)` that the paper cites from Trèves, Part III,
+Ch. 39, Theorem 39.2, p. 406. It is a hypothesis of the Remark separate from the isomorphism,
+and the completion alone does not supply it: an arbitrary element of the completion need not be
+the limit of a sequence of tensor products. -/
+private theorem testFunction_inductiveTensor_equiv_sequential_dense :
+    let W := InductiveTensor 𝒟(ι) 𝒟(κ)
+    letI : ContinuousSMul ℂ W := WithSeminorms.continuousSMul (E := W)
+      (withGeneratingSeminorms_spec _ _)
+    letI : UniformContinuousConstSMul ℂ W := uniformContinuousConstSMul_of_continuousConstSMul ℂ W
+    ∀ e : UniformSpace.Completion W ≃L[ℂ] 𝒟(ι ⊕ κ),
+      (∀ (f : 𝒟(ι)) (g : 𝒟(κ)) (x : Eᵣ(ι ⊕ κ)),
+        e (UniformSpace.Completion.coe' (α := W) (f ⊗ₜ[ℂ] g)) x = factors(f, g, x)) →
+      ∀ h : 𝒟(ι ⊕ κ), ∃ s : ℕ → W,
+        Tendsto (fun n ↦ e (s n : UniformSpace.Completion W)) atTop (𝓝 h) := by
+  sorry
+
+set_option maxHeartbeats 1000000 in
+/-- Paper: Remark 5.3.2.4, p. 246.
 Products of test functions define a map from the inductive tensor product with
 sequentially dense range. The completed inductive tensor product is isomorphic
 to the test space on the product by the same pure tensor formula.
@@ -2523,7 +2565,9 @@ theorem testFunction_inductiveTensor_equiv :
         e (UniformSpace.Completion.coe' (α := W) (f ⊗ₜ[ℂ] g)) x = factors(f, g, x)) ∧
       ∀ h : 𝒟(ι ⊕ κ), ∃ s : ℕ → W,
         Tendsto (fun n ↦ e (s n : UniformSpace.Completion W))
-          atTop (𝓝 h) := by sorry
+          atTop (𝓝 h) := by
+  obtain ⟨e, he⟩ := testFunction_inductiveTensor_equiv_iso (ι := ι) (κ := κ)
+  exact ⟨e, he, testFunction_inductiveTensor_equiv_sequential_dense (ι := ι) (κ := κ) e he⟩
 
 /-- Iterated line derivatives are iterated derivatives along the line. -/
 private theorem lineDerivPow_apply_eq_iteratedDeriv {E : Type*} [NormedAddCommGroup E]
