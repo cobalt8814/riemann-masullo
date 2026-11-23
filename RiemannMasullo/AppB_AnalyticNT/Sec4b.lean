@@ -2210,21 +2210,6 @@ theorem realLogFourier_finitePart (w : InfinitePlace F) (_hw : w.IsReal)
   have scale_limit (x y : ℂ) : 2 * (-x - y) = -2 * (x + y) := by ring
   simpa only [scale, scale_limit, Complex.ofReal_add] using hlim.const_mul (2 : ℂ)
 
-/-- Paper: Proposition B.4.3.2(2), p. 619. The complex Fourier pairing
-equals minus the finite part divided by 2π, with the squared module in the cutoff.
-Deviation: Divides the printed distribution by 2π. -/
-theorem complexLogFourier_finitePart (w : InfinitePlace F) (_hw : w.IsComplex)
-    (f : 𝒮ₐ(w.Completion)) :
-    let K : w.Completion → ℂ := logFourierIntegrand(ν∞(w), ψ∞(w), J∞(w), addTest(f))
-    Integrable K ν∞(w) ∧
-      (∀ ε > (0 : ℝ), IntegrableOn (fun x ↦ addTest(f) x / ((‖x‖ ^ 2 : ℝ) : ℂ))
-        {x : w.Completion | ε ≤ ‖x‖ ^ 2} ν∞(w)) ∧
-      Tendsto (fun ε : ℝ ↦ (∫ x in {x : w.Completion | ε ≤ ‖x‖ ^ 2},
-        addTest(f) x / ((‖x‖ ^ 2 : ℝ) : ℂ) ∂ν∞(w)) +
-        (2 * Real.pi : ℝ) * addTest(f) 0 * (Real.log ε : ℂ))
-        (𝓝[>] 0) (𝓝 (-(2 * Real.pi : ℝ) *
-          ((∫ y, K y ∂ν∞(w)) + (2 * eulerLogConstant : ℝ) * addTest(f) 0))) := by sorry
-
 end LocalFourier
 
 section PrincipalValues
@@ -2540,6 +2525,81 @@ private theorem exists_infiniteConnesPrincipalValue_coordinate {G : Type*} [Comm
   rw [schwartzBruhatStageInclusion_apply, schwartzBruhatStageRealization_apply,
     dite_eq_left (hm x), hT]
   exact congrArg f (hw x)
+
+/-- Paper: Proposition B.4.3.2(2), p. 619. The analytic core of the complex
+logarithmic cutoff identity, stated on the plane: for a Schwartz test `u`, the
+finite part of `u(z)/‖z‖²` over the squared-modulus cutoff is minus `2π` times the
+logarithmic Fourier pairing, with contact term `2 (log 2π + γ) u(0)`.
+Deviation: This is the two-dimensional analogue of `real_log_fourier_cutoff`. The
+plane carries twice Lebesgue measure, and the Fourier transform is evaluated at
+`2 * conj z` because the character of a complex place is the trace of `2z`.
+This is the only unproved step of `complexLogFourier_finitePart`, which is proved
+from it below. -/
+private theorem complexLogFourier_finitePart_model (u : 𝓢(ℂ, ℂ)) :
+    Integrable (fun t : ℂ ↦ (Real.log (‖t‖ ^ 2) : ℂ) *
+        (2 * FourierTransform.fourier (u : ℂ → ℂ) ((2 : ℝ) • star t)))
+      (2 • (volume : Measure ℂ)) ∧
+    (∀ ε : ℝ, 0 < ε → IntegrableOn (fun t : ℂ ↦ u t / ((‖t‖ ^ 2 : ℝ) : ℂ))
+      {t : ℂ | ε ≤ ‖t‖ ^ 2} (2 • (volume : Measure ℂ))) ∧
+    Tendsto (fun ε : ℝ ↦ (∫ t in {t : ℂ | ε ≤ ‖t‖ ^ 2},
+        u t / ((‖t‖ ^ 2 : ℝ) : ℂ) ∂(2 • (volume : Measure ℂ))) +
+        (2 * Real.pi : ℝ) * u 0 * (Real.log ε : ℂ)) (𝓝[>] 0)
+      (𝓝 (-(2 * Real.pi : ℝ) * ((∫ t : ℂ, (Real.log (‖t‖ ^ 2) : ℂ) *
+          (2 * FourierTransform.fourier (u : ℂ → ℂ) ((2 : ℝ) • star t))
+            ∂(2 • (volume : Measure ℂ))) +
+          (2 * (Real.log (2 * Real.pi) + Real.eulerMascheroniConstant) : ℝ) * u 0))) := by
+  sorry
+
+/-- Paper: Proposition B.4.3.2(2), p. 619. The complex Fourier pairing
+equals minus the finite part divided by 2π, with the squared module in the cutoff.
+Deviation: Divides the printed distribution by 2π. -/
+theorem complexLogFourier_finitePart (w : InfinitePlace F) (_hw : w.IsComplex)
+    (f : 𝒮ₐ(w.Completion)) :
+    let K : w.Completion → ℂ := logFourierIntegrand(ν∞(w), ψ∞(w), J∞(w), addTest(f))
+    Integrable K ν∞(w) ∧
+      (∀ ε > (0 : ℝ), IntegrableOn (fun x ↦ addTest(f) x / ((‖x‖ ^ 2 : ℝ) : ℂ))
+        {x : w.Completion | ε ≤ ‖x‖ ^ 2} ν∞(w)) ∧
+      Tendsto (fun ε : ℝ ↦ (∫ x in {x : w.Completion | ε ≤ ‖x‖ ^ 2},
+        addTest(f) x / ((‖x‖ ^ 2 : ℝ) : ℂ) ∂ν∞(w)) +
+        (2 * Real.pi : ℝ) * addTest(f) 0 * (Real.log ε : ℂ))
+        (𝓝[>] 0) (𝓝 (-(2 * Real.pi : ℝ) *
+          ((∫ y, K y ∂ν∞(w)) +
+            (2 * (Real.log (2 * Real.pi) + Real.eulerMascheroniConstant) : ℝ) *
+              addTest(f) 0))) := by
+  intro K
+  let : BorelSpace w.Completion := ⟨rfl⟩
+  let e := InfinitePlace.Completion.ringEquivComplexOfIsComplex _hw
+  let j := InfinitePlace.Completion.isometryEquivComplexOfIsComplex _hw
+  let m := j.symm.toHomeomorph.toMeasurableEquiv
+  have hμ : ν∞(w) = (2 • (volume : Measure ℂ)).map m :=
+    dite_eq_right (InfinitePlace.not_isReal_iff_isComplex.mpr _hw)
+  have hem (t : ℂ) : e (m t) = t := e.apply_symm_apply t
+  have hnorm (t : ℂ) : ‖m t‖ = ‖t‖ := by
+    change ‖j.symm t‖ = ‖t‖
+    rw [← dist_zero_right, ← dist_zero_right t, ← j.symm.dist_eq t 0,
+      show j.symm 0 = 0 from map_zero e.symm]
+  let LE : ℂ ≃L[ℝ] EuclideanSpace ℝ (Fin 2) :=
+    (LinearEquiv.ofFinrankEq ℂ (EuclideanSpace ℝ (Fin 2)) (by simp)).toContinuousLinearEquiv
+  let c₀ : w.Completion ≃ₜ EuclideanSpace ℝ (Fin 2) := j.toHomeomorph.trans LE.toHomeomorph
+  let c : Multiplicative w.Completion ≃ₜ* Multiplicative (EuclideanSpace ℝ (Fin 2)) :=
+    ContinuousMulEquiv.mk' c₀ (fun x y ↦ by
+      change LE (e (x.toAdd + y.toAdd)) = LE (e x.toAdd) + LE (e y.toAdd)
+      rw [map_add, map_add])
+  obtain ⟨E, hE⟩ := exists_infiniteConnesPrincipalValue_coordinate c
+  let u : 𝓢(ℂ, ℂ) := (SchwartzMap.compCLMOfContinuousLinearEquiv ℂ LE) (E.symm f)
+  have hP : addTest(f) = fun x ↦ u (e x) := by
+    funext x
+    conv_lhs => rw [← E.apply_symm_apply f]
+    exact hE _ _
+  have hP' (x : w.Completion) : addTest(f) x = u (e x) := congrFun hP x
+  have hK (t : ℂ) : K (m t) = (Real.log (‖t‖ ^ 2) : ℂ) *
+      (2 * FourierTransform.fourier (u : ℂ → ℂ) ((2 : ℝ) • star t)) := by
+    change (Real.log (‖m t‖ ^ w.mult) : ℂ) * tamagawaFourier ν∞(w) ψ∞(w) addTest(f) (m t) = _
+    rw [_hw.mult_eq_two, hnorm, hP, complexModelFourier w _hw, hem]
+  obtain ⟨hlog, hcut, hlim⟩ := complexLogFourier_finitePart_model u
+  simp only [hμ, integrable_map_equiv, integrableOn_map_equiv, setIntegral_map_equiv,
+    integral_map_equiv, Function.comp_def, preimage_ofPred_eq, hK, hnorm, hP', hem, map_zero]
+  exact ⟨hlog, hcut, hlim⟩
 
 /-- If, in a model of the completion, the logarithmic Fourier integrand is a weight of
 polynomial growth times a Schwartz function depending continuously on the test, then
