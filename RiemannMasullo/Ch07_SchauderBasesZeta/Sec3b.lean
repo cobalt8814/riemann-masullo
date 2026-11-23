@@ -642,7 +642,12 @@ theorem sLocalAbsolutePW_seqDense {S₀ : Finset (HeightOneSpectrum (𝓞 F))}
     (D : Submodule ℂ (B(T))) (_hD : D = ⊤ ∨ D = Z₀(T)) :
     ∀ (x : Θ(T, χ)), x ∈ D.map (q(T, χ)) → ∃ u : ℕ → Θ(T, χ),
       (∀ n, ∃ X > 0, u n ∈ sLocalAbsolutePW hST X D χ) ∧
-        Tendsto u atTop (𝓝 x) := by sorry
+        Tendsto u atTop (𝓝 x) := by
+  -- Stuck: since `inBand` bounds the Fourier support, this reduces (via the Fourier
+  -- continuous-linear equivalence) to density of compactly supported tests in the
+  -- S-adelic Schwartz-Bruhat space. No such density lemma is in the imports, and the
+  -- archimedean stages are Schwartz (not compact), so a genuine cutoff argument is needed.
+  sorry
 
 /-- Paper: Theorem 2.2.3.2, p. 82, and the proof of Proposition 7.3.2.2(2)–(3), p. 353.
 The global Fourier transform of the global insertion of an S-local test vanishes at every
@@ -2057,7 +2062,11 @@ private theorem sLocalPWOrbital_eventually_equiv_inf {S₀ : Finset V} (hST : S 
     (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
     ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
       ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
-        W ⊓ Rₚ(p, χ) = W ⊓ Rₚ₀(p, χ) := by sorry
+        W ⊓ Rₚ(p, χ) = W ⊓ Rₚ₀(p, χ) := by
+  -- Stuck: Rₚ₀ ≤ Rₚ gives one inclusion; the reverse needs that a PW-bounded primary
+  -- principal-value class has a zero-moment preimage, i.e. the Fourier-support bounds of
+  -- the still-sorry'd `sLocalAbsolutePW_globalSupport_fourier`/`_principalValue`.
+  sorry
 
 /-- Paper: Theorem 7.3.3.4, arrow (4) of diagram (7.3.3.15), pp. 361–362.
 The second of the two level conditions of the theorem: for large enough absolute or
@@ -2073,7 +2082,11 @@ private theorem sLocalPWOrbital_eventually_equiv_sup {S₀ : Finset V} (hST : S 
     (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
     ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
       ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
-        W ⊔ Rₚ(p, χ) = ⊤ := by sorry
+        W ⊔ Rₚ(p, χ) = ⊤ := by
+  -- Stuck: this is surjectivity of the level onto the primary jet quotient Qₚ.
+  -- `sLocalPWTests_moments_surjective` supplies only the two zero-moments at 0,
+  -- not arbitrary primary jets; a general PW interpolation theorem is missing.
+  sorry
 
 /-- Paper: Theorem 7.3.3.4, p. 360, and diagram (7.3.3.15), p. 361.
 The quotient transfer: if a closed level `W` meets the primary principal-value image in
@@ -2213,7 +2226,11 @@ theorem sLocalPWOrbital_bases {S₀ : Finset V} (hST : S ⊆ T) (_hT : T = S ∪
               (Rₚ(p, χ)).mkQ x.val = e n) ∧
             (∀ n ℓ, ev n ℓ = ℓ (eW n)) ∧
             IsSchauderBasis dW ev ∧ SchauderBasis.IsUnconditional dW ev ∧
-            IsSchauderBasis eW dW ∧ SchauderBasis.IsAbsolute eW dW := by sorry
+            IsSchauderBasis eW dW ∧ SchauderBasis.IsAbsolute eW dW := by
+  -- Stuck: needs an ambient Schauder basis of Qₚ with the prescribed coefficients.
+  -- `sLocalOrbitalSystem_*_basis_properties` assume such a basis (`IsSchauderBasis e d`)
+  -- rather than construct it, and no constructor for it is present in the imports.
+  sorry
 
 /-- Paper: Theorem 7.3.1.6(4), p. 345, as used on p. 361. The ambient orbital
 quotient needs the polynomial seminorm estimate when all places above the
