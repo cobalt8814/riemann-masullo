@@ -577,7 +577,29 @@ theorem sLocalThetaEigendistributions_eq_span (c : QuasiCharacter Jₛ) :
 /-- Paper: Theorem 5.5.1.2(2), p. 278.
 The normalized S-local family in the strong dual of the theta quotient is holomorphic. -/
 theorem sLocalThetaEigendistribution_holomorphic (χ : PontryaginDual Jₛ) :
-    VectorHolomorphicOn (fun s ↦ sLocalThetaEigendistribution (chartₛ(χ) s)) univ := by sorry
+    VectorHolomorphicOn (fun s ↦ sLocalThetaEigendistribution (chartₛ(χ) s)) univ := by
+  let : UniformSpace (SLocalAdelicThetaSpace F S) := IsTopologicalAddGroup.rightUniformSpace _
+  let : IsUniformAddGroup (SLocalAdelicThetaSpace F S) := isUniformAddGroup_of_addCommGroup
+  let : T2Space (SLocalAdelicThetaSpace F S) :=
+    sLocalAdelicThetaSpace_t2_of_isClosed (sLocalAdelicTheta_ker_isClosed (F := F) (S := S))
+  let : PolynormableSpace ℂ (SLocalAdelicThetaSpace F S) := sLocalAdelicThetaSpace_polynormable (F := F) (S := S)
+  let : MontelSpace ℂ (SLocalAdelicThetaSpace F S) := sLocalAdelicThetaSpace_montel (F := F) (S := S)
+  let : CompleteSpace D(SLocalAdelicThetaSpace F S) := sLocalAdelicThetaSpace_strongDual_complete (F := F) (S := S)
+  let : PolynormableSpace ℂ D(SLocalAdelicThetaSpace F S) :=
+    (sLocalAdelicThetaSpace_strongDual_nuclear.{_, 0} (F := F) (S := S)).2.1
+  apply sLocalNormalizedEigendistribution_holomorphic_pointwise
+  intro f
+  obtain ⟨g, rfl⟩ := (Kₛ).mkQ_surjective f
+  let M : ℂ := ↑(∏ v : S, unitMass(v.val))
+  have hM : M ≠ 0 := sLocalNormalizedEigendistribution_mass_ne_zero
+  have he (z : ℂ) : sLocalThetaEigendistribution (chartₛ(χ) z) ((Kₛ).mkQ g) =
+      M⁻¹ * sLocalNormalizedZFunction g (chartₛ(χ) z) := by
+    rw [← Submodule.coe_mkQL, sLocalThetaEigendistribution_mk]
+    have h := (existsUnique_sLocalNormalizedEigendistribution (chartₛ(χ) z)).exists.choose_spec g
+    change M * sLocalNormalizedEigendistribution (chartₛ(χ) z) g = _ at h
+    rw [← h, ← mul_assoc, inv_mul_cancel₀ hM, one_mul]
+  exact ((sLocalNormalizedZFunction_entire g χ).differentiableOn.const_mul M⁻¹).congr
+    fun z _ ↦ he z
 
 end SLocal
 
@@ -707,11 +729,42 @@ theorem globalThetaEigendistributions_eq_span (c : QuasiCharacter C𝔽) :
     (adelicNormalizedEigendistribution (F := F) c) (globalThetaEigendistribution (F := F) c)
     (adelicEigendistributions_eq_span (F := F) c) (globalThetaEigendistribution_mk (F := F) c)
 
+/-- Testing a vector-valued holomorphic family against a fixed vector gives a
+scalar holomorphic function: a continuous linear functional is a big-O bound. -/
+private theorem globalThetaEigendistribution_holomorphic_apply {E : Type*} [AddCommGroup E]
+    [Module ℂ E] [TopologicalSpace E] [ContinuousSMul ℂ E] {D : ℂ → StrongDual ℂ E}
+    (hD : DifferentiableOn ℂ D univ) (g : E) :
+    DifferentiableOn ℂ (fun z ↦ D z g) univ := by
+  intro z hz
+  obtain ⟨f', hf'⟩ := hD z hz
+  refine ⟨((ContinuousLinearMap.applyₗ ℂ (RingHom.id ℂ) g).comp f'), HasFDerivWithinAt.of_isLittleOTVS ?_⟩
+  have hbig := (ContinuousLinearMap.applyₗ ℂ (RingHom.id ℂ) g).isBigOTVS_comp.trans_isLittleOTVS
+    hf'.isLittleOTVS
+  simpa [Function.comp_def, map_sub] using hbig
+
 /-- Paper: Theorem 5.5.1.3(2), p. 279.
 The normalized global family in the strong dual of the theta quotient is holomorphic. -/
 theorem globalThetaEigendistribution_holomorphic (χ : PontryaginDual C𝔽) :
     VectorHolomorphicOn (fun s ↦ globalThetaEigendistribution (ideleClassNormTwist χ s))
-      univ := by sorry
+      univ := by
+  let : UniformSpace (GlobalAdelicThetaSpace F) := IsTopologicalAddGroup.rightUniformSpace _
+  let : IsUniformAddGroup (GlobalAdelicThetaSpace F) := isUniformAddGroup_of_addCommGroup
+  let : T2Space (GlobalAdelicThetaSpace F) :=
+    globalAdelicThetaSpace_t2_of_isClosed (adelicTheta_ker_isClosed (F := F))
+  let : PolynormableSpace ℂ (GlobalAdelicThetaSpace F) := globalAdelicThetaSpace_polynormable (F := F)
+  let : MontelSpace ℂ (GlobalAdelicThetaSpace F) := globalAdelicThetaSpace_montel (F := F)
+  let : CompleteSpace D(GlobalAdelicThetaSpace F) :=
+    globalAdelicThetaSpace_strongDual_complete (F := F)
+  let : PolynormableSpace ℂ D(GlobalAdelicThetaSpace F) :=
+    (globalAdelicThetaSpace_strongDual_nuclear.{_, 0} (F := F)).2.1
+  apply sLocalNormalizedEigendistribution_holomorphic_pointwise
+  intro f
+  obtain ⟨g, rfl⟩ := (K𝔽).mkQ_surjective f
+  have he (z : ℂ) : globalThetaEigendistribution (ideleClassNormTwist χ z) ((K𝔽).mkQ g) =
+      adelicNormalizedEigendistribution (ideleClassNormTwist χ z) g := by
+    rw [← Submodule.coe_mkQL, globalThetaEigendistribution_mk]
+  exact (globalThetaEigendistribution_holomorphic_apply
+    (adelicNormalizedEigendistribution_holomorphic (F := F) χ) g).congr fun z _ ↦ he z
 
 /-- Paper: Remark 5.5.1.4, p. 280.
 The descended S-local eigendistributions span a strongly dense subspace of the theta dual. -/
