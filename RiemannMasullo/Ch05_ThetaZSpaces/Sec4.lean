@@ -700,10 +700,34 @@ theorem mem_sLocalPolarFreeMatching_iff (χ : PontryaginDual Jₛ) (p : B⁺ × 
     ((mem_sLocalZetaMatching χ p).mp hp)
 
 /-- Paper: Proposition 5.4.1.4, p. 267.
-The zeta pair on the polar-free quotient is a topological embedding with closed range. -/
+The zeta pair on the polar-free quotient is a topological embedding, i.e. the
+quotient topology of the polar-free theta space is the one pulled back from
+`B⁺ × B⁻`. This compares the two quotient seminorm systems: the polar-free
+quotient of `↥(sAdelePolarFree S r c)` and the full theta quotient of `ℬₛ`.
+-/
+theorem sLocalPolarFreeZetaPair_isEmbedding (χ : PontryaginDual Jₛ)
+    (r : RealModels) (c : ComplexModels) :
+    IsEmbedding (sLocalPolarFreeZetaPair (F := F) (S := S) χ r c) := by sorry
+
+/-- Paper: Proposition 5.4.1.4, p. 267.
+The range of the zeta pair on the polar-free quotient is closed in `B⁺ × B⁻`: the
+pairs it produces, those whose first component extends to an entire function of
+the matching space (5.4.1.8), form a closed subset of the Schwartz–Bergman pair.
+-/
+theorem sLocalPolarFreeZetaPair_isClosed_range (χ : PontryaginDual Jₛ)
+    (r : RealModels) (c : ComplexModels) :
+    IsClosed (Set.range (sLocalPolarFreeZetaPair (F := F) (S := S) χ r c)) := by sorry
+
+/-- Paper: Proposition 5.4.1.4, p. 267.
+The zeta pair on the polar-free quotient is a topological embedding with closed range.
+Deviation: The embedding and the closedness of the range are stated separately, in
+`sLocalPolarFreeZetaPair_isEmbedding` and `sLocalPolarFreeZetaPair_isClosed_range`;
+the closed range is the whole of the paper's range description on pp. 267–268. -/
 theorem sLocalPolarFreeZetaPair_isClosedEmbedding (χ : PontryaginDual Jₛ)
     (r : RealModels) (c : ComplexModels) :
-    IsClosedEmbedding (sLocalPolarFreeZetaPair (F := F) (S := S) χ r c) := by sorry
+    IsClosedEmbedding (sLocalPolarFreeZetaPair (F := F) (S := S) χ r c) :=
+  ⟨sLocalPolarFreeZetaPair_isEmbedding (F := F) (S := S) χ r c,
+    sLocalPolarFreeZetaPair_isClosed_range (F := F) (S := S) χ r c⟩
 
 /-- Paper: Proposition 5.4.1.4, p. 267.
 The image of the polar-free quotient consists exactly of the matching pairs in V. -/
