@@ -4239,6 +4239,246 @@ theorem idelicExplicitFormula (τ : ℝ≥0ˣ →ₜ* C[F]) (_hτ : RightInverse
 -- the number of points in consecutive height intervals, even for G = ℝ₊ˣ.
 -- In (B.4.4.18), c(τ(t)) already equals t^s. Use this radial character once.
 
+section BruhatMellinPolynomialCount
+
+/-- The model series `1/1^2 + 1/2^2 + ...` has partial sums bounded by two. -/
+private theorem summable_bruhatMellin_of_polynomialCount_sum_inv_sq_range (n : ℕ) :
+    ∑ t ∈ Finset.range n, (((t : ℝ) + 1) ^ 2)⁻¹ ≤ 2 := by
+  have key : ∀ m : ℕ,
+      ∑ t ∈ Finset.range m, (((t : ℝ) + 1) ^ 2)⁻¹ ≤ 2 - (m : ℝ)⁻¹ := by
+    intro m
+    induction m with
+    | zero => norm_num
+    | succ p ih =>
+      rw [Finset.sum_range_succ]
+      rcases Nat.eq_zero_or_pos p with hp0 | hp
+      · subst hp0
+        norm_num
+      · have hstep : (((p : ℝ) + 1) ^ 2)⁻¹ ≤ (p : ℝ)⁻¹ - ((p : ℝ) + 1)⁻¹ := by
+          have h1 : (p : ℝ) ≠ 0 := by positivity
+          have h2 : (p : ℝ) + 1 ≠ 0 := by positivity
+          field_simp
+          nlinarith
+        have hcast : ((p + 1 : ℕ) : ℝ)⁻¹ = ((p : ℝ) + 1)⁻¹ := by
+          push_cast
+          ring
+        rw [hcast]
+        linarith
+  exact (key n).trans (by
+    have : (0 : ℝ) ≤ (n : ℝ)⁻¹ := by positivity
+    linarith)
+
+/-- Absorbing polynomial growth into the quadratic decay. -/
+private theorem summable_bruhatMellin_of_polynomialCount_pow_add_div_pow (x : ℝ) (hx : 1 ≤ x)
+    (k : ℕ) : (x + 1) ^ k / x ^ (k + 2) ≤ (2 : ℝ) ^ k / x ^ 2 := by
+  have hx0 : (0 : ℝ) < x := by linarith
+  have habs : (x + 1) ^ k ≤ (2 : ℝ) ^ k * x ^ k := by
+    have hle : x + 1 ≤ 2 * x := by linarith
+    calc (x + 1) ^ k ≤ (2 * x) ^ k := pow_le_pow_left₀ (by linarith) hle k
+      _ = (2 : ℝ) ^ k * x ^ k := mul_pow _ _ _
+  have hxp : (0 : ℝ) < x ^ (k + 2) := pow_pos hx0 _
+  have hx2 : (0 : ℝ) < x ^ 2 := pow_pos hx0 2
+  rw [div_le_div_iff₀ hxp hx2]
+  calc (x + 1) ^ k * x ^ 2 ≤ ((2 : ℝ) ^ k * x ^ k) * x ^ 2 :=
+        mul_le_mul_of_nonneg_right habs (le_of_lt hx2)
+    _ = (2 : ℝ) ^ k * x ^ (k + 2) := by rw [pow_add]; ring
+
+/-- An inverse power decreases when the base increases. -/
+private theorem summable_bruhatMellin_of_polynomialCount_mul_inv_pow_le {K x t : ℝ} (hK : 0 ≤ K)
+    (ht : 0 < t) (htx : t ≤ x) (k : ℕ) : K / x ^ (k + 1) ≤ K / t ^ (k + 1) := by
+  have hx : (0 : ℝ) < x := lt_of_lt_of_le ht htx
+  have hmono : t ^ (k + 1) ≤ x ^ (k + 1) := pow_le_pow_left₀ (le_of_lt ht) htx _
+  have htp : (0 : ℝ) < t ^ (k + 1) := pow_pos ht _
+  have hxp : (0 : ℝ) < x ^ (k + 1) := pow_pos hx _
+  rw [div_le_div_iff₀ hxp htp]
+  calc K * t ^ (k + 1) ≤ K * x ^ (k + 1) := mul_le_mul_of_nonneg_left hmono hK
+    _ = K * x ^ (k + 1) := rfl
+
+/-- Paper: Lemma B.4.4.8, p. 624. Counting the level sets of the height
+`max |Im s| (max_j |n_j|)` polynomially and having quadratic decay in that height
+forces summability. This is the combinatorial half of Lemma B.4.4.8. -/
+private theorem summable_bruhatMellin_of_polynomialCount_of_polyCount_decay
+    {ι : Type*} (m : ι → ℝ) (hm : ∀ z, 0 ≤ m z) (C k : ℕ) (K : ℝ) (hK : 0 ≤ K)
+    (g : ι → ℝ)
+    (hcount : ∀ T : ℕ, {z : ι | m z ≤ (T : ℝ)}.encard ≤ ((C * (T + 1) ^ k : ℕ) : ℕ∞))
+    (hdecay : ∀ z, ‖g z‖ ≤ K / (1 + m z) ^ (k + 2)) :
+    Summable g := by
+  classical
+  set S : ι → ℕ := fun z => Nat.ceil (m z) with hSdef
+  have hSle (z : ι) : m z ≤ (S z : ℝ) := Nat.le_ceil (m z)
+  have hmzle : ∀ {z : ι} {t : ℕ}, S z = t → m z ≤ (t : ℝ) := by
+    intro z t hz
+    calc m z ≤ (S z : ℝ) := hSle z
+      _ = (t : ℝ) := by rw [hz]
+  have hfin : ∀ T : ℕ, {z : ι | S z ≤ T}.Finite := by
+    intro T
+    exact Set.finite_of_encard_le_coe
+      ((Set.encard_mono fun z hz => (hSle z).trans (by exact_mod_cast hz)).trans (hcount T))
+  have hcard : ∀ t : ℕ, {z : ι | S z = t}.encard ≤ ((C * (t + 1) ^ k : ℕ) : ℕ∞) := by
+    intro t
+    have hsub : {z : ι | S z = t} ⊆ {z : ι | m z ≤ (t : ℝ)} := by
+      intro z hz
+      exact hmzle hz
+    exact (Set.encard_mono hsub).trans (hcount t)
+  have hfibercard : ∀ (t : ℕ) (u : Finset ι), (∀ z ∈ u, S z = t) →
+      (u.card : ℝ) ≤ (C : ℝ) * (t + 1) ^ k := by
+    intro t u hu
+    have hcoe : ((u.card : ℕ) : ℕ∞) = (u : Set ι).encard :=
+      (Set.encard_coe_eq_coe_finsetCard u).symm
+    have hle : (u : Set ι).encard ≤ {z : ι | S z = t}.encard :=
+      Set.encard_mono fun z hz => hu z hz
+    have hnat : u.card ≤ C * (t + 1) ^ k := by
+      have : ((u.card : ℕ) : ℕ∞) ≤ ((C * (t + 1) ^ k : ℕ) : ℕ∞) := by
+        rw [hcoe]
+        exact hle.trans (hcard t)
+      exact_mod_cast this
+    exact_mod_cast hnat
+  -- decay of one term, with the level value in the base
+  have hterm : ∀ (t : ℕ) (z : ι), S z = t → ‖g z‖ ≤ K / (max (t : ℝ) 1) ^ (k + 2) := by
+    intro t z hz
+    rcases Nat.eq_zero_or_pos t with ht0 | htpos
+    · have hmz : m z = 0 := le_antisymm (by simpa [ht0] using hmzle hz) (hm z)
+      have hmax : max (t : ℝ) 1 = 1 := by simp [ht0]
+      have hthis := hdecay z
+      rw [hmax] at ⊢
+      simp only [hmz, add_zero, one_pow, div_one] at hthis ⊢
+      exact hthis
+    · have ht1 : (1 : ℝ) ≤ (t : ℝ) := by
+        exact_mod_cast htpos
+      have hmax : max (t : ℝ) 1 = (t : ℝ) := max_eq_left ht1
+      have hmet : ((t : ℝ) - 1) < m z := by
+        by_contra hcon
+        have hcon' : m z ≤ (t : ℝ) - 1 := not_lt.mp hcon
+        have hcast : ((t - 1 : ℕ) : ℝ) = (t : ℝ) - 1 := by
+          push_cast [show 1 ≤ t from htpos]
+          ring
+        have hle : S z ≤ t - 1 := by
+          rw [hSdef]
+          exact Nat.ceil_le.mpr (by rw [hcast]; exact hcon')
+        omega
+      have htm : (t : ℝ) ≤ 1 + m z := by linarith
+      have htpos' : (0 : ℝ) < (t : ℝ) := by linarith
+      rw [hmax]
+      exact (hdecay z).trans
+        (summable_bruhatMellin_of_polynomialCount_mul_inv_pow_le hK htpos' htm (k + 1))
+  -- the contribution of one level
+  have hshell : ∀ (t : ℕ) (u : Finset ι), (∀ z ∈ u, S z = t) →
+      ∑ z ∈ u, ‖g z‖ ≤ (C : ℝ) * K * (2 : ℝ) ^ k * 4 * (((t : ℝ) + 1) ^ 2)⁻¹ := by
+    intro t u hu
+    have hcard' := hfibercard t u hu
+    have hC : (0 : ℝ) ≤ (C : ℝ) := Nat.cast_nonneg _
+    have hCK : (0 : ℝ) ≤ (C : ℝ) * K := mul_nonneg hC hK
+    have hnn : (0 : ℝ) ≤ K / (max (t : ℝ) 1) ^ (k + 2) :=
+      div_nonneg hK (by positivity)
+    have hsum : ∑ z ∈ u, ‖g z‖ ≤ (u.card : ℝ) * (K / (max (t : ℝ) 1) ^ (k + 2)) := by
+      calc ∑ z ∈ u, ‖g z‖ ≤ ∑ _z ∈ u, (K / (max (t : ℝ) 1) ^ (k + 2)) :=
+            Finset.sum_le_sum (fun z hz => hterm t z (hu z hz))
+        _ = _ := by rw [Finset.sum_const, nsmul_eq_mul]
+    rcases Nat.eq_zero_or_pos t with ht0 | htpos
+    · have hmax : max (t : ℝ) 1 = 1 := by simp [ht0]
+      have hcard0 : (u.card : ℝ) ≤ (C : ℝ) := by simpa [ht0] using hcard'
+      have h1 : ∑ z ∈ u, ‖g z‖ ≤ (C : ℝ) * K := by
+        calc ∑ z ∈ u, ‖g z‖ ≤ (u.card : ℝ) * (K / (max (t : ℝ) 1) ^ (k + 2)) := hsum
+          _ = (u.card : ℝ) * K := by rw [hmax]; norm_num
+          _ ≤ (C : ℝ) * K := mul_le_mul_of_nonneg_right hcard0 hK
+      refine h1.trans ?_
+      rw [show (C : ℝ) * K * (2 : ℝ) ^ k * 4 * (((t : ℝ) + 1) ^ 2)⁻¹
+          = (C : ℝ) * K * ((2 : ℝ) ^ k * 4) by rw [ht0]; ring]
+      have h4 : (1 : ℝ) ≤ (2 : ℝ) ^ k * 4 := by
+        have h2 : (1 : ℝ) ≤ (2 : ℝ) ^ k := one_le_pow₀ (by norm_num)
+        linarith
+      calc (C : ℝ) * K = (C : ℝ) * K * 1 := by ring
+        _ ≤ (C : ℝ) * K * ((2 : ℝ) ^ k * 4) := mul_le_mul_of_nonneg_left h4 hCK
+    · have ht1 : (1 : ℝ) ≤ (t : ℝ) := by exact_mod_cast htpos
+      have hmax : max (t : ℝ) 1 = (t : ℝ) := max_eq_left ht1
+      have hstep : ((t : ℝ) + 1) ^ k / (t : ℝ) ^ (k + 2) ≤ (2 : ℝ) ^ k / (t : ℝ) ^ 2 :=
+        summable_bruhatMellin_of_polynomialCount_pow_add_div_pow (t : ℝ) ht1 k
+      have h4 : ((t : ℝ) ^ 2)⁻¹ ≤ 4 * (((t : ℝ) + 1) ^ 2)⁻¹ := by
+        have h1 : ((t : ℝ) + 1) ^ 2 * ((t : ℝ) ^ 2)⁻¹ ≤ 4 := by
+          rw [← div_eq_mul_inv, div_le_iff₀ (by positivity)]
+          nlinarith [sq_nonneg ((t : ℝ) - 1)]
+        have hq' : (0 : ℝ) ≤ (((t : ℝ) + 1) ^ 2)⁻¹ := by positivity
+        calc ((t : ℝ) ^ 2)⁻¹
+            = (((t : ℝ) + 1) ^ 2)⁻¹ * (((t : ℝ) + 1) ^ 2 * ((t : ℝ) ^ 2)⁻¹) := by
+              field_simp
+          _ ≤ (((t : ℝ) + 1) ^ 2)⁻¹ * 4 := mul_le_mul_of_nonneg_left h1 hq'
+          _ = 4 * (((t : ℝ) + 1) ^ 2)⁻¹ := by ring
+      have hnn' : (0 : ℝ) ≤ K / (t : ℝ) ^ (k + 2) :=
+        div_nonneg hK (by positivity)
+      calc ∑ z ∈ u, ‖g z‖ ≤ (u.card : ℝ) * (K / (max (t : ℝ) 1) ^ (k + 2)) := hsum
+        _ = (u.card : ℝ) * (K / (t : ℝ) ^ (k + 2)) := by rw [hmax]
+        _ ≤ ((C : ℝ) * ((t : ℝ) + 1) ^ k) * (K / (t : ℝ) ^ (k + 2)) :=
+            mul_le_mul_of_nonneg_right hcard' hnn'
+        _ = (C : ℝ) * K * (((t : ℝ) + 1) ^ k / (t : ℝ) ^ (k + 2)) := by ring
+        _ ≤ (C : ℝ) * K * ((2 : ℝ) ^ k / (t : ℝ) ^ 2) :=
+            mul_le_mul_of_nonneg_left hstep hCK
+        _ = (C : ℝ) * K * (2 : ℝ) ^ k * ((t : ℝ) ^ 2)⁻¹ := by
+            rw [div_eq_mul_inv]
+            ring
+        _ ≤ (C : ℝ) * K * (2 : ℝ) ^ k * (4 * (((t : ℝ) + 1) ^ 2)⁻¹) :=
+            mul_le_mul_of_nonneg_left h4 (by positivity)
+        _ = (C : ℝ) * K * (2 : ℝ) ^ k * 4 * (((t : ℝ) + 1) ^ 2)⁻¹ := by ring
+  -- assemble
+  have hbound : ∀ u : Finset ι, ∑ z ∈ u, ‖g z‖ ≤ (C : ℝ) * K * (2 : ℝ) ^ k * 8 := by
+    intro u
+    set T := u.sup S with hTdef
+    have hTu : ∀ z ∈ u, S z ≤ T := fun z hz => Finset.le_sup (f := S) hz
+    have hbox : u ⊆ (hfin T).toFinset := by
+      intro z hz
+      rw [Set.Finite.mem_toFinset]
+      exact hTu z hz
+    have hmaps : ∀ z ∈ (hfin T).toFinset, S z ∈ Finset.range (T + 1) := by
+      intro z hz
+      rw [Set.Finite.mem_toFinset] at hz
+      rw [Finset.mem_range]
+      exact Nat.lt_succ_of_le hz
+    have step1 : ∑ z ∈ u, ‖g z‖ ≤ ∑ z ∈ (hfin T).toFinset, ‖g z‖ :=
+      Finset.sum_le_sum_of_subset_of_nonneg hbox (fun _ _ _ => norm_nonneg _)
+    have step2 : ∑ z ∈ (hfin T).toFinset, ‖g z‖
+        = ∑ t ∈ Finset.range (T + 1),
+            ∑ z ∈ (hfin T).toFinset.filter (fun z => S z = t), ‖g z‖ :=
+      (Finset.sum_fiberwise_of_maps_to hmaps _).symm
+    have step3 : ∑ t ∈ Finset.range (T + 1),
+          ∑ z ∈ (hfin T).toFinset.filter (fun z => S z = t), ‖g z‖
+        ≤ ∑ t ∈ Finset.range (T + 1),
+            (C : ℝ) * K * (2 : ℝ) ^ k * 4 * (((t : ℝ) + 1) ^ 2)⁻¹ := by
+      refine Finset.sum_le_sum (fun t _ => ?_)
+      exact hshell t _ (fun z hz => (Finset.mem_filter.mp hz).2)
+    refine (step1.trans (step2.le.trans step3)).trans ?_
+    rw [← Finset.mul_sum]
+    have h0 : (0 : ℝ) ≤ (C : ℝ) * K * (2 : ℝ) ^ k * 4 := by positivity
+    calc (C : ℝ) * K * (2 : ℝ) ^ k * 4 *
+          ∑ t ∈ Finset.range (T + 1), (((t : ℝ) + 1) ^ 2)⁻¹
+        ≤ (C : ℝ) * K * (2 : ℝ) ^ k * 4 * 2 :=
+          mul_le_mul_of_nonneg_left
+            (summable_bruhatMellin_of_polynomialCount_sum_inv_sq_range (T + 1)) h0
+      _ = (C : ℝ) * K * (2 : ℝ) ^ k * 8 := by ring
+  exact Summable.of_norm (summable_of_sum_le (fun z => norm_nonneg _) hbound)
+
+/-- Paper: Lemma B.4.4.8, p. 624. On a bounded vertical strip, the Mellin evaluation of
+compactly supported Bruhat test is dominated by any inverse power of the joint height
+`max |Im s| (max_j |n_j|)`, with a constant that depends on the test and on the strip.
+This is the analytic half of Lemma B.4.4.8: it is the standard smoothing estimate for the
+Mellin transform of a compactly supported test, applied in the `t` coordinate and in each
+torus coordinate of the product presentation `e`, and it carries no counting hypothesis. -/
+private theorem summable_bruhatMellin_of_polynomialCount_decay
+    {G A : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G]
+    [LocallyCompactSpace G] [MeasurableSpace G] [BorelSpace G]
+    [CommGroup A] [TopologicalSpace A] [DiscreteTopology A] [Finite A]
+    {d : ℕ} (e : G ≃ₜ* (ℝ≥0ˣ × (Fin d → Circle) × A))
+    (μ : Measure G) [μ.IsHaarMeasure]
+    (a b : ℝ) (N : ℕ) (f : 𝒟(G)) :
+    ∃ K : ℝ, 0 < K ∧ ∀ z : ℂ × (Fin d → ℤ) × PontryaginDual A, z.1.re ∈ Icc a b →
+      ‖∫ g, f.val g *
+        (((e g).1.val : ℝ) : ℂ) ^ z.1 *
+        (∏ j : Fin d, (((e g).2.1 j : Circle) : ℂ) ^ z.2.1 j) *
+        (z.2.2 (e g).2.2 : ℂ) ∂μ‖ ≤
+      K / (1 + max |z.1.im|
+        ((Finset.univ.sup (fun j : Fin d => (z.2.1 j).natAbs) : ℕ) : ℝ)) ^ N := by
+  sorry
+
+end BruhatMellinPolynomialCount
+
 /-- Paper: Lemma B.4.4.8, p. 624. Compactly supported Bruhat tests have
 absolutely summable Mellin evaluations on polynomially counted samples in
 a bounded strip of the quasi-character space of a real-modulated abelian Lie group.
@@ -4260,7 +4500,54 @@ theorem summable_bruhatMellin_of_polynomialCount
     Summable (fun z : Z ↦ ‖∫ g, f.val g *
       (((e g).1.val : ℝ) : ℂ) ^ z.val.1 *
       (∏ j : Fin d, (((e g).2.1 j : Circle) : ℂ) ^ z.val.2.1 j) *
-      (z.val.2.2 (e g).2.2 : ℂ) ∂μ‖) := by sorry
+      (z.val.2.2 (e g).2.2 : ℂ) ∂μ‖) := by
+  obtain ⟨C, k, hCount⟩ := _hCount
+  obtain ⟨K, hK, hDecay⟩ :=
+    summable_bruhatMellin_of_polynomialCount_decay e μ a b (k + 2) f
+  set m : Z → ℝ := fun z => max |z.val.1.im|
+    ((Finset.univ.sup (fun j : Fin d => (z.val.2.1 j).natAbs) : ℕ) : ℝ) with hmdef
+  have hm : ∀ z : Z, 0 ≤ m z := by
+    intro z
+    rw [hmdef]
+    exact (abs_nonneg _).trans (le_max_left _ _)
+  refine summable_bruhatMellin_of_polynomialCount_of_polyCount_decay
+    (g := fun z : Z => ‖∫ g, f.val g *
+      (((e g).1.val : ℝ) : ℂ) ^ z.val.1 *
+      (∏ j : Fin d, (((e g).2.1 j : Circle) : ℂ) ^ z.val.2.1 j) *
+      (z.val.2.2 (e g).2.2 : ℂ) ∂μ‖)
+    m hm C k K hK.le ?_ (hdecay := fun z => by
+      rw [hmdef]
+      simpa using hDecay z.val (_hStrip z.val z.2))
+  intro T
+  have hset : Subtype.val '' {z : Z | m z ≤ (T : ℝ)} =
+      {p : ℂ × (Fin d → ℤ) × PontryaginDual A |
+        p ∈ Z ∧ |p.1.im| ≤ (T : ℝ) ∧ ∀ j, (p.2.1 j).natAbs ≤ T} := by
+    ext p
+    constructor
+    · rintro ⟨z, hz, rfl⟩
+      refine ⟨z.2, (le_max_left _ _).trans hz, fun j => ?_⟩
+      have h2 : ((Finset.univ.sup (fun j : Fin d => (z.val.2.1 j).natAbs) : ℕ) : ℝ) ≤ (T : ℝ) :=
+        (le_max_right _ _).trans hz
+      have h3 : (Finset.univ.sup (fun j : Fin d => (z.val.2.1 j).natAbs) : ℕ) ≤ T :=
+        by exact_mod_cast h2
+      exact (Finset.le_sup (f := fun j : Fin d => (z.val.2.1 j).natAbs)
+        (Finset.mem_univ j)).trans h3
+    · rintro ⟨hpZ, him, hn⟩
+      refine ⟨⟨p, hpZ⟩, ?_, rfl⟩
+      change max |p.1.im| ((Finset.univ.sup (fun j : Fin d => (p.2.1 j).natAbs) : ℕ) : ℝ)
+        ≤ (T : ℝ)
+      rw [max_le_iff]
+      refine ⟨him, ?_⟩
+      have h3 : (Finset.univ.sup (fun j : Fin d => (p.2.1 j).natAbs) : ℕ) ≤ T :=
+        Finset.sup_le fun j _ => hn j
+      exact_mod_cast h3
+  calc {z : Z | m z ≤ (T : ℝ)}.encard
+      = (Subtype.val '' {z : Z | m z ≤ (T : ℝ)}).encard :=
+        (Subtype.val_injective.injOn.encard_image).symm
+    _ = {p : ℂ × (Fin d → ℤ) × PontryaginDual A |
+          p ∈ Z ∧ |p.1.im| ≤ (T : ℝ) ∧ ∀ j, (p.2.1 j).natAbs ≤ T}.encard := by rw [hset]
+    _ = {z ∈ Z | |z.1.im| ≤ T ∧ ∀ j, (z.2.1 j).natAbs ≤ T}.encard := by congr 1
+    _ ≤ _ := hCount T
 
 private theorem summable_ideleClassMellin_completedHeckeZeros_weight
     {G : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G]
