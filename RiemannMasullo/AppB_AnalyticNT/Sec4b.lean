@@ -57,13 +57,69 @@ section MellinExplicitFormula
 -- TODO(paper-gap): The unnumbered residue identity on p. 614 reverses the
 -- signs in (B.4.2.2). Poles are present only for norm characters and may be shifted.
 
+/-- Paper: §B.4.2.1, p. 614. A polynomial-spaced sequence of heights on which the
+logarithmic derivative of the completed Hecke L-function is differentiable across
+the horizontal line inside the strip `1 - a < re < a`.
+This is the first half of the estimate the page cites from [Lang-b, Ch. XVII]: the
+heights are chosen to avoid the zeros and poles of `L`, and are spaced polynomially. -/
+private theorem exists_slowGrowthHeights_completedHeckeL_logDeriv (χ : U[F]) (L : ℂ → ℂ)
+    (hL : MeromorphicNFOn L univ) (hAgree : ∀ s : halfPlane, L s = completedHeckeL χ s)
+    (a : ℝ) (ha : 1 < a) (haMax : a ≤ 2) :
+    ∃ T : ℤ → ℝ,
+      Monotone (fun k : ℕ ↦ |T (k : ℤ)|) ∧
+      Monotone (fun k : ℕ ↦ |T (-(k : ℤ))|) ∧
+      Tendsto (fun k : ℤ ↦ |T k|) (Filter.comap abs Filter.atTop) Filter.atTop ∧
+      (∃ α : ℝ, 0 < α ∧ Asymptotics.IsBigO (Filter.comap abs Filter.atTop) T
+        (fun k : ℤ ↦ |(k : ℝ)| ^ α)) ∧
+      (∃ c γ : ℝ, 0 < c ∧ 0 < γ ∧
+        ∀ᶠ k : ℤ in Filter.comap abs Filter.atTop, c * |(k : ℝ)| ^ γ ≤ |T k|) ∧
+      ∀ k : ℤ, ∃ δ > (0 : ℝ), DifferentiableOn ℂ (logDeriv L)
+        (Complex.re ⁻¹' Ioo (1 - a) a ∩
+          Complex.im ⁻¹' Ioo (T k - δ) (T k + δ)) := by sorry
+
+/-- Paper: §B.4.2.1, p. 614. Along the horizontal segments of the strip at the
+selected heights the logarithmic derivative of the completed Hecke L-function is
+bounded by a fixed power of the height index. This is the `(B.3.1.1)(1)(b)` bound
+that the page obtains from [Lang-b, Ch. XVII, Cor. 2.5]. -/
+private theorem exists_logDeriv_heightBound_completedHeckeL (χ : U[F]) (L : ℂ → ℂ)
+    (hL : MeromorphicNFOn L univ) (hAgree : ∀ s : halfPlane, L s = completedHeckeL χ s)
+    (a : ℝ) (ha : 1 < a) (haMax : a ≤ 2) (T : ℤ → ℝ)
+    (hT : ∀ k : ℤ, ∃ δ > (0 : ℝ), DifferentiableOn ℂ (logDeriv L)
+      (Complex.re ⁻¹' Ioo (1 - a) a ∩
+        Complex.im ⁻¹' Ioo (T k - δ) (T k + δ))) :
+    ∃ β A : ℝ, 0 < β ∧ 0 < A ∧ ∀ (k : ℤ), k ≠ 0 → ∀ σ ∈ Ioo (1 - a) a,
+      ‖logDeriv L ((σ : ℂ) + (T k : ℂ) * Complex.I)‖ ≤ A * |(k : ℝ)| ^ β := by sorry
+
+/-- Paper: §B.4.2.1, p. 614. The logarithmic derivative of the completed Hecke
+L-function has continuous, polynomially bounded traces on two vertical lines
+strictly inside the strip. This is the last clause of Definition B.3.1.1, which
+the page obtains from [Lang-b, Ch. XVII, Prop. 2.3 and Prop. 2.7]. -/
+private theorem exists_logDeriv_verticalTraces_completedHeckeL (χ : U[F]) (L : ℂ → ℂ)
+    (hL : MeromorphicNFOn L univ) (hAgree : ∀ s : halfPlane, L s = completedHeckeL χ s)
+    (a : ℝ) (ha : 1 < a) (haMax : a ≤ 2) :
+    ∃ ε₁ ε₂ : ℝ, 0 < ε₁ ∧ ε₁ < ε₂ ∧ ε₂ < (a - (1 - a)) / 2 ∧
+      ∀ σ ∈ ({1 - a + ε₁, a - ε₂} : Set ℝ),
+        Continuous (fun y : ℝ ↦ logDeriv L ((σ : ℂ) + (y : ℂ) * Complex.I)) ∧
+          ∃ γ > (0 : ℝ), Asymptotics.IsBigO (Filter.comap abs Filter.atTop)
+            (fun y : ℝ ↦ logDeriv L ((σ : ℂ) + (y : ℂ) * Complex.I))
+            (fun y : ℝ ↦ |y| ^ γ) := by sorry
+
 /-- Paper: §B.4.2.1, p. 614. The logarithmic derivative of the completed
 function has slow growth near its poles on the strip used for the residue formula.
 Deviation: Uses the repaired height bounds of Definition B.3.1.1. -/
 theorem hasSlowGrowthNearPoles_completedHeckeL_logDeriv (χ : U[F]) (L : ℂ → ℂ)
     (_hL : MeromorphicNFOn L univ) (_hAgree : ∀ s : halfPlane, L s = completedHeckeL χ s)
     (a : ℝ) (_ha : 1 < a) (_haMax : a ≤ 2) :
-    HasSlowGrowthNearPoles (logDeriv L) (1 - a) a := by sorry
+    HasSlowGrowthNearPoles (logDeriv L) (1 - a) a := by
+  obtain ⟨T, hmono₀, hmono₁, htend, hbigO, hlow, hdiff⟩ :=
+    exists_slowGrowthHeights_completedHeckeL_logDeriv χ L _hL _hAgree a _ha _haMax
+  obtain ⟨β, A, hβ, hA, hbound⟩ :=
+    exists_logDeriv_heightBound_completedHeckeL χ L _hL _hAgree a _ha _haMax T hdiff
+  obtain ⟨ε₁, ε₂, hε₁, hε₁₂, hε₂, htrace⟩ :=
+    exists_logDeriv_verticalTraces_completedHeckeL χ L _hL _hAgree a _ha _haMax
+  refine ⟨T, by linarith, ?_, hmono₀, hmono₁, htend, hbigO, hlow, hdiff,
+    ⟨β, A, hβ, hA, hbound⟩, ⟨ε₁, ε₂, hε₁, hε₁₂, hε₂, htrace⟩⟩
+  exact ((_hL.meromorphicOn).mono_set (subset_univ _)).logDeriv
 
 /-- Paper: Equation (B.4.2.2), p. 614. The right vertical integral minus the
 left vertical integral is the signed divisor sum of Mellin values.
