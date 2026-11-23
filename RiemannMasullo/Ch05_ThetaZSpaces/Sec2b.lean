@@ -1671,7 +1671,29 @@ Deviation: The continuous coinvariant quotient is identified via Definition 5.2.
 theorem sLocalThetaIsotypicAverage_equiv (χ : PontryaginDual (J₁(S))) :
     IsClosed (Eₛω(S, χ) : Set (Θₛ(S))) ∧
       ∃ e : Θₛω(S, χ) ≃L[ℂ] Eₛω(S, χ), ∀ f : ℬₛ(S),
-        (e ((Kₛω(S, χ)).mkQ f) : Θₛ(S)) = Pₛ(S, χ) ((Kₛ(S)).mkQ f) := by sorry
+        (e ((Kₛω(S, χ)).mkQ f) : Θₛ(S)) = Pₛ(S, χ) ((Kₛ(S)).mkQ f) := by
+  let : MeasurableSpace (J₁(S)) := borel _
+  have : BorelSpace (J₁(S)) := ⟨rfl⟩
+  have : CompactSpace (J₁(S)) := isCompact_iff_compactSpace.mp
+    ((isProperMap_sIdeleQuotientNorm F S).isCompact_preimage isCompact_singleton)
+  have : T2Space (Jₛ(S)) :=
+    letI := isClosed_sProjectedDiagonal (F := F) (S := S)
+    inferInstance
+  let : (μₛ₁(S)).IsHaarMeasure :=
+    (sLocalNormOneQuotientMeasure_normProduct (F := F) (S := S)).1
+  let : T2Space (Θₛ(S)) := sLocalAdelicThetaSpace_t2_of_isClosed (F := F) (S := S)
+    (sLocalAdelicTheta_ker_isClosed (F := F) (S := S))
+  let : PolynormableSpace ℂ (Θₛ(S)) := sLocalAdelicThetaSpace_polynormable (F := F) (S := S)
+  let : Module ℝ (Θₛ(S)) := Module.restrictScalars ℝ ℂ (Θₛ(S))
+  let : IsScalarTower ℝ ℂ (Θₛ(S)) := IsScalarTower.restrictScalars ℝ ℂ (Θₛ(S))
+  let : LocallyConvexSpace ℝ (Θₛ(S)) :=
+    (PolynormableSpace.withSeminorms ℂ (Θₛ(S))).toLocallyConvexSpace
+  with_reducible_and_instances
+    exact globalThetaIsotypicAverage_equiv_of_coinvariants (G := Jₛ(S)) (E := Θₛ(S)) (T := ℬₛ(S))
+      (MonoidHom.ker (mₛ(S))) (Kₛω(S, χ)) (Kₛ(S)).mkQ (μₛ₁(S)) (ρₛ(S))
+      (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose_spec.1 χ (Pₛ(S, χ))
+      (existsUnique_sLocalThetaIsotypicAverage (F := F) (S := S) χ).exists.choose_spec
+      (sLocalHomogeneousThetaSpace_equiv_coinvariants (F := F) (S := S) χ)
 
 -- TODO(paper-gap): The global L² argument on p. 237 fails at norm zero for
 -- the rational Gaussian. Apply character uniqueness on each compact norm-one fibre.
