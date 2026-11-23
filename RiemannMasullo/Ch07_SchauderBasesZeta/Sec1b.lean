@@ -1,7 +1,6 @@
 module
 
 public import RiemannMasullo.Ch07_SchauderBasesZeta.Sec1a
-import all RiemannMasullo.Ch07_SchauderBasesZeta.Sec1a
 public import RiemannMasullo.AppD_SchwartzBruhat.Sec3a
 public import RiemannMasullo.Ch05_ThetaZSpaces.Sec2
 public import Mathlib.NumberTheory.NumberField.DirichletDensity
