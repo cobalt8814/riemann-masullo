@@ -912,14 +912,19 @@ private theorem introTrace_combined_limit_extension_overlap (τ : ℝ≥0ˣ →�
 
 open Classical in
 /-- Paper: §1.4.5, p. 30. The extension the paper asserts without proof: the
-regularized shifted logarithmic derivative is holomorphic on the whole chart
-`Re z > a`, not only on the overlap `Re z > max a 1`. Away from the trivial
-character it says that the finite Hecke L-function has no zero with
-`Re s > 1 / 2 + a`; at the trivial character's `z = 1 / 2` the pole of the
-finite L-function at one cancels the pole of the regularizing moment. -/
+germ of the regularized shifted logarithmic derivative extends holomorphically
+from the overlap `Re z > max a 1` to the whole chart `Re z > a`. Away from the
+trivial character this says that the finite Hecke L-function has no zero with
+`Re s > 1 / 2 + a`, which is the content of the paper's continuation step. At
+the trivial character's `z = 1 / 2` it says only that the two poles cancel as
+a germ: the value of the raw expression at that point depends on the total
+values Lean assigns to `logDeriv` at the pole of `finiteL 1` at one and to
+`1/0`, so the extension is stated as a function agreeing on the overlap rather
+than as `AnalyticOnNhd` of the raw expression itself. -/
 private theorem introTrace_combined_limit_extension_analytic (χ : U𝔽) {a : ℝ} (_ha : 0 < a) :
-    AnalyticOnNhd ℂ (fun z ↦ logDeriv finiteL(χ) (z + 1 / 2) +
-      if χ = 1 then 1 / (z + 1 / 2) + 1 / (z - 1 / 2) else 0) right(a) := by sorry
+    ∃ H : ℂ → ℂ, AnalyticOnNhd ℂ H right(a) ∧
+      EqOn H (fun z ↦ logDeriv finiteL(χ) (z + 1 / 2) +
+        if χ = 1 then 1 / (z + 1 / 2) + 1 / (z - 1 / 2) else 0) right(max a 1) := by sorry
 
 /-- Paper: §1.4.5, pp. 29–30. In each normalized chart a holomorphic function
 on the right of the window agrees on the common half-plane with the limit of
@@ -938,8 +943,10 @@ theorem introTrace_combined_limit_extension (τ : ℝ≥0ˣ →ₜ* C𝔽)
         (fun n z ↦ archSum(χ, approx(h, ρ, n, z)) + introTraceSpectralSum χ approx(h, ρ, n, z) a)
         H atTop right(max a 1) := by
   obtain ⟨h, ρ, hA⟩ := exists_introTraceApproximation
-  exact ⟨h, ρ, _, hA, introTrace_combined_limit_extension_analytic χ _ha,
-    introTrace_combined_limit_extension_overlap τ _hτ χ _hχ _ha h ρ hA⟩
+  obtain ⟨H, hH, hEq⟩ := introTrace_combined_limit_extension_analytic χ _ha
+  refine ⟨h, ρ, H, hA, hH, ?_⟩
+  exact (introTrace_combined_limit_extension_overlap τ _hτ χ _hχ _ha h ρ hA).congr_right
+    fun z hz ↦ (hEq hz).symm
 
 open Classical in
 /-- Paper: §1.4.5, p. 30. Continuation from every positive half-width gives
