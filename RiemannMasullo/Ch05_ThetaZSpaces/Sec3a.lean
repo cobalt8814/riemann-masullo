@@ -2493,6 +2493,63 @@ theorem coordinateDerivative_testFunction_toSchwartz {ι : Type*} [Fintype ι]
     simp only [List.map_cons, List.prod_cons, mul_apply_eq_comp]
     rw [← ih, ← hpow]
 
+/-- Paper: Theorem 5.3.2.3(5), p. 245.
+A compactly supported distribution has a tempered extension. Cutting a Schwartz test off by a
+test function that equals one on a neighbourhood of the distribution's support does not change
+the value of the distribution, and the resulting functional is continuous on the Schwartz space. -/
+private theorem distribution_coordinatePlane_decomposition_tempered_extension {E : Type*}
+    [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensional ℝ E]
+    (A : StrongDual ℂ 𝓓((⊤ : Opens E), ℂ))
+    (hA : IsCompact (Distribution.dsupport (⇑A))) :
+    ∃ B : StrongDual ℂ 𝓢(E, ℂ),
+      ∀ g : 𝓓((⊤ : Opens E), ℂ), B (g.hasCompactSupport.toSchwartzMap g.contDiff) = A g := by
+  sorry
+
+/-- Restriction to the coordinate plane commutes with passing a compactly supported test to
+its Schwartz function: both restrictions are given by inserting zeros in the normal
+coordinates. -/
+private theorem distribution_coordinatePlane_decomposition_tempered_restriction_toSchwartz
+    (f : 𝒟(ι ⊕ κ)) :
+    let g := R𝒟 f
+    R𝒮 (f.hasCompactSupport.toSchwartzMap f.contDiff) =
+      g.hasCompactSupport.toSchwartzMap g.contDiff := by
+  intro g
+  ext y
+  rw [(exists_schwartz_coordinatePlaneRestriction (ι := ι) (κ := κ)).choose_spec _ y]
+  simp only [HasCompactSupport.toSchwartzMap_toFun]
+  exact ((exists_testFunction_coordinatePlaneRestriction (ι := ι) (κ := κ)).choose_spec f y).symm
+
+open Classical in
+/-- Passing from a compactly supported test on the product to its Schwartz function commutes
+with coordinate derivatives, at the product type itself. -/
+private theorem distribution_coordinatePlane_decomposition_tempered_toSchwartz
+    (β : (ι ⊕ κ) → ℕ) (f : 𝒟(ι ⊕ κ)) :
+    let g := ∂𝒟[ι ⊕ κ, β] f
+    g.hasCompactSupport.toSchwartzMap g.contDiff =
+      ∂𝒮[ι ⊕ κ, β] (f.hasCompactSupport.toSchwartzMap f.contDiff) := by
+  intro g
+  have hpow : ∀ i (k : ℕ) (f : 𝒟(ι ⊕ κ)),
+      ((LineDeriv.lineDerivOpCLM ℂ 𝒟(ι ⊕ κ) (eᵣ i : Eᵣ(ι ⊕ κ)) ^ k)
+          f).hasCompactSupport.toSchwartzMap
+          ((LineDeriv.lineDerivOpCLM ℂ 𝒟(ι ⊕ κ) (eᵣ i : Eᵣ(ι ⊕ κ)) ^ k) f).contDiff =
+        (LineDeriv.lineDerivOpCLM ℂ 𝒮(ι ⊕ κ) (eᵣ i : Eᵣ(ι ⊕ κ)) ^ k)
+          (f.hasCompactSupport.toSchwartzMap f.contDiff) := by
+    intro i k
+    induction k with
+    | zero => intro f; rfl
+    | succ k ih =>
+      intro f
+      rw [pow_succ, pow_succ, mul_apply_eq_comp, mul_apply_eq_comp, ih]
+      congr 1
+  show (∂𝒟[ι ⊕ κ, β] f).hasCompactSupport.toSchwartzMap (∂𝒟[ι ⊕ κ, β] f).contDiff = _
+  unfold coordinateDerivative
+  generalize (Finset.univ.toList : List (ι ⊕ κ)) = l
+  induction l generalizing f with
+  | nil => rfl
+  | cons a t ih =>
+    simp only [List.map_cons, List.prod_cons, mul_apply_eq_comp]
+    rw [← ih, ← hpow]
+
 open Classical in
 /-- Paper: Theorem 5.3.2.3(5), p. 245.
 The coefficient distributions and the ambient distribution have tempered extensions.
@@ -2506,7 +2563,22 @@ theorem distribution_coordinatePlane_decomposition_tempered {N : ℕ} (T : 𝒟'
     ∃ (U : 𝒮'(ι ⊕ κ)) (B : index(N) → 𝒮'(κ)),
       (∀ f : 𝒟(ι ⊕ κ), U (f.hasCompactSupport.toSchwartzMap f.contDiff) = T f) ∧
       (∀ α, ∀ g : 𝒟(κ), B α (g.hasCompactSupport.toSchwartzMap g.contDiff) = A α g) ∧
-      ∀ f : 𝒮(ι ⊕ κ), U f = ∑ α : index(N), B α (R𝒮 (∂𝒮[ι ⊕ κ, multi(α)] f)) := by sorry
+      ∀ f : 𝒮(ι ⊕ κ), U f = ∑ α : index(N), B α (R𝒮 (∂𝒮[ι ⊕ κ, multi(α)] f)) := by
+  choose B hB using fun α : index(N) =>
+    distribution_coordinatePlane_decomposition_tempered_extension (A α) (hK α)
+  refine ⟨∑ α : index(N), (B α).comp ((R𝒮).comp ∂𝒮[ι ⊕ κ, multi(α)]), B, ?_, fun α => hB α, ?_⟩
+  · intro f
+    simp only [sum_apply, ContinuousLinearMap.comp_apply]
+    rw [hA f]
+    refine Finset.sum_congr rfl fun α _ => ?_
+    have hder : ∂𝒮[ι ⊕ κ, multi(α)] (f.hasCompactSupport.toSchwartzMap f.contDiff) =
+        (∂𝒟[ι ⊕ κ, multi(α)] f).hasCompactSupport.toSchwartzMap
+          (∂𝒟[ι ⊕ κ, multi(α)] f).contDiff :=
+      (distribution_coordinatePlane_decomposition_tempered_toSchwartz (multi(α)) f).symm
+    rw [← hB α, ← distribution_coordinatePlane_decomposition_tempered_restriction_toSchwartz
+      (∂𝒟[ι ⊕ κ, multi(α)] f), hder]
+  · intro f
+    simp only [sum_apply, ContinuousLinearMap.comp_apply]
 
 /-- Paper: Remark 5.3.2.4, p. 246.
 Products of test functions define a map from the inductive tensor product with
