@@ -628,6 +628,116 @@ local notation "invPW(" h ", " b ", " ω ")" => sLocalInvariantPW h b (Z₀(_)) 
 -- The basis and growth statements in §7.3.1 assume saturation of the whole target T.
 -- To use them for an unsaturated base S, their proofs must be localized to the fiber over p.
 
+/-- Paper: Theorem 7.3.3.4, equations (7.3.3.18)–(7.3.3.19), p. 361.
+The first of the two level conditions of the theorem: for large enough absolute or
+invariant Paley–Wiener levels, the level meets the primary principal-value image exactly
+in the principal-value image of the zero-moment classes. This is the statement that the
+denominators displayed in (7.3.3.18)–(7.3.3.19) agree inside the level.
+It is one of the two inputs of `sLocalPWOrbital_eventually_equiv_quotient`. -/
+private theorem sLocalPWOrbital_eventually_equiv_inf {S₀ : Finset V} (hST : S ⊆ T)
+    (_hT : T = S ∪ S₀) (_hdis : Disjoint S S₀) (_hsat : IsSaturatedPlaceSet (F := F) S₀)
+    (_hPic : PicTrivial) (p : Vℚ) (_hp : (sLocalPrimaryPlaces (F := F) T p).Nonempty)
+    (_hp₀ : sLocalPrimaryPlaces (F := F) T p ⊆ S₀)
+    (ω : PontryaginDual C₁) (hu : NormOneCharacterUnramifiedOutside ω S)
+    (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
+    ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
+      ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
+        W ⊓ Rₚ(p, χ) = W ⊓ Rₚ₀(p, χ) := by sorry
+
+/-- Paper: Theorem 7.3.3.4, arrow (4) of diagram (7.3.3.15), pp. 361–362.
+The second of the two level conditions of the theorem: for large enough absolute or
+invariant Paley–Wiener levels, the level and the primary principal-value image together
+fill the homogeneous theta space, so that every class of the primary orbital quotient has
+a representative in the level.
+It is one of the two inputs of `sLocalPWOrbital_eventually_equiv_quotient`. -/
+private theorem sLocalPWOrbital_eventually_equiv_sup {S₀ : Finset V} (hST : S ⊆ T)
+    (_hT : T = S ∪ S₀) (_hdis : Disjoint S S₀) (_hsat : IsSaturatedPlaceSet (F := F) S₀)
+    (_hPic : PicTrivial) (p : Vℚ) (_hp : (sLocalPrimaryPlaces (F := F) T p).Nonempty)
+    (_hp₀ : sLocalPrimaryPlaces (F := F) T p ⊆ S₀)
+    (ω : PontryaginDual C₁) (hu : NormOneCharacterUnramifiedOutside ω S)
+    (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
+    ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
+      ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
+        W ⊔ Rₚ(p, χ) = ⊤ := by sorry
+
+/-- Paper: Theorem 7.3.3.4, p. 360, and diagram (7.3.3.15), p. 361.
+The quotient transfer: if a closed level `W` meets the primary principal-value image in
+the principal-value image of the zero-moment classes and, together with that image, fills
+the theta space, then the map induced by `W ⊆ Θ(T, χ)` on the quotients is a topological
+linear isomorphism onto the primary orbital quotient.
+This is the linear-algebra and topology part of the theorem; it carries no arithmetic. -/
+private theorem sLocalPWOrbital_eventually_equiv_quotient (p : Vℚ)
+    (χ : PontryaginDual J₁(T)) (W : Submodule ℂ (Θ(T, χ)))
+    (hW : IsClosed (W : Set (Θ(T, χ))))
+    (hinf : W ⊓ Rₚ(p, χ) = W ⊓ Rₚ₀(p, χ)) (hsup : W ⊔ Rₚ(p, χ) = ⊤) :
+    ∃ e : SLocalPWOrbitalQuotient χ p W ≃L[ℂ] Qₚ(p, χ),
+      ∀ x : W, e (((Rₚ₀(p, χ)).comap W.subtype).mkQ x) = (Rₚ(p, χ)).mkQ x.val := by
+  classical
+  -- the inclusion of the level, followed by the quotient map
+  let A : W →L[ℂ] Qₚ(p, χ) := (Rₚ(p, χ)).mkQL.comp W.subtypeL
+  have hA (x : W) : A x = (Rₚ(p, χ)).mkQ x.val := rfl
+  -- inside the level the two principal-value images agree
+  have hmem (x : W) : (x : Θ(T, χ)) ∈ Rₚ(p, χ) ↔ (x : Θ(T, χ)) ∈ Rₚ₀(p, χ) := by
+    have h := SetLike.ext_iff.mp hinf (x : Θ(T, χ))
+    simp only [Submodule.mem_inf, x.property, true_and] at h
+    exact h
+  -- the kernel of `A` is the zero-moment part of the level
+  have hker : A.ker = (Rₚ₀(p, χ)).comap W.subtype := by
+    ext x
+    show A x = 0 ↔ (W.subtype x : Θ(T, χ)) ∈ Rₚ₀(p, χ)
+    have h1 : A x = 0 ↔ (W.subtype x : Θ(T, χ)) ∈ Rₚ(p, χ) := by
+      rw [hA]
+      exact Submodule.Quotient.mk_eq_zero _
+    exact h1.trans (hmem x)
+  -- and `A` is surjective because the level and the principal-value image fill the space
+  have hsurj : Function.Surjective A := by
+    intro y
+    obtain ⟨z, rfl⟩ := (Rₚ(p, χ)).mkQ_surjective y
+    have hz : z ∈ W ⊔ Rₚ(p, χ) := by rw [hsup]; exact Submodule.mem_top
+    obtain ⟨w, hw, r, hr, hwr⟩ := Submodule.mem_sup.mp hz
+    refine ⟨⟨w, hw⟩, ?_⟩
+    show (Rₚ(p, χ)).mkQ w = (Rₚ(p, χ)).mkQ z
+    rw [← hwr, map_add,
+      show (Rₚ(p, χ)).mkQ r = 0 from (Submodule.Quotient.mk_eq_zero _).mpr hr, add_zero]
+  -- the open mapping theorem for Fréchet spaces, which is what makes the inverse continuous
+  have hopen : IsOpenMap A := by
+    have hR : IsClosed (Rₚ(p, χ) : Set (Θ(T, χ))) :=
+      (sLocalHomogeneousThetaPrincipalValue_isClosedEmbedding (F := F) (S := T)
+        (sLocalPrimaryPlaces_subset (F := F) T p) χ).isClosed_range
+    have hFΘ : IsFrechetTVS (Θ(T, χ)) :=
+      sLocalHomogeneousThetaSpace_frechet (F := F) (S := T) χ
+    have hFW : IsFrechetTVS W :=
+      frechet_of_closed_embedding W.subtypeL (W.isClosedEmbedding_subtypeL hW) hFΘ
+    have hFQ : IsFrechetTVS (Qₚ(p, χ)) := isFrechetTVS_quotient hFΘ (Rₚ(p, χ)) hR
+    obtain ⟨hTΘ, hPΘ, hMΘ, hCΘ⟩ := hFΘ
+    obtain ⟨hTW, hP0W, hMW, hCW⟩ := hFW
+    obtain ⟨hTQ, hPQ, hMQ, hCQ⟩ := hFQ
+    let : UniformSpace (Θ(T, χ)) := IsTopologicalAddGroup.rightUniformSpace (Θ(T, χ))
+    let : UniformSpace (Qₚ(p, χ)) := IsTopologicalAddGroup.rightUniformSpace (Qₚ(p, χ))
+    have : IsUniformAddGroup (Θ(T, χ)) := isUniformAddGroup_of_addCommGroup
+    have : IsUniformAddGroup W := W.toAddSubgroup.isUniformAddGroup
+    have : IsUniformAddGroup (Qₚ(p, χ)) := isUniformAddGroup_of_addCommGroup
+    have : TopologicalSpace.MetrizableSpace (Θ(T, χ)) := hMΘ
+    have : TopologicalSpace.MetrizableSpace W := hMW
+    have : TopologicalSpace.MetrizableSpace (Qₚ(p, χ)) := hMQ
+    have : CompleteSpace (Θ(T, χ)) := hCΘ
+    have : CompleteSpace W := completeSpace_coe_iff_isComplete.mpr hW.isComplete
+    have : CompleteSpace (Qₚ(p, χ)) := hCQ
+    let : ContinuousSMul ℂ W := PolynormableSpace.continuousSMul ℂ W
+    have : (uniformity (Θ(T, χ))).IsCountablyGenerated := by
+      rw [uniformity_eq_comap_nhds_zero (Θ(T, χ))]
+      infer_instance
+    have : (uniformity (Qₚ(p, χ))).IsCountablyGenerated := by
+      rw [uniformity_eq_comap_nhds_zero (Qₚ(p, χ))]
+      infer_instance
+    have : BaireSpace (Qₚ(p, χ)) := by
+      let := UniformSpace.metricSpace (Qₚ(p, χ))
+      infer_instance
+    refine isOpenMap_of_not_isMeagre_range A ?_
+    rw [hsurj.range_eq]
+    exact not_isMeagre_of_isOpen isOpen_univ univ_nonempty
+  exact exists_quotient_equiv_of_kernel A (hopen.isQuotientMap A.continuous hsurj) _ hker
+
 /-- Paper: Theorem 7.3.3.4 and its proof, pp. 360–363.
 For sufficiently large levels the inclusion induces the isomorphism used to transfer
 the two bases and the Fourier seminorm bounds.
@@ -641,7 +751,22 @@ theorem sLocalPWOrbital_eventually_equiv {S₀ : Finset V} (hST : S ⊆ T) (_hT 
     ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
       ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
         ∃ e : SLocalPWOrbitalQuotient χ p W ≃L[ℂ] Qₚ(p, χ),
-          ∀ x : W, e (((Rₚ₀(p, χ)).comap W.subtype).mkQ x) = (Rₚ(p, χ)).mkQ x.val := by sorry
+          ∀ x : W, e (((Rₚ₀(p, χ)).comap W.subtype).mkQ x) = (Rₚ(p, χ)).mkQ x.val := by
+  obtain ⟨B₁, hB₁, hlev₁⟩ := sLocalPWOrbital_eventually_equiv_inf (S := S) (T := T)
+    (S₀ := S₀) hST _hT _hdis _hsat _hPic p _hp _hp₀ ω hu χ _hχ _hω
+  obtain ⟨B₂, hB₂, hlev₂⟩ := sLocalPWOrbital_eventually_equiv_sup (S := S) (T := T)
+    (S₀ := S₀) hST _hT _hdis _hsat _hPic p _hp _hp₀ ω hu χ _hχ _hω
+  refine ⟨max B₁ B₂, lt_max_of_lt_left hB₁, ?_⟩
+  intro X Y hX hY hXY W hW
+  have hclosed : IsClosed (W : Set (Θ(T, χ))) := by
+    rcases hW with rfl | rfl
+    · change IsClosed ((Submodule.topologicalClosure _ : Submodule ℂ (Θ(T, χ))) : Set (Θ(T, χ)))
+      exact Submodule.isClosed_topologicalClosure _
+    · change IsClosed ((Submodule.topologicalClosure _ : Submodule ℂ (Θ(T, χ))) : Set (Θ(T, χ)))
+      exact Submodule.isClosed_topologicalClosure _
+  exact sLocalPWOrbital_eventually_equiv_quotient (T := T) p χ W hclosed
+    (hlev₁ X Y ((le_max_left B₁ B₂).trans hX) ((le_max_left B₁ B₂).trans hY) hXY W hW)
+    (hlev₂ X Y ((le_max_right B₁ B₂).trans hX) ((le_max_right B₁ B₂).trans hY) hXY W hW)
 
 /-- Paper: Theorem 7.3.3.4(1)–(2), pp. 360–361.
 For sufficiently large absolute or invariant levels, with the same enumeration
