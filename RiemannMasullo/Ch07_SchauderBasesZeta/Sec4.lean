@@ -572,6 +572,65 @@ theorem finiteNuclearityDenominator_closed_invariant (p : HeightOneSpectrum (�
 -- To apply the rapid-decay argument on this quotient, one needs bounds in its
 -- own topology for the functionals and the biorthogonal vectors.
 
+/-- Paper: Theorem 7.4.2.1(1), p. 367. An endomorphism of a topological vector space
+carrying a closed subspace into itself descends to a continuous linear endomorphism of the
+quotient with the prescribed values. Stated abstractly, so that elaboration does not unfold
+the theta quotient instances. -/
+private theorem finiteNuclearity_trace_induced_abstract {E : Type*} [AddCommGroup E] [Module ℂ E]
+    [TopologicalSpace E] (D : Submodule ℂ E) (A : E →L[ℂ] E) (hA : Set.MapsTo A (D : Set E) D) :
+    ∃ T : (E ⧸ D) →L[ℂ] (E ⧸ D), ∀ f : E, T (D.mkQ f) = D.mkQ (A f) := by
+  refine ⟨D.liftQL (D.mkQL.comp A) ?_, fun f ↦ ?_⟩
+  · intro x hx
+    rw [LinearMap.mem_ker]
+    change D.mkQL (A x) = 0
+    rw [Submodule.mkQL_apply]
+    exact (Submodule.Quotient.mk_eq_zero D).mpr (hA hx)
+  · rfl
+
+/-- Paper: Theorem 7.4.2.1(1), p. 367. The regularized theta action carries the
+principal-value image into itself, so it induces a continuous linear operator on the
+finite orbital quotient with the prescribed values on the classes of theta functions. -/
+private theorem finiteNuclearity_trace_induced (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    ∃ T : (Θ₀(χ) ⧸ finiteNuclearityDenominator χ p) →L[ℂ]
+        (Θ₀(χ) ⧸ finiteNuclearityDenominator χ p),
+      ∀ f : Θ₀(χ), T ((finiteNuclearityDenominator χ p).mkQ f) =
+        (finiteNuclearityDenominator χ p).mkQ (Aθ(φ) f) :=
+  finiteNuclearity_trace_induced_abstract (finiteNuclearityDenominator χ p) (Aθ(φ))
+    (finiteNuclearityDenominator_closed_invariant χ τ hτ p φ).2
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367. The operator induced on the finite orbital quotient
+is of order zero, that is, strongly nuclear. -/
+private theorem finiteNuclearity_trace_stronglyNuclear (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let D := finiteNuclearityDenominator χ p
+    let Q := Θ₀(χ) ⧸ D
+    letI instFiniteUniformSec4 : UniformSpace Q := IsTopologicalAddGroup.rightUniformSpace Q
+    ∀ T : Q →L[ℂ] Q, (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) →
+      IsStronglyNuclearOperator T := by sorry
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367. The test Mellin transform over the zeros of the
+reciprocal partial Euler product, counted with their orders, is summable in norm. -/
+private theorem finiteNuclearity_trace_summable (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let R := reciprocalPartialHeckeEulerProduct χ (Sₚ(p))
+    let zeros := {z : ℂ // 0 < analyticOrderAt R z}
+    let term := fun z : zeros ↦
+      ((analyticOrderAt R z.val).toNat : ℂ) * nuclearityTestMellin χ φ z.val
+    Summable (fun z ↦ ‖term z‖) := by sorry
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367. For every nuclear presentation of the induced
+operator, the trace of the presentation sums the test Mellin transform over the zeros of
+the reciprocal partial Euler product, counting collisions with their full order. -/
+private theorem finiteNuclearity_trace_hasSum (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let D := finiteNuclearityDenominator χ p
+    let Q := Θ₀(χ) ⧸ D
+    letI instFiniteUniformSec4 : UniformSpace Q := IsTopologicalAddGroup.rightUniformSpace Q
+    let R := reciprocalPartialHeckeEulerProduct χ (Sₚ(p))
+    let zeros := {z : ℂ // 0 < analyticOrderAt R z}
+    let term := fun z : zeros ↦
+      ((analyticOrderAt R z.val).toNat : ℂ) * nuclearityTestMellin χ φ z.val
+    ∀ T : Q →L[ℂ] Q, (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) →
+      ∀ r : NuclearPresentation T,
+        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by sorry
+
 /-- Paper: Theorem 7.4.2.1(2), p. 367.
 The operator induced on the finite orbital quotient is of order zero. Its trace sums
 the test Mellin transform over the zeros of the reciprocal partial Euler product,
@@ -588,7 +647,11 @@ theorem finiteNuclearity_trace (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
       (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) ∧
       IsStronglyNuclearOperator T ∧ Summable (fun z ↦ ‖term z‖) ∧
       ∀ r : NuclearPresentation T,
-        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by sorry
+        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by
+  obtain ⟨T, hT⟩ := finiteNuclearity_trace_induced (χ := χ) (τ := τ) (hτ := hτ) p φ
+  exact ⟨T, hT, finiteNuclearity_trace_stronglyNuclear (χ := χ) (τ := τ) (hτ := hτ) p φ T hT,
+    finiteNuclearity_trace_summable (χ := χ) p φ,
+    finiteNuclearity_trace_hasSum (χ := χ) (τ := τ) (hτ := hτ) p φ T hT⟩
 
 end Orbital
 
