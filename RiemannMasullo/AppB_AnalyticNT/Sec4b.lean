@@ -6237,6 +6237,80 @@ theorem finiteConnesWeilPrincipalValue_of_apply_one_zero (v : Primes(F))
     integral_congr_ae (ae_of_all _ hQ)
   exact ⟨((key Q).1.mpr hHI).congr (ae_of_all _ hQ), e1.trans (e2.trans e3)⟩
 
+/-- The additive tests of a finite completion are locally constant with compact support, so
+`1/‖1 - x‖` is integrable against exactly those that vanish at the singular point `x = 1`. -/
+private theorem finiteWeilFourierDensity_integrable (v : Primes(F))
+    (f : 𝒮ₐ(v.adicCompletion F)) (hf : addTest(f) 1 = 0) :
+    Integrable (fun x : v.adicCompletion F ↦ addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ)) ν𝔭(v) := by
+  let K := v.adicCompletion F
+  let : ProperSpace K := properSpace_adicCompletion v
+  let : BorelSpace K := ⟨rfl⟩
+  let : (ν𝔭(v)).IsAddHaarMeasure := finiteLocalAdditiveTamagawaMeasure_isAddHaar F v
+  obtain ⟨hlc, hcs⟩ :=
+    (mem_finitePlaceSchwartz_iff F v (fun x : K ↦ f (Multiplicative.ofAdd x))).1
+      ⟨f, fun _ ↦ rfl⟩
+  -- Local constancy makes the zero set of the test open, hence a ball about the singular
+  -- point lies in it.
+  have hopen : IsOpen {x : K | addTest(f) x = 0} := hlc {0}
+  have hmem : (1 : K) ∈ {x : K | addTest(f) x = 0} := hf
+  obtain ⟨ε, hε, hball⟩ := Metric.mem_nhds_iff.mp (hopen.mem_nhds hmem)
+  have hzero : ∀ x ∈ Metric.ball (1 : K) ε, addTest(f) x = 0 := fun x hx ↦ hball hx
+  have hcont : Continuous (fun x : K ↦ addTest(f) x) := hlc.continuous
+  have hdom : Integrable (fun x : K ↦ ‖addTest(f) x‖ / ε) ν𝔭(v) :=
+    (hcont.integrable_of_hasCompactSupport hcs).norm.div_const ε
+  refine hdom.mono ?_ ?_
+  · exact (hcont.measurable.div (by fun_prop)).aestronglyMeasurable
+  · refine ae_of_all _ fun x ↦ ?_
+    by_cases hx : ‖1 - x‖ < ε
+    · have hx' : x ∈ Metric.ball (1 : K) ε := by
+        rw [Metric.mem_ball, dist_eq_norm, norm_sub_rev]
+        exact hx
+      rw [hzero x hx']
+      simp
+    · have hge : ε ≤ ‖1 - x‖ := not_lt.mp hx
+      have hnorm : ‖((‖1 - x‖ : ℝ) : ℂ)‖ = ‖1 - x‖ := by
+        rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (norm_nonneg _)]
+      rw [norm_div, hnorm, Real.norm_of_nonneg (div_nonneg (norm_nonneg _) hε.le)]
+      exact div_le_div_of_nonneg_left (norm_nonneg _) hε hge
+
+/-- The density of the finite Fourier distribution is additive on tests vanishing at one. -/
+private theorem finiteWeilFourierDensity_add (v : Primes(F)) (f g : 𝒮ₐ(v.adicCompletion F))
+    (hf : addTest(f) 1 = 0) (hg : addTest(g) 1 = 0) :
+    (∫ x, addTest(f + g) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) =
+      (∫ x, addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) +
+        ∫ x, addTest(g) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v) := by
+  rw [← integral_add (finiteWeilFourierDensity_integrable v f hf)
+    (finiteWeilFourierDensity_integrable v g hg)]
+  refine integral_congr_ae (ae_of_all _ fun x ↦ ?_)
+  change (f (Multiplicative.ofAdd x) + g (Multiplicative.ofAdd x)) / _ = _
+  rw [add_div]
+
+/-- The density of the finite Fourier distribution is homogeneous. -/
+private theorem finiteWeilFourierDensity_smul (v : Primes(F)) (c : ℂ)
+    (f : 𝒮ₐ(v.adicCompletion F)) (_hf : addTest(f) 1 = 0) :
+    (∫ x, addTest(c • f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) =
+      c * ∫ x, addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v) := by
+  rw [← integral_const_mul]
+  refine integral_congr_ae (ae_of_all _ fun x ↦ ?_)
+  change c * f (Multiplicative.ofAdd x) / _ = c * (f (Multiplicative.ofAdd x) / _)
+  rw [mul_div_assoc]
+
+/-- A standard bump test: it takes the value one at additive `1` and vanishes off the unit
+ball about `1`. -/
+private theorem finiteWeilFourierBump (v : Primes(F)) :
+    ∃ φ₀ : 𝒮ₐ(v.adicCompletion F), addTest(φ₀) 1 = 1 ∧ ∀ x, addTest(φ₀) x ≠ 0 → ‖1 - x‖ ≤ 1 := by
+  obtain ⟨g, hg⟩ := finiteLogFourier_unique_ballTest v (1 : v.adicCompletion F) one_pos
+  have hinner : (1 : v.adicCompletion F) ∈ Metric.closedBall (1 : v.adicCompletion F) 1 := by
+    simp
+  refine ⟨g, ?_, ?_⟩
+  · simpa [Set.indicator_of_mem hinner] using hg 1
+  · intro x hx
+    by_contra h
+    have hnot : x ∉ Metric.closedBall (1 : v.adicCompletion F) 1 := by
+      rw [Metric.mem_closedBall, dist_eq_norm, norm_sub_rev]
+      exact h
+    exact hx (by simpa [Set.indicator_of_notMem hnot] using hg x)
+
 -- TODO(paper-gap): Equation (B.4.4.6) gives the wrong sign and scale for
 -- the restriction of T, and Fourier transformation requires an additive test space.
 
