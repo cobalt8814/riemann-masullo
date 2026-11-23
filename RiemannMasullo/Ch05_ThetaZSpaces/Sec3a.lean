@@ -3006,6 +3006,52 @@ theorem complexSchwartzFlatAtOrigin_isClosed :
   simp only [complexSchwartzFlatAtOrigin, Submodule.coe_iInf]
   exact isClosed_iInter fun k ↦ isClosed_iInter fun l ↦ (complexDiracDerivative k l).isClosed_ker
 
+/-- Borel's lemma with uniform bounds in the two-variable Wirtinger setting: for every bound
+on the mixed derivatives at zero, one bounded set of complex Schwartz functions realizes every
+family of mixed Wirtinger derivatives that stays within that bound. -/
+private theorem complexSchwartzFlatQuotient_strongDual_borel (M : ℕ × ℕ → ℝ) :
+    ∃ S : Set 𝓢(ℂ, ℂ), Bornology.IsVonNBounded ℂ S ∧
+      ∀ c : ℕ × ℕ → ℂ, (∀ p, ‖c p‖ ≤ M p) →
+        ∃ f ∈ S, ∀ p, complexDiracDerivative p.1 p.2 f = c p := by sorry
+
+/-- Every bounded set of the complex flat quotient is contained in the image of a bounded set of
+Schwartz functions, because each mixed derivative at zero factors through the quotient and its
+value on a bounded set of the quotient is bounded, so Borel's lemma supplies representatives
+with bounded seminorms. -/
+private theorem complexSchwartzFlatQuotient_strongDual_lift
+    (B : Set (𝓢(ℂ, ℂ) ⧸ complexSchwartzFlatAtOrigin)) (hB : Bornology.IsVonNBounded ℂ B) :
+    ∃ S : Set 𝓢(ℂ, ℂ), Bornology.IsVonNBounded ℂ S ∧
+      B ⊆ complexSchwartzFlatAtOrigin.mkQ '' S := by
+  have hle (k l : ℕ) : complexSchwartzFlatAtOrigin ≤ (complexDiracDerivative k l).ker :=
+    fun f hf ↦ (Submodule.mem_iInf _).mp ((Submodule.mem_iInf _).mp hf k) l
+  have hM (p : ℕ × ℕ) : ∃ M : ℝ, ∀ y ∈ B,
+      ‖complexSchwartzFlatAtOrigin.liftQL (complexDiracDerivative p.1 p.2) (hle p.1 p.2) y‖ ≤ M := by
+    have := hB.image
+      (complexSchwartzFlatAtOrigin.liftQL (complexDiracDerivative p.1 p.2) (hle p.1 p.2))
+    rw [NormedSpace.isVonNBounded_iff] at this
+    obtain ⟨M, hM⟩ := isBounded_iff_forall_norm_le.mp this
+    exact ⟨M, fun y hy ↦ hM _ ⟨y, hy, rfl⟩⟩
+  choose M hM using hM
+  obtain ⟨S, hS, hlift⟩ := complexSchwartzFlatQuotient_strongDual_borel M
+  refine ⟨S, hS, fun y hy ↦ ?_⟩
+  obtain ⟨g, rfl⟩ := complexSchwartzFlatAtOrigin.mkQ_surjective y
+  obtain ⟨f, hf, hfd⟩ := hlift (fun p ↦ complexDiracDerivative p.1 p.2 g) (fun p ↦ hM p _ hy)
+  refine ⟨f, hf, ?_⟩
+  rw [Submodule.mkQ_apply, Submodule.mkQ_apply, Submodule.Quotient.eq]
+  refine (Submodule.mem_iInf _).mpr fun k ↦ (Submodule.mem_iInf _).mpr fun l ↦ ?_
+  rw [LinearMap.mem_ker, map_sub]
+  change complexDiracDerivative k l f - complexDiracDerivative k l g = 0
+  rw [hfd (k, l), sub_self]
+
+open scoped UniformConvergence in
+/-- Pulling back the strong dual of the complex flat quotient is an embedding, since every
+bounded set of the quotient lifts to a bounded set of Schwartz functions. -/
+private theorem complexSchwartzFlatQuotient_strongDual_isEmbedding :
+    IsEmbedding (fun T : StrongDual ℂ (𝓢(ℂ, ℂ) ⧸ complexSchwartzFlatAtOrigin) ↦
+      T.comp complexSchwartzFlatAtOrigin.mkQL) :=
+  realSchwartzFlatQuotient_strongDual_isEmbedding _
+    complexSchwartzFlatQuotient_strongDual_lift
+
 /-- Paper: Theorem 5.3.2.5(1), p. 246.
 The quotient adjoint identifies the strong dual of the complex flat quotient with
 the annihilator in the strong dual of the complex Schwartz space. -/
@@ -3013,7 +3059,14 @@ theorem complexSchwartzFlatQuotient_strongDual :
     let pull := fun T : StrongDual ℂ (𝓢(ℂ, ℂ) ⧸ complexSchwartzFlatAtOrigin) ↦
       T.comp complexSchwartzFlatAtOrigin.mkQL
     IsEmbedding pull ∧ Set.range pull =
-      {T : StrongDual ℂ 𝓢(ℂ, ℂ) | ∀ f ∈ complexSchwartzFlatAtOrigin, T f = 0} := by sorry
+      {T : StrongDual ℂ 𝓢(ℂ, ℂ) | ∀ f ∈ complexSchwartzFlatAtOrigin, T f = 0} := by
+  intro pull
+  refine ⟨complexSchwartzFlatQuotient_strongDual_isEmbedding, ?_⟩
+  change Set.range (fun T : StrongDual ℂ (𝓢(ℂ, ℂ) ⧸ complexSchwartzFlatAtOrigin) ↦
+    T.comp complexSchwartzFlatAtOrigin.mkQL) = _
+  rw [range_transpose_mkQL]
+  ext T
+  simp [Set.mem_iInter]
 
 -- TODO(paper-gap): The coefficient seminorms in (5.3.2.12) give the coefficientwise
 -- topology on the whole polynomial space and do not give its finest locally convex topology.
