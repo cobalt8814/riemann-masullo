@@ -491,9 +491,6 @@ theorem mem_sLocalZetaMatching (χ : PontryaginDual Jₛ) (p : B⁺ × B⁻) :
     (fun p : B⁺ × B⁻ ↦ p.1.val) (fun p s ↦ ρₛ(χ, s) * p.2.val s) h p
   exact key
 
-/-- Paper: Theorem 5.4.1.1(1), p. 266.
-The zeta pair is a topological embedding with closed range. -/
-
 /-- The zeta pair lands in the matching space: on the overlap strip the two components
 satisfy the local functional equation of (5.4.1.3), by the equation proved for the
 integral representation on test functions. -/
