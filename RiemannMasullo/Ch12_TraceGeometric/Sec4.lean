@@ -58,6 +58,18 @@ local notation "testAt(" f "," x ")" => (f : testₛ) (Multiplicative.ofAdd x)
 
 local instance instSIdeleT2Sec4 : T2Space Iₛ := (sIdeleGroup_description F S).2.1
 
+-- Stuck note (agent10-m2): HasSum is automatic for any compactly supported f once Hₛ is
+-- discrete in Iₛ (S-units; discreteness not yet in the tree): only finitely many ξ meet
+-- supp f · g⁻¹. The content is a Bruhat partition of unity for the Hₛ-action: ψ ∈
+-- BruhatCompactSupport Iₛ with Σ_{ξ∈Hₛ} ψ(ξg) = 1 on classAtS ⁻¹' (tsupport φ.val), then
+-- f = ψ · (φ.val ∘ classAtS). Missing pieces: (1) surjectivity of classAtS under hPic with
+-- kernel Hₛ (sIdeleClassGroup_equiv_of_classNumberOne concerns the outside-integer idele
+-- quotient, not Iₛ); (2) a compact K ⊂ Iₛ with classAtS '' K ⊇ tsupport φ.val (open
+-- surjection + compactness covering argument); (3) Bruhat bump functions and a smooth
+-- partition of unity subordinate to the Hₛ-translates on Iₛ. Ch12 Sec2's exists_indentation
+-- gives only continuous C_c indentations (fibre integrals), not Bruhat functions, and no
+-- Bruhat partition-of-unity machinery for a discrete subgroup exists in the tree.
+-- The paper (p. 515, (12.4.1.4)) asserts the lift without proof.
 /-- Paper: (12.4.1.4), p. 515. The restriction of an outside-unit-invariant test admits
 a compactly supported Bruhat lift whose S-unit periodization recovers the restriction.
 Deviation: The inserted S-idele evaluates the global test before taking the quotient. -/
@@ -1468,6 +1480,15 @@ private theorem sLocalTraceSharpMass_asymptotic_restrict (φ : BruhatCompactSupp
       (∀ (v : S) (u : (v.val.adicCompletion F)ˣ),
         (b v).val u = φ.val (finiteClass(v.val) u)) := by sorry
 
+-- Stuck note (agent10-m2): this is the global Connes–Weil summation over the S-units
+-- (paper p. 519, (12.4.1.25)–(12.4.1.27); the printed proof cites [Co, §VII, Thm 4] for the
+-- sum over ξ). The tree has only the per-place principal values (AppB Sec4b:
+-- finiteConnesWeilPrincipalValue, infiniteConnesWeilPrincipalValue) and their local
+-- properties. Missing: a Poisson/summation formula on Iₛ/Hₛ ≅ C𝔽 linking
+-- Σ_{ξ∈Hₛ} ∫ fourierₛ(η_ξ) · log modS to the local principal values of the restrictions of φ,
+-- via partial Fourier inversion per place, discreteness of the S-units after dropping one
+-- place, the lift identity _hLift, and u ↦ u⁻¹ invariance of the principal values.
+-- None of these global steps is formalized anywhere in the tree.
 /-- Paper: (12.4.1.25)–(12.4.1.28), p. 519. Constant term of the summed sharp masses.
 For each S-unit ξ the constant term of the sharp mass is minus the pairing of the Fourier
 transform of the translated test with the logarithm of the S-norm. Only finitely many ξ
@@ -1493,6 +1514,14 @@ private theorem sLocalTraceSharpMass_asymptotic_const
         fourierₛ (sLocalTraceEta f ξ) w * ((Real.log (modS(w)) : ℝ) : ℂ) ∂νₛ)
       principalValues(a, b) := by sorry
 
+-- Stuck note (agent10-m2): formal reduction done. By Fourier inversion at zero,
+-- ∫_{units} fourierₛ(η_ξ) = η_ξ(0) = f(ξ) (sLocalTraceEta_zero_neg_one), so the summand
+-- equals volume₁ · ∫_{w ∈ units, modS(w) > R} fourierₛ(η_ξ)(w) · (log modS(w) − log R)
+-- (band(R) is the modS ≤ R region; integrability: sLocalTraceEta_fourier_integrable).
+-- Per ξ this tends to 0 by integrability of fourierₛ(η_ξ) against the log weight, but the
+-- HasSum over Hₛ and the uniform o(1) of the summed tails is exactly the step the paper
+-- delegates to [Co, §VII, Thm 4] (p. 519). Missing: decay estimates of fourierₛ(η_ξ) in ξ
+-- and summability over the S-units; no such machinery exists in the tree.
 /-- Paper: (12.4.1.25)–(12.4.1.27), p. 519. Remainder of the summed sharp masses.
 For each S-unit ξ, Fourier inversion splits the sharp mass into the logarithmic term
 `f(ξ) log R`, the constant term, and an integral over the Fourier region `|w|_S > R`.
