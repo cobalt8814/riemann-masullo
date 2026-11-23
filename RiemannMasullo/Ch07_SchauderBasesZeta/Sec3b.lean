@@ -628,6 +628,104 @@ local notation "invPW(" h ", " b ", " ω ")" => sLocalInvariantPW h b (Z₀(_)) 
 -- The basis and growth statements in §7.3.1 assume saturation of the whole target T.
 -- To use them for an unsaturated base S, their proofs must be localized to the fiber over p.
 
+/-- Paper: Theorem 7.3.3.4 and its proof, pp. 361–363.
+Surjectivity behind the cartesian squares of (7.3.3.15): for large enough levels every
+homogeneous theta class is a level element modulo the p-primary principal-value image.
+This is the step on p. 363 asserting that the composition of the vertical arrows (f) and
+(i) is surjective; there it follows from the compactly supported basis theorem 4.6.2.1
+together with the zero-moment Fourier supports of Propositions 7.3.2.2(2) and 7.3.2.4(2).
+Deviation: Uses the intersections (7.3.3.18)–(7.3.3.19) and a nontrivial character. -/
+private theorem sLocalPWOrbital_eventually_sup_eq_top {S₀ : Finset V} (hST : S ⊆ T)
+    (_hT : T = S ∪ S₀) (_hdis : Disjoint S S₀) (_hsat : IsSaturatedPlaceSet (F := F) S₀)
+    (_hPic : PicTrivial) (p : Vℚ) (_hp : (sLocalPrimaryPlaces (F := F) T p).Nonempty)
+    (_hp₀ : sLocalPrimaryPlaces (F := F) T p ⊆ S₀)
+    (ω : PontryaginDual C₁) (hu : NormOneCharacterUnramifiedOutside ω S)
+    (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
+    ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
+      ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
+        W ⊔ Rₚ(p, χ) = ⊤ := by sorry
+
+/-- Paper: Theorem 7.3.3.4 and its proof, p. 363.
+Exactness of the kernel behind the same squares: at large enough levels a level element
+that is a p-primary principal value is already the principal value of a zero-moment
+class. This is the assertion on p. 363 that the vertical arrows (c), (f) and (i) are
+injective "by design" of the closed subspaces (7.3.3.18), respectively (7.3.3.19).
+Deviation: Uses the intersections (7.3.3.18)–(7.3.3.19) and a nontrivial character. -/
+private theorem sLocalPWOrbital_eventually_inf_le {S₀ : Finset V} (hST : S ⊆ T)
+    (_hT : T = S ∪ S₀) (_hdis : Disjoint S S₀) (_hsat : IsSaturatedPlaceSet (F := F) S₀)
+    (_hPic : PicTrivial) (p : Vℚ) (_hp : (sLocalPrimaryPlaces (F := F) T p).Nonempty)
+    (_hp₀ : sLocalPrimaryPlaces (F := F) T p ⊆ S₀)
+    (ω : PontryaginDual C₁) (hu : NormOneCharacterUnramifiedOutside ω S)
+    (χ : PontryaginDual J₁(T)) (_hχ : χ = descend(hST, ω, hu)) (_hω : ω ≠ 1) :
+    ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
+      ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
+        Rₚ(p, χ) ⊓ W ≤ Rₚ₀(p, χ) := by sorry
+
+/-- Paper: Theorem 7.3.3.4, p. 363.
+The second isomorphism law for a closed PW level `W`, in the form used on p. 363: if `W`
+together with the principal-value image `R` spans, the canonical map
+`W ⧸ (R₀ ∩ W) → M ⧸ R` induced by the inclusion `W ≤ M` is open, for `R₀ ≤ R`.
+On p. 363 this is quoted as the open mapping theorem [NB, Thm. 14.4.5], "being source
+and target Fréchet spaces".
+Deviation: nothing in the library makes `Θ(T, χ)`, a quotient of the strict LF test space
+of Definition 5.2.2.1(2), Fréchet or even metrizable -- only
+`sLocalAdelicThetaSpace_empty_frechet` covers the case `S = ∅` -- so neither that theorem
+nor its Pták/barrelled replacement for strict LF spaces is available for these quotients. -/
+private theorem sLocalPWOrbital_eventually_equiv_isOpenMap (M : Type*) [AddCommGroup M]
+    [Module ℂ M] [TopologicalSpace M] (R₀ R : Submodule ℂ M) (hR : R₀ ≤ R)
+    (W : Submodule ℂ M) (_hW : IsClosed (W : Set M)) (_hsup : W ⊔ R = ⊤) :
+    IsOpenMap ⇑((R₀.comap W.subtype).mapQ R W.subtype (fun x hx ↦ hR hx)) := by sorry
+
+/-- Paper: Theorem 7.3.3.4, p. 363.
+The second isomorphism law in the form needed for the squares of (7.3.3.15): if the closed
+level `W` and the principal-value image `R` span `M` and the kernel of the induced map is
+exactly `R₀ ∩ W`, then the canonical map `W ⧸ (R₀ ∩ W) → M ⧸ R` is a continuous linear
+equivalence as soon as it is open (the open mapping theorem quoted on p. 363). -/
+private theorem sLocalPWOrbital_eventually_equiv_of_isOpenMap {M : Type*} [AddCommGroup M]
+    [Module ℂ M] [TopologicalSpace M] (R₀ R : Submodule ℂ M) (hR : R₀ ≤ R)
+    (W : Submodule ℂ M) (hsup : W ⊔ R = ⊤) (hinf : R ⊓ W ≤ R₀)
+    (hopen : IsOpenMap ⇑((R₀.comap W.subtype).mapQ R W.subtype (fun x hx ↦ hR hx))) :
+    ∃ e : (W ⧸ R₀.comap W.subtype) ≃L[ℂ] (M ⧸ R),
+      ∀ x : W, e ((R₀.comap W.subtype).mkQ x) = R.mkQ x.val := by
+  let f : W ⧸ R₀.comap W.subtype →ₗ[ℂ] M ⧸ R :=
+    (R₀.comap W.subtype).mapQ R W.subtype (fun x hx ↦ hR hx)
+  have hcont : Continuous f := by
+    refine (R₀.comap W.subtype).isQuotientMap_mkQ.continuous_iff.mpr ?_
+    have h : ⇑f ∘ (R₀.comap W.subtype).mkQ = R.mkQ ∘ W.subtype := by
+      funext x
+      exact Submodule.mapQ_apply _ _ W.subtype x
+    rw [h]
+    exact (Submodule.mkQL R).continuous.comp continuous_subtype_val
+  have hinj : Function.Injective f := by
+    intro a b hab
+    obtain ⟨x, rfl⟩ := (R₀.comap W.subtype).mkQ_surjective a
+    obtain ⟨y, rfl⟩ := (R₀.comap W.subtype).mkQ_surjective b
+    have hmem : (x : M) - y ∈ R := by
+      have h := hab
+      simp only [f, Submodule.mapQ_apply, Submodule.mkQ_apply] at h
+      rw [Submodule.Quotient.eq] at h
+      exact h
+    simp only [Submodule.mkQ_apply, Submodule.Quotient.eq]
+    exact hinf (Submodule.mem_inf.mpr ⟨hmem, Submodule.sub_mem _ x.property y.property⟩)
+  have hsurj : Function.Surjective f := by
+    intro y
+    obtain ⟨z, rfl⟩ := R.mkQ_surjective y
+    have hz : z ∈ W ⊔ R := by rw [hsup]; exact Submodule.mem_top
+    obtain ⟨w, hw, r, hr, hwr⟩ := Submodule.mem_sup.mp hz
+    refine ⟨Submodule.Quotient.mk ⟨w, hw⟩, ?_⟩
+    rw [Submodule.mapQ_apply]
+    simp only [Submodule.mkQ_apply, Submodule.Quotient.eq]
+    rw [show z = (W.subtype ⟨w, hw⟩ : M) + r from hwr.symm,
+      show (W.subtype ⟨w, hw⟩ : M) - ((W.subtype ⟨w, hw⟩ : M) + r) = -r from by abel]
+    exact neg_mem hr
+  let e : (W ⧸ R₀.comap W.subtype) ≃L[ℂ] (M ⧸ R) :=
+    ContinuousLinearEquiv.ofIsHomeomorph (LinearEquiv.ofBijective f ⟨hinj, hsurj⟩)
+      ⟨hcont, hopen, hinj, hsurj⟩
+  refine ⟨e, fun x ↦ ?_⟩
+  rw [ContinuousLinearEquiv.coe_ofIsHomeomorph]
+  exact Submodule.mapQ_apply (p := R₀.comap W.subtype) (q := R) W.subtype
+    (h := fun a ha ↦ hR ha) x
+
 /-- Paper: Theorem 7.3.3.4 and its proof, pp. 360–363.
 For sufficiently large levels the inclusion induces the isomorphism used to transfer
 the two bases and the Fourier seminorm bounds.
@@ -641,7 +739,30 @@ theorem sLocalPWOrbital_eventually_equiv {S₀ : Finset V} (hST : S ⊆ T) (_hT 
     ∃ B : ℝ, 0 < B ∧ ∀ X Y : ℝ, B ≤ X → B ≤ Y → X ^ count(S) ≤ Y →
       ∀ (W : Submodule ℂ (Θ(T, χ))), (W = absPW(hST, X, χ) ∨ W = invPW(hST, Y, χ)) →
         ∃ e : SLocalPWOrbitalQuotient χ p W ≃L[ℂ] Qₚ(p, χ),
-          ∀ x : W, e (((Rₚ₀(p, χ)).comap W.subtype).mkQ x) = (Rₚ(p, χ)).mkQ x.val := by sorry
+          ∀ x : W, e (((Rₚ₀(p, χ)).comap W.subtype).mkQ x) = (Rₚ(p, χ)).mkQ x.val := by
+  obtain ⟨B₁, hB₁, hsup⟩ := sLocalPWOrbital_eventually_sup_eq_top hST _hT _hdis _hsat _hPic
+    p _hp _hp₀ ω hu χ _hχ _hω
+  obtain ⟨B₂, hB₂, hinf⟩ := sLocalPWOrbital_eventually_inf_le hST _hT _hdis _hsat _hPic
+    p _hp _hp₀ ω hu χ _hχ _hω
+  refine ⟨max B₁ B₂, lt_max_of_lt_left hB₁, fun X Y hX hY hXY W hW ↦ ?_⟩
+  have hsup' := hsup X Y ((le_max_left _ _).trans hX) ((le_max_left _ _).trans hY)
+    hXY W hW
+  have hinf' := hinf X Y ((le_max_right _ _).trans hX) ((le_max_right _ _).trans hY)
+    hXY W hW
+  have hR₀ : Rₚ₀(p, χ) ≤ Rₚ(p, χ) := by
+    change ((Z₀(T)).map (q(T, χ))).map (PVₚ(p, χ)) ≤ (PVₚ(p, χ)).range
+    rw [LinearMap.range_eq_map]
+    exact Submodule.map_mono le_top
+  have hclosed : IsClosed (W : Set (Θ(T, χ))) := by
+    rcases hW with h | h
+    · rw [h]; exact Submodule.isClosed_topologicalClosure _
+    · rw [h]; exact Submodule.isClosed_topologicalClosure _
+  have hopen : IsOpenMap ⇑(((Rₚ₀(p, χ)).comap W.subtype).mapQ (Rₚ(p, χ)) W.subtype
+      (fun x hx ↦ hR₀ hx)) :=
+    sLocalPWOrbital_eventually_equiv_isOpenMap (Θ(T, χ)) (Rₚ₀(p, χ)) (Rₚ(p, χ)) hR₀ W
+      hclosed hsup'
+  exact sLocalPWOrbital_eventually_equiv_of_isOpenMap (Rₚ₀(p, χ)) (Rₚ(p, χ)) hR₀ W
+    hsup' hinf' hopen
 
 /-- Paper: Theorem 7.3.3.4(1)–(2), pp. 360–361.
 For sufficiently large absolute or invariant levels, with the same enumeration
