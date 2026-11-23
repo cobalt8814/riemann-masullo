@@ -665,6 +665,29 @@ theorem sLocalRhoPoleOrder_le_archimedean_of_re_neg {s : ℂ} (hs : s.re < 0) :
 -- over ℚ, where r₂ = 0.
 
 open Classical in
+/-- Paper: Theorem 7.1.3.2(2), p. 324. At a point whose real part is a negative odd
+integer, no finite place of `S` contributes a pole to the correcting factor: every
+finite-place pole of the S-local factor lies on the imaginary axis. -/
+private theorem sLocalRhoPoleOrder_le_of_re_neg_odd_finite_pole (n : ℕ) {s : ℂ}
+    (hs : s.re = -((2 * n + 1 : ℕ) : ℝ)) (v : S) :
+    ¬ meromorphicOrderAt (fun z : ℂ ↦ finiteLocalTateFactor v.val
+      (sLocalFiniteRestriction v (chartₛ(χ, hχ) z))) s < 0 := by
+  sorry
+
+open Classical in
+/-- Paper: Theorem 7.1.3.2(2), p. 324. At a negative odd abscissa an infinite place
+that contributes a pole of the correcting factor is either complex, or real with the
+restricted character having sign `-1` at `-1`. A real place whose sign is `+1` has its
+poles only at negative even abscissae. -/
+private theorem sLocalRhoPoleOrder_le_of_re_neg_odd_arch_pole (n : ℕ) {s : ℂ}
+    (hs : s.re = -((2 * n + 1 : ℕ) : ℝ)) (w : InfinitePlace F)
+    (hw : meromorphicOrderAt (fun z : ℂ ↦ infiniteLocalTateFactor w
+        (sLocalInfiniteRestriction w (chartₛ(χ, hχ) z))) s < 0) :
+      w.IsComplex ∨
+        w.IsReal ∧ sLocalInfiniteRestriction w (chartₛ(χ, hχ) 0) (-1) = -1 := by
+  sorry
+
+open Classical in
 /-- Paper: Theorem 7.1.3.2(2), p. 324. At a negative odd abscissa the order
 is bounded by the number of complex places plus the number of odd real places.
 Deviation: Counts the real sign characters whose gamma factors have poles at this parity. -/
@@ -672,7 +695,109 @@ theorem sLocalRhoPoleOrder_le_of_re_neg_odd (n : ℕ) {s : ℂ}
     (hs : s.re = -((2 * n + 1 : ℕ) : ℝ)) :
     sLocalRhoPoleOrder (chartₛ(χ, hχ) s) ≤
       (Finset.univ.filter (fun w : InfinitePlace F ↦ w.IsComplex ∨
-        w.IsReal ∧ sLocalInfiniteRestriction w (chartₛ(χ, hχ) 0) (-1) = -1)).card := by sorry
+        w.IsReal ∧ sLocalInfiniteRestriction w (chartₛ(χ, hχ) 0) (-1) = -1)).card := by
+  classical
+  let c := sIdeleRestriction F S ⟨ideleClassNormTwist χ 0, hχ⟩
+  have hc (x : Jₛ) : ‖c x‖ = 1 := by
+    obtain ⟨g, rfl⟩ := QuotientGroup.mk_surjective x
+    rw [show c (QuotientGroup.mk g) = ideleClassNormTwist χ 0
+      (QuotientGroup.mk (sIdeleInsertion F S g)) from sIdeleRestriction_mk F S _ g]
+    change ‖(χ _ : ℂ) * _ ^ (0 : ℂ)‖ = 1
+    simp
+  let ψ : PontryaginDual Jₛ :=
+    { toFun := fun x ↦ ⟨c x, mem_sphere_zero_iff_norm.mpr (hc x)⟩
+      map_one' := Subtype.ext (map_one c)
+      map_mul' := fun x y ↦ Subtype.ext (map_mul c x y)
+      continuous_toFun := c.continuous.subtype_mk _ }
+  have hψ : (⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp ψ = c := by
+    ext x
+    rfl
+  have hcomp : (fun z ↦ sLocalRhoFactor (F := F) (S := S)
+        (twistₛ (chartₛ(χ, hχ) s) z)) = rhoChart(χ, hχ) ∘ (· + s) := by
+    funext z
+    simp only [Function.comp]
+    congr 1
+    ext1 g
+    simp only [quasiCharacterNormTwist]
+    have hn : (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ≠ 0 := by simp
+    change ((_ : ℂ) * _) * _ = (_ : ℂ) * _
+    rw [mul_assoc]
+    congr 1
+    change (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ^ s * (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ^ z = _
+    rw [← Complex.cpow_add _ _ hn, add_comm]
+    rfl
+  have key : sLocalIdelicOrderBound (chartₛ(χ, hχ) s) =
+      min 0 (meromorphicOrderAt rhoChart(χ, hχ) s) := by
+    unfold sLocalIdelicOrderBound
+    rw [hcomp, meromorphicOrderAt_comp_add_const_eq_meromorphicOrderAt, zero_add]
+  have hord := sLocalRhoFactor_orderAt_pole (F := F) (S := S) ψ s
+  dsimp only at hord
+  rw [hψ] at hord
+  change meromorphicOrderAt rhoChart(χ, hχ) s < 0 → _ at hord
+  set arch := Finset.univ.filter (fun w : InfinitePlace F ↦ meromorphicOrderAt
+    (fun z : ℂ ↦ infiniteLocalTateFactor w (sLocalInfiniteRestriction w (twistₛ c z))) s < 0)
+    with harch
+  set fin := Finset.univ.filter (fun v : S ↦ meromorphicOrderAt
+    (fun z : ℂ ↦ finiteLocalTateFactor v.val (sLocalFiniteRestriction v (twistₛ c z))) s < 0)
+    with hfin
+  have hchartfun (w : InfinitePlace F) : (fun z : ℂ ↦ infiniteLocalTateFactor w
+      (sLocalInfiniteRestriction w (twistₛ c z))) =
+      (fun z : ℂ ↦ infiniteLocalTateFactor w
+        (sLocalInfiniteRestriction w (chartₛ(χ, hχ) z))) := by
+    funext z
+    rfl
+  have hchartfin (v : S) : (fun z : ℂ ↦ finiteLocalTateFactor v.val
+      (sLocalFiniteRestriction v (twistₛ c z))) =
+      (fun z : ℂ ↦ finiteLocalTateFactor v.val
+        (sLocalFiniteRestriction v (chartₛ(χ, hχ) z))) := by
+    funext z
+    rfl
+  have hfin0 : fin.card = 0 := by
+    rw [Finset.card_eq_zero, Finset.eq_empty_iff_forall_notMem]
+    intro v hv
+    rw [hfin] at hv
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hv
+    rw [hchartfin v] at hv
+    exact sLocalRhoPoleOrder_le_of_re_neg_odd_finite_pole (F := F) (S := S) (χ := χ)
+      (hχ := hχ) n hs v hv
+  have harchle : arch.card ≤ (Finset.univ.filter (fun w : InfinitePlace F ↦ w.IsComplex ∨
+      w.IsReal ∧ sLocalInfiniteRestriction w (chartₛ(χ, hχ) 0) (-1) = -1)).card := by
+    apply Finset.card_le_card
+    intro w hw
+    simp only [harch, Finset.mem_filter, Finset.mem_univ, true_and] at hw
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    rw [hchartfun w] at hw
+    exact sLocalRhoPoleOrder_le_of_re_neg_odd_arch_pole (F := F) (S := S) (χ := χ)
+      (hχ := hχ) n hs w hw
+  have hcount : arch.card + fin.card ≤ (Finset.univ.filter (fun w : InfinitePlace F ↦
+      w.IsComplex ∨
+        w.IsReal ∧ sLocalInfiniteRestriction w (chartₛ(χ, hχ) 0) (-1) = -1)).card := by
+    rw [hfin0, Nat.add_zero]
+    exact harchle
+  by_cases h : meromorphicOrderAt rhoChart(χ, hχ) s < 0
+  · have hbnd := sLocalIdelicOrderBound_eq_neg_poleOrder (F := F) (S := S)
+      (chartₛ(χ, hχ) s)
+    rw [key, hord h] at hbnd
+    have hle0 : ((-((arch.card + fin.card : ℕ) : ℤ) : ℤ) : WithTop ℤ) ≤ 0 := by
+      rw [← WithTop.coe_zero, WithTop.coe_le_coe]
+      omega
+    have hmin := min_eq_right hle0
+    rw [hmin] at hbnd
+    have heq : sLocalRhoPoleOrder (chartₛ(χ, hχ) s) = arch.card + fin.card := by
+      have h2 : (-((arch.card + fin.card : ℕ) : ℤ)) =
+          -(sLocalRhoPoleOrder (chartₛ(χ, hχ) s) : ℤ) := WithTop.coe_inj.mp hbnd
+      have h3 : ((arch.card + fin.card : ℕ) : ℤ) =
+          (sLocalRhoPoleOrder (chartₛ(χ, hχ) s) : ℤ) := neg_injective h2
+      exact_mod_cast h3.symm
+    rw [heq]
+    exact hcount
+  · have hpos : (0 : WithTop ℤ) ≤ meromorphicOrderAt rhoChart(χ, hχ) s := le_of_not_gt h
+    have hzero : sLocalRhoPoleOrder (chartₛ(χ, hχ) s) = 0 := by
+      unfold sLocalRhoPoleOrder
+      rw [key, min_eq_left hpos]
+      simp
+    rw [hzero]
+    exact Nat.zero_le _
 
 open Classical in
 /-- Paper: Theorem 7.1.3.2(3), p. 324.
