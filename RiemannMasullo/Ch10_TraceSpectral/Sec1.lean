@@ -67,6 +67,93 @@ local notation "θ𝔽(" f ")" => adelicTheta (f : ℬ₀).val
 local notation "θₛ(" f ")" => sLocalAdelicThetaOnClasses F S f
 local notation "ρₛ" => (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose
 
+/-- Paper: (10.1.1.1), p. 434. The modulated weight never vanishes on the idele class
+group, so multiplication by it is injective on functions. -/
+private theorem globalPolarFreeTheta_directionallySmooth_weight_ne_zero (a : ℝ) (x : C𝔽) :
+    ((((m𝔽 x).val : ℝ) ^ a : ℝ) : ℂ) ≠ 0 := by
+  have h0 : 0 < ((m𝔽 x).val : ℝ) := NNReal.coe_pos.mpr (Units.zero_lt _)
+  have h1 : 0 < ((m𝔽 x).val : ℝ) ^ a := Real.rpow_pos_of_pos h0 a
+  simpa using h1.ne'
+
+/-- Paper: (10.1.1.1), p. 434. The weight sends a polar test to its weighted theta
+function; injectivity of the weight upgrades the defining property of the pole-free
+theta quotient to injectivity of the descended map. -/
+private theorem globalPolarFreeTheta_directionallySmooth_linearMap (a : ℝ) :
+    ∃ E : Θ₀ →ₗ[ℂ] (C𝔽 → ℂ), Injective E ∧
+      ∀ f : ℬ₀, E (Submodule.Quotient.mk f) = modulationWeight m𝔽 a (θ𝔽(f)) := by
+  classical
+  let L : ℬ₀ →ₗ[ℂ] (C𝔽 → ℂ) :=
+    (modulationWeight m𝔽 a).comp
+      ((ContinuousMap.coeFnLinearMap ℂ).comp
+        ((adelicThetaLinearMap F).comp (adelePolarSubspace F).subtype))
+  have hL (f : ℬ₀) : L f = modulationWeight m𝔽 a (θ𝔽(f)) := rfl
+  have hzero : (LinearMap.ker (adelicThetaLinearMap F)).comap
+      (adelePolarSubspace F).subtype ≤ LinearMap.ker L := by
+    intro x hx
+    have hx' : adelicTheta (F := F) (x : ℬ₀).val = 0 := hx
+    show L x = 0
+    rw [hL, hx']
+    exact map_zero _
+  let p := (LinearMap.ker (adelicThetaLinearMap F)).comap (adelePolarSubspace F).subtype
+  have hz : p ≤ LinearMap.ker L := hzero
+  refine ⟨p.liftQ L hz, ?_, ?_⟩
+  · intro u v huv
+    obtain ⟨f, rfl⟩ := Submodule.Quotient.mk_surjective (p := p) u
+    obtain ⟨g, rfl⟩ := Submodule.Quotient.mk_surjective (p := p) v
+    have h1 (x : ℬ₀) : p.liftQ L hz (Submodule.Quotient.mk x) = L x := rfl
+    rw [h1, h1, hL, hL] at huv
+    have himg : θ𝔽(f) = θ𝔽(g) := by
+      ext x
+      have h := congrFun huv x
+      simp only [modulationWeight, LinearMap.mulLeft_apply, Pi.mul_apply] at h
+      exact mul_left_cancel₀
+        (globalPolarFreeTheta_directionallySmooth_weight_ne_zero a x) h
+    rw [Submodule.Quotient.eq]
+    refine Submodule.mem_comap.mpr ?_
+    rw [LinearMap.mem_ker]
+    show (adelicThetaLinearMap F) (f.val - g.val) = 0
+    rw [map_sub]
+    exact sub_eq_zero.mpr himg
+  · intro f
+    exact hL f
+
+/-- Paper: (10.1.1.1), p. 434. Weighted polar-free theta functions are continuous on
+the idele class group: a class is represented by a polar test, and both the theta
+function of that test and the modulation weight are continuous. -/
+private theorem globalPolarFreeTheta_directionallySmooth_continuous (a : ℝ)
+    (E : Θ₀ →ₗ[ℂ] (C𝔽 → ℂ))
+    (hE : ∀ f : ℬ₀, E (Submodule.Quotient.mk f) = modulationWeight m𝔽 a (θ𝔽(f))) :
+    ∀ u : Θ₀, Continuous (E u) := by
+  intro u
+  obtain ⟨f, rfl⟩ := Submodule.Quotient.mk_surjective
+    (p := (LinearMap.ker (adelicThetaLinearMap F)).comap (adelePolarSubspace F).subtype) u
+  have hw : Continuous (fun x : C𝔽 ↦ ((((m𝔽 x).val : ℝ) ^ a : ℝ) : ℂ)) := by
+    have hpos (x : C𝔽) : ((m𝔽 x).val : ℝ) ≠ 0 := (NNReal.coe_pos.mpr (Units.zero_lt _)).ne'
+    have hr : Continuous (fun x : C𝔽 ↦ ((m𝔽 x).val : ℝ)) :=
+      NNReal.continuous_coe.comp (Units.continuous_val.comp
+        (isProperMap_ideleClassNorm F).continuous)
+    exact Complex.continuous_ofReal.comp (hr.rpow_const fun x ↦ Or.inl (hpos x))
+  have hfun : modulationWeight m𝔽 a (θ𝔽(f)) =
+      fun x : C𝔽 ↦ ((((m𝔽 x).val : ℝ) ^ a : ℝ) : ℂ) * θ𝔽(f) x := by
+    funext x
+    simp only [modulationWeight, LinearMap.mulLeft_apply, Pi.mul_apply]
+  rw [hE f, hfun]
+  exact hw.mul (θ𝔽(f)).continuous
+
+/-- Paper: (10.1.1.1), p. 434. Along a continuous real one-parameter subgroup of the
+idele class group a weighted polar-free theta function is `C^∞` in the parameter, and
+each iterated derivative at the identity is again a continuous function of the class.
+This is the analytic core of the assertion, stated separately from the construction of
+the map and from its continuity. -/
+private theorem globalPolarFreeTheta_directionallySmooth_derivatives (a : ℝ)
+    (E : Θ₀ →ₗ[ℂ] (C𝔽 → ℂ))
+    (hE : ∀ f : ℬ₀, E (Submodule.Quotient.mk f) = modulationWeight m𝔽 a (θ𝔽(f))) :
+    ∀ u : Θ₀, ∀ γ : Multiplicative ℝ →ₜ* C𝔽,
+      (∀ (g : C𝔽) (k : ℕ), ContDiff ℝ k (fun t : ℝ ↦ E u (γ (Multiplicative.ofAdd t) * g))) ∧
+      ∀ n : ℕ, Continuous (fun g : C𝔽 ↦
+        iteratedDeriv n (fun t : ℝ ↦ E u (γ (Multiplicative.ofAdd t) * g)) 0) := by
+  sorry
+
 /-- Paper: (10.1.1.1), p. 434. Weighted global polar-free theta functions are
 continuous and have continuous derivatives of every order along every continuous
 real one-parameter subgroup. The function realization is injective. -/
@@ -77,7 +164,11 @@ theorem globalPolarFreeTheta_directionallySmooth (a : ℝ) :
         ∀ γ : Multiplicative ℝ →ₜ* C𝔽,
           (∀ (g : C𝔽) (k : ℕ), ContDiff ℝ k (fun t : ℝ ↦ E u (γ (Multiplicative.ofAdd t) * g))) ∧
           ∀ n : ℕ, Continuous (fun g : C𝔽 ↦
-            iteratedDeriv n (fun t : ℝ ↦ E u (γ (Multiplicative.ofAdd t) * g)) 0) := by sorry
+            iteratedDeriv n (fun t : ℝ ↦ E u (γ (Multiplicative.ofAdd t) * g)) 0) := by
+  obtain ⟨E, hinj, hE⟩ := globalPolarFreeTheta_directionallySmooth_linearMap (F := F) a
+  exact ⟨E, hinj, hE, fun u ↦
+    ⟨globalPolarFreeTheta_directionallySmooth_continuous a E hE u,
+      globalPolarFreeTheta_directionallySmooth_derivatives a E hE u⟩⟩
 
 -- TODO(paper-gap): The assertion preceding (10.1.1.2) on p. 434 and the open
 -- half-line on p. 435 require care. Every compact subinterval gives a finite norm.
