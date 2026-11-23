@@ -2182,13 +2182,133 @@ theorem sLocalIdelicZFunction_entire_of_polarFree (r : RealModels) (c : ComplexM
     AnalyticOnNhd ℂ (fun s ↦ sLocalIdelicZFunction f (chartₛ(χ) s)) univ := by sorry
 
 /-- Paper: Lemma 5.3.4.2(3), p. 260.
+Pointwise multiplication by a continuous quasi-character of the S-ideles is a continuous
+complex-linear self-map of the polar-free subspace, and it acts there by multiplication at
+the S-ideles. This is the analytic content of the linear homeomorphism of part (3): the
+printed proof (p. 261) obtains only that the range is dense and concludes surjectivity, which
+is the gap reported on the issue. The homeomorphism is recovered below by applying this
+statement to the quasi-character and to its inverse, with no closed-range argument. -/
+theorem sAdelePolarFree_quasiCharacter_mul_clm (r : RealModels) (c : ComplexModels) (b : Xₛ) :
+    ∃ M : ↥(sAdelePolarFree S r c) →L[ℂ] ↥(sAdelePolarFree S r c),
+      ∀ f (g : Aₛˣ), (M f).val (Multiplicative.ofAdd g.val) =
+        b (QuotientGroup.mk g) * f.val (Multiplicative.ofAdd g.val) := by sorry
+
+/-- Paper: Lemma 5.3.4.2(3), p. 260.
+A polar-free test is determined by its values on the units of the S-adelic ring. Every point
+of the ring is either a unit or has a zero coordinate: at a zero finite coordinate a
+polar-free test vanishes by the finite vanishing condition of (5.3.4.1), and at a zero
+archimedean coordinate it vanishes because its archimedean slices are flat. This is what
+makes the pointwise constraint of part (3) at the S-ideles determine the operator on the
+whole subspace, without the density argument that the printed proof uses. -/
+theorem sAdelePolarFree_eq_of_eqOn_units (r : RealModels) (c : ComplexModels) {f g : ℬₛ}
+    (hf : f ∈ sAdelePolarFree S r c)
+    (hg : g ∈ sAdelePolarFree S r c)
+    (h : ∀ u : Aₛˣ, f (Multiplicative.ofAdd (u : Aₛ)) =
+      g (Multiplicative.ofAdd (u : Aₛ))) :
+    f = g := by
+  classical
+  -- A polar-free test vanishes at every point with a zero finite coordinate.
+  have hfin : ∀ (k : ℬₛ), k ∈ sAdelePolarFree S r c → ∀ (x : Aₛ) (v : S), x.2 v = 0 →
+      k (Multiplicative.ofAdd x) = 0 := by
+    intro k hk x v hv
+    have h1 : k ∈ sAdeleFiniteZeroSchwartz S S := (Submodule.mem_inf.1 hk).1
+    simp only [sAdeleFiniteZeroSchwartz, Submodule.mem_iInf, LinearMap.mem_ker] at h1
+    exact h1 ⟨x, v, v.2, hv⟩
+  -- A polar-free test vanishes on the union of the archimedean coordinate hyperplanes,
+  -- because each of its archimedean slices is flat there.
+  have hwall : ∀ (k : ℬₛ), k ∈ sAdelePolarFree S r c →
+      ∀ (x : Aₛ), (∃ w : InfinitePlace F, x.1 w = 0) → k (Multiplicative.ofAdd x) = 0 := by
+    intro k hk x hx
+    obtain ⟨h', hh', hfun'⟩ : ∃ h' ∈ archimedeanFlatSchwartz (ι := RealPlaces) (κ := ComplexPlaces),
+        ∀ a : ArchCoordinates, (h' : ArchCoordinates → ℂ) a =
+          k (Multiplicative.ofAdd (assemble(r, c, a), x.2)) := by
+      have h2 := (Submodule.mem_inf.1 hk).2
+      simp only [Submodule.mem_iInf] at h2
+      have hy := h2 x.2
+      simp only [Submodule.mem_comap, Submodule.mem_map] at hy
+      obtain ⟨h', hh', hfun'⟩ := hy
+      exact ⟨h', hh', fun a => congrFun hfun' a⟩
+    -- The model point whose assembled coordinates are those of `x`.
+    let a : ArchCoordinates := (fun w : RealPlaces ↦ (r w).val (x.1 w.val),
+      fun w : ComplexPlaces ↦ (c w).val (x.1 w.val))
+    have ha : assemble(r, c, a) = x.1 := by
+      funext w
+      by_cases hw : w.IsReal
+      · simp only [a, hw, ↓reduceDIte, RingEquiv.symm_apply_apply]
+      · simp only [a, hw, ↓reduceDIte, RingEquiv.symm_apply_apply]
+    have hwall_a : (∃ i, a.1 i = 0) ∨ (∃ j, a.2 j = 0) := by
+      obtain ⟨w, hw⟩ := hx
+      by_cases hr : w.IsReal
+      · refine Or.inl ⟨⟨w, hr⟩, ?_⟩
+        simp only [a]
+        rw [hw, map_zero]
+      · refine Or.inr ⟨⟨w, InfinitePlace.not_isReal_iff_isComplex.mp hr⟩, ?_⟩
+        simp only [a]
+        rw [hw, map_zero]
+    have h0 : (h' : ArchCoordinates → ℂ) a = 0 := by
+      simp only [archimedeanFlatSchwartz, Submodule.mem_iInf, LinearMap.mem_ker,
+        IsLinearMap.mk'_apply] at hh'
+      have hz := hh' ⟨a, hwall_a⟩ 0 (fun i => Fin.elim0 i)
+      simpa only [iteratedFDeriv_zero_apply] using hz
+    have hx' : x = (assemble(r, c, a), x.2) := Prod.ext ha.symm rfl
+    rw [hx', ← hfun' a]
+    exact h0
+  have key : ∀ x : Aₛ, f (Multiplicative.ofAdd x) = g (Multiplicative.ofAdd x) := by
+    intro x
+    by_cases hz : ∃ v : S, x.2 v = 0
+    · obtain ⟨v, hv⟩ := hz
+      rw [hfin f hf x v hv, hfin g hg x v hv]
+    · push Not at hz
+      by_cases hw : ∃ w : InfinitePlace F, x.1 w = 0
+      · rw [hwall f hf x hw, hwall g hg x hw]
+      · push Not at hw
+        -- All coordinates are nonzero, so `x` is a unit of the S-adelic ring.
+        let y : Aₛ := ((fun w => (x.1 w)⁻¹), fun v => (x.2 v)⁻¹)
+        have hmul : x * y = 1 := by
+          refine Prod.ext ?_ ?_
+          · funext w
+            exact mul_inv_cancel₀ (hw w)
+          · funext v
+            exact mul_inv_cancel₀ (hz v)
+        let u : Aₛˣ := Units.mkOfMulEqOne x y hmul
+        have hu : (u : Aₛ) = x := rfl
+        rw [← hu]
+        exact h u
+  exact SchwartzBruhat.ext fun z => key (Multiplicative.toAdd z)
+
+/-- Paper: Lemma 5.3.4.2(3), p. 260.
 A continuous quasi-character of the S-ideles trivial on S-units acts on polar-free
 functions by pointwise multiplication and defines a linear homeomorphism.
 The character is given on the S-idele quotient. -/
 theorem sAdelePolarFree_quasiCharacter_mul (r : RealModels) (c : ComplexModels) (b : Xₛ) :
     ∃ M : ↥(sAdelePolarFree S r c) ≃L[ℂ] ↥(sAdelePolarFree S r c),
       ∀ f (g : Aₛˣ), (M f).val (Multiplicative.ofAdd g.val) =
-        b (QuotientGroup.mk g) * f.val (Multiplicative.ofAdd g.val) := by sorry
+        b (QuotientGroup.mk g) * f.val (Multiplicative.ofAdd g.val) := by
+  classical
+  -- The inverse of multiplication by the character is multiplication by its inverse.
+  let bInv : Xₛ := b.comp (ContinuousMonoidHom.inv Jₛ)
+  have hInv (g : Jₛ) : bInv g = (b g)⁻¹ := map_inv b g
+  have hcancel (g : Jₛ) : bInv g * b g = 1 := by
+    rw [hInv, inv_mul_cancel₀]
+    exact ((Group.isUnit g).map b).ne_zero
+  obtain ⟨M, hM⟩ := sAdelePolarFree_quasiCharacter_mul_clm (F := F) (S := S) r c b
+  obtain ⟨N, hN⟩ := sAdelePolarFree_quasiCharacter_mul_clm (F := F) (S := S) r c bInv
+  have hleft : LeftInverse N M := by
+    intro f
+    apply Subtype.ext
+    apply sAdelePolarFree_eq_of_eqOn_units r c (N (M f)).2 f.2
+    intro g
+    rw [hN (M f) g, hM f g, ← mul_assoc, hcancel, one_mul]
+  have hright : RightInverse N M := by
+    intro f
+    apply Subtype.ext
+    apply sAdelePolarFree_eq_of_eqOn_units r c (M (N f)).2 f.2
+    intro g
+    have h : b (QuotientGroup.mk g) * bInv (QuotientGroup.mk g) = 1 := by
+      rw [mul_comm]
+      exact hcancel _
+    rw [hM (N f) g, hN f g, ← mul_assoc, h, one_mul]
+  exact ⟨ContinuousLinearEquiv.equivOfInverse M N hleft hright, hM⟩
 
 -- TODO(paper-gap): In (5.3.4.9), the summation index m_v does not occur in the summand.
 -- Norm-one class representatives with archimedean component one need not exist.
