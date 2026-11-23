@@ -1525,6 +1525,62 @@ theorem memLp_sLocalCarvingGenerator {S : Finset V} (χ : PontryaginDual C𝔽)
 -- the quotient already have Fourier value zero. The argument still needs to
 -- approximate every vector of the intersection by projected local generators.
 
+/-- Paper: Theorem 11.1.2.1(3), pp. 482-483. Every projected S-local generator lies
+in every finite-place cutoff stage. This is the convergence step of the printed
+proof of (3): by Proposition 11.1.1.2 the generator is the limit of the projected
+local generators along a cofinal sequence, whose tail from any stage on lies in that
+stage, and the stages are closed.
+Remaining input: this file has no Proposition 11.1.1.2 for the extension by the unit
+ideles outside `S`, so that convergence is not available here. -/
+private theorem sLocalCarvingLimit_eq_closedSpan_generator_mem {S : Finset V}
+    (χ : PontryaginDual C𝔽) (hχ : Unramified(χ, S)) (hPic : TrivialPic((S : Set V)))
+    (s : ℝ) (hs : DegreeBound(s)) (twoSided : Bool) (Λ : ℝ) (hΛ : 0 < Λ)
+    (f : ℬₛ(S)) (hf : f (Multiplicative.ofAdd 0) = 0)
+    (hFf : sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) = 0)
+    (i : SLocalCarvingIndex (F := F) S) :
+    (memLp_sLocalCarvingGenerator χ hχ hPic s hs twoSided Λ hΛ f hf hFf).toLp
+        (sLocalCarvingGenerator S (ωOf(χ)) (J(twoSided, Λ)) f) ∈
+      sLocalCutoffCarving s (ωOf(χ)) i.val (J(twoSided, Λ)) (hJ(twoSided, Λ)) := by
+  sorry
+
+/-- Paper: Theorem 11.1.2.1(3), pp. 482-483. The closed span of the projected
+generators is contained in the cofinal limit, which is closed and contains each of
+them by `sLocalCarvingLimit_eq_closedSpan_generator_mem`. -/
+private theorem sLocalCarvingLimit_eq_closedSpan_ge {S : Finset V} (χ : PontryaginDual C𝔽)
+    (hχ : Unramified(χ, S)) (hPic : TrivialPic((S : Set V)))
+    (s : ℝ) (hs : DegreeBound(s)) (twoSided : Bool) (Λ : ℝ) (hΛ : 0 < Λ) :
+    (Submodule.span ℂ {u : W(s) |
+      ∃ (f : ℬₛ(S)) (hf : f (Multiplicative.ofAdd 0) = 0)
+        (hFf : sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) = 0),
+        u = (memLp_sLocalCarvingGenerator χ hχ hPic s hs twoSided Λ hΛ f hf hFf).toLp
+          (sLocalCarvingGenerator S (ωOf(χ)) (J(twoSided, Λ)) f)}).topologicalClosure ≤
+      sLocalCarvingLimit s (ωOf(χ)) S (J(twoSided, Λ)) (hJ(twoSided, Λ)) := by
+  refine le_iInf fun i ↦ ?_
+  unfold sLocalCutoffCarving
+  refine Submodule.topologicalClosure_minimal _ (Submodule.span_le.mpr ?_)
+    (Submodule.isClosed_topologicalClosure _)
+  rintro u ⟨f, hf, hFf, rfl⟩
+  exact sLocalCarvingLimit_eq_closedSpan_generator_mem χ hχ hPic s hs twoSided Λ hΛ f hf hFf i
+
+/-- Paper: Theorem 11.1.2.1(3), p. 483. The cofinal limit is contained in the closed
+span of the projected generators. This is the quotient step of the printed proof: if the
+closure of the span of the tests with both vanishing conditions were smaller than the
+span of those with only `\widehat{f}(0) = 0`, the quotient would extend `\widehat{\delta}_0`
+continuously, which multiplication by the idelic norm contradicts.
+Remaining input: the object `R_{Λ,S}` that the printed argument uses at this point is
+never defined, and the approximation of a vector of the intersection by projected local
+generators is not established. -/
+private theorem sLocalCarvingLimit_eq_closedSpan_le {S : Finset V} (χ : PontryaginDual C𝔽)
+    (hχ : Unramified(χ, S)) (hPic : TrivialPic((S : Set V)))
+    (s : ℝ) (hs : DegreeBound(s)) (twoSided : Bool) (Λ : ℝ) (hΛ : 0 < Λ) :
+    sLocalCarvingLimit s (ωOf(χ)) S (J(twoSided, Λ)) (hJ(twoSided, Λ)) ≤
+      (Submodule.span ℂ {u : W(s) |
+        ∃ (f : ℬₛ(S)) (hf : f (Multiplicative.ofAdd 0) = 0)
+          (hFf : sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) = 0),
+          u = (memLp_sLocalCarvingGenerator χ hχ hPic s hs twoSided Λ hΛ f hf hFf).toLp
+            (sLocalCarvingGenerator S (ωOf(χ)) (J(twoSided, Λ)) f)}).topologicalClosure := by
+  sorry
+
 /-- Paper: Theorem 11.1.2.1(3), p. 480. The cofinal limit is the closed span of
 the projected cutoff theta functions of local tests whose value and Fourier value
 at zero vanish.
@@ -1537,7 +1593,10 @@ theorem sLocalCarvingLimit_eq_closedSpan {S : Finset V} (χ : PontryaginDual C�
       ∃ (f : ℬₛ(S)) (hf : f (Multiplicative.ofAdd 0) = 0)
         (hFf : sAdeleSchwartzFourier f (Multiplicative.ofAdd 0) = 0),
         u = (memLp_sLocalCarvingGenerator χ hχ hPic s hs twoSided Λ hΛ f hf hFf).toLp
-          (sLocalCarvingGenerator S (ωOf(χ)) (J(twoSided, Λ)) f)}).topologicalClosure := by sorry
+          (sLocalCarvingGenerator S (ωOf(χ)) (J(twoSided, Λ)) f)}).topologicalClosure :=
+  le_antisymm
+    (sLocalCarvingLimit_eq_closedSpan_le χ hχ hPic s hs twoSided Λ hΛ)
+    (sLocalCarvingLimit_eq_closedSpan_ge χ hχ hPic s hs twoSided Λ hΛ)
 
 /-- The L² norm of a vector of a weighted L² space that agrees almost everywhere with the
 restriction of another vector to a measurable set is the weighted integral of the square of
