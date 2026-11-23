@@ -2367,7 +2367,7 @@ private theorem sLocal_functionalEquation_of_tensor (χ : PontryaginDual Jₛ) (
 
 /-- Self-duality carries the continuous Fourier map on the Pontryagin dual
 back to the S-adelic Schwartz space. -/
-private theorem sLocal_fourier_continuousLinear :
+theorem sLocal_fourier_continuousLinear :
     ∃ T : ℬ(Aₛ) →L[ℂ] ℬ(Aₛ), ∀ f, T f = sAdeleSchwartzFourier f := by
   let G := Multiplicative Aₛ
   let μ : Measure G := sAdditiveTamagawaMeasure F S
@@ -3179,7 +3179,7 @@ end Homogeneous
 /-- A real test localized near the unit has a zeta integral with positive real
 part. The archimedean test is a smooth bump and the finite tests are indicators
 of compact open balls. -/
-private theorem sLocal_exists_real_test (c : Xₛ) (hc : c ∈ positive) :
+theorem sLocal_exists_real_test (c : Xₛ) (hc : c ∈ positive) :
     ∃ f : ℬ(Aₛ), (∀ x, star (f x) = f x) ∧ sLocalIdelicZetaIntegral f c ≠ 0 := by
   classical
   let χ (g : Iₛ) := c (classOf g)

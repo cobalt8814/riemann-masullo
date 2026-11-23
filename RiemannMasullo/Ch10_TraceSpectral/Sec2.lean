@@ -1,9 +1,11 @@
 module
 
 public import RiemannMasullo.Ch10_TraceSpectral.Sec1
-import all RiemannMasullo.Ch10_TraceSpectral.Sec1
 public import RiemannMasullo.AppD_SchwartzBruhat.Sec3a_part2
 public import RiemannMasullo.Ch04_PeriodicSchauderBases.Sec1
+import Mathlib.LinearAlgebra.Eigenspace.Pi
+import Mathlib.Algebra.Polynomial.Basis
+import Mathlib.Algebra.Polynomial.Roots
 import all RiemannMasullo.Ch09_HardySobolev.Sec2
 import all RiemannMasullo.Ch09_HardySobolev.Sec3
 
@@ -98,6 +100,217 @@ abbrev spectralSobolevIsotypeQuotient (a : ℝ) {l r s : ℝ} (hI : l ≤ r) (hs
     (ω : PontryaginDual C₁) :=
   ↥(Wω(hI, hs, ω)) ⧸ (Θ(a, hI, hs)).comap (Wω(hI, hs, ω)).subtype
 
+/-- Testing an isotypic Pettis average against a functional gives its scalar integral. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_dual {K W : Type*} [Group K]
+    [TopologicalSpace K] [MeasurableSpace K] [NormedAddCommGroup W] [NormedSpace ℂ W]
+    (μ : Measure K) (ρ : K →* (W →L[ℂ] W)) (ω : PontryaginDual K) (P : W →L[ℂ] W)
+    (hP : IsPettisIsotypicAverageOn μ univ ρ ω P) (u : W) (φ : StrongDual ℂ W) :
+    φ (P u) = ∫ k, star (ω k : ℂ) * φ (ρ k u) ∂μ := by
+  obtain ⟨_, he⟩ := hP u
+  have h := congrArg (fun z : PettisWeakCompletion W ↦
+    (show Module.Dual ℂ (StrongDual ℂ W) from z) φ) he
+  change φ (P u) = ∫ g, φ (star (ω g : ℂ) • ρ g u) ∂μ.restrict univ at h
+  simpa only [Measure.restrict_univ, map_smul, smul_eq_mul] using h
+
+/-- A unit complex number times its conjugate is one. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_star_mul {K : Type*} [Group K]
+    [TopologicalSpace K] (ω : PontryaginDual K) (k : K) :
+    star (ω k : ℂ) * (ω k : ℂ) = 1 := by
+  rw [Complex.star_def, Complex.conj_mul', Circle.norm_coe]
+  simp
+
+/-- The isotypic average descends to a quotient by an invariant subspace. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_quot {G W : Type*} [Group G]
+    (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (N : Submodule ℂ W) [IsClosed (N : Set W)] (ω : PontryaginDual K) (μ : Measure K)
+    (P : W →L[ℂ] W) (hP : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω P)
+    (u : W) (ψ : StrongDual ℂ (W ⧸ N)) :
+    ψ (N.mkQ (P u)) = ∫ k, star (ω k : ℂ) * ψ (N.mkQ (ρ k u)) ∂μ :=
+  spectralSobolevIsotypeQuotient_isometry_dual μ (ρ.comp K.subtype) ω P hP u
+    (ψ.comp N.mkQL)
+
+/-- On the isotype the average is multiplication by the total mass. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_fix {G W : Type*} [Group G]
+    (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (ω : PontryaginDual K) (μ : Measure K) (P : W →L[ℂ] W)
+    (hP : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω P)
+    {u : W} (hu : u ∈ actionIsotype (ρ.comp K.subtype) ω) :
+    P u = (μ.real univ : ℂ) • u := by
+  apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+  intro φ
+  rw [spectralSobolevIsotypeQuotient_isometry_dual μ (ρ.comp K.subtype) ω P hP u φ]
+  have hu' := (mem_actionIsotype _ _ _).1 hu
+  have h (k : K) : star (ω k : ℂ) * φ ((ρ.comp K.subtype) k u) = φ u := by
+    rw [hu' k, map_smul, smul_eq_mul, ← mul_assoc,
+      spectralSobolevIsotypeQuotient_isometry_star_mul, one_mul]
+  simp only [h, integral_const, map_smul, Complex.real_smul, smul_eq_mul]
+
+/-- The average is bounded by the mass when the subgroup acts by contractions. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_norm {G W : Type*} [Group G]
+    (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (hK : ∀ (k : K) (u : W), ‖ρ k u‖ ≤ ‖u‖)
+    (ω : PontryaginDual K) (μ : Measure K) [IsFiniteMeasure μ] (P : W →L[ℂ] W)
+    (hP : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω P) (u : W) :
+    ‖P u‖ ≤ μ.real univ * ‖u‖ := by
+  obtain ⟨g, hg, hgu⟩ := exists_dual_vector'' ℂ (P u)
+  have h1 : g (P u) = ∫ k, star (ω k : ℂ) * g ((ρ.comp K.subtype) k u) ∂μ :=
+    spectralSobolevIsotypeQuotient_isometry_dual μ (ρ.comp K.subtype) ω P hP u g
+  have h3 : ‖g (P u)‖ = ‖P u‖ := by rw [hgu]; simp
+  have h2 : ‖∫ k, star (ω k : ℂ) * g ((ρ.comp K.subtype) k u) ∂μ‖ ≤ ‖u‖ * μ.real univ := by
+    apply norm_integral_le_of_norm_le_const
+    refine ae_of_all _ fun k ↦ ?_
+    rw [norm_mul, norm_star, Circle.norm_coe, one_mul]
+    exact (g.le_opNorm _).trans ((mul_le_of_le_one_left (norm_nonneg _) hg).trans (hK k u))
+  rw [← h1, h3] at h2
+  linarith
+
+/-- The average maps an invariant closed subspace into itself. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_mem {G W : Type*} [Group G]
+    (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (N : Submodule ℂ W) [IsClosed (N : Set W)] (hN : ∀ g, ∀ n ∈ N, ρ g n ∈ N)
+    (ω : PontryaginDual K) (μ : Measure K) (P : W →L[ℂ] W)
+    (hP : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω P) {n : W} (hn : n ∈ N) :
+    P n ∈ N := by
+  rw [← Submodule.Quotient.mk_eq_zero]
+  apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+  intro ψ
+  have h := spectralSobolevIsotypeQuotient_isometry_quot K ρ N ω μ P hP n ψ
+  have h0 (k : K) : N.mkQ (ρ k n) = 0 := (Submodule.Quotient.mk_eq_zero N).2 (hN _ n hn)
+  simp only [h0, map_zero, mul_zero, integral_zero] at h
+  simpa using h
+
+/-- On the quotient, the average of a class in the quotient isotype is the mass times it. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_quotFix {G W : Type*} [Group G]
+    (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (N : Submodule ℂ W) [IsClosed (N : Set W)]
+    (ω : PontryaginDual K) (μ : Measure K) (P : W →L[ℂ] W)
+    (hP : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω P) {f : W}
+    (hf : ∀ k : K, N.mkQ (ρ k f) = (ω k : ℂ) • N.mkQ f) :
+    N.mkQ (P f) = (μ.real univ : ℂ) • N.mkQ f := by
+  apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+  intro ψ
+  rw [spectralSobolevIsotypeQuotient_isometry_quot K ρ N ω μ P hP f ψ]
+  have h (k : K) : star (ω k : ℂ) * ψ (N.mkQ (ρ k f)) = ψ (N.mkQ f) := by
+    rw [hf k, map_smul, smul_eq_mul, ← mul_assoc,
+      spectralSobolevIsotypeQuotient_isometry_star_mul, one_mul]
+  simp only [h, integral_const, map_smul, Complex.real_smul, smul_eq_mul]
+
+/-- Abstract form of `spectralSobolevIsotypeQuotient_isometry`: an action preserving a
+closed subspace descends to the quotient, and if a compact subgroup acts by contractions
+with an isotypic average, the isotype quotient is isometric to the isotype of the quotient. -/
+private theorem spectralSobolevIsotypeQuotient_isometry_abstract {G W : Type*} [Group G]
+    [TopologicalSpace G] (K : Subgroup G) [TopologicalSpace K] [MeasurableSpace K]
+    [NormedAddCommGroup W] [NormedSpace ℂ W] (ρ : G →* (W →L[ℂ] W))
+    (hρ : Continuous fun p : G × W ↦ ρ p.1 p.2)
+    (N : Submodule ℂ W) [IsClosed (N : Set W)] (hN : ∀ g, ∀ n ∈ N, ρ g n ∈ N)
+    (hK : ∀ (k : K) (u : W), ‖ρ k u‖ ≤ ‖u‖)
+    (ω : PontryaginDual K) (μ : Measure K) [IsFiniteMeasure μ] (hμ : μ univ ≠ 0)
+    (A : W →L[ℂ] actionIsotype (ρ.comp K.subtype) ω)
+    (hA : IsPettisIsotypicAverageOn μ univ (ρ.comp K.subtype) ω
+      ((actionIsotype (ρ.comp K.subtype) ω).subtypeL.comp A))
+    [IsClosed ((N.comap (actionIsotype (ρ.comp K.subtype) ω).subtype) :
+      Set (actionIsotype (ρ.comp K.subtype) ω))] :
+    ∃ ρQ : G →* ((W ⧸ N) →L[ℂ] (W ⧸ N)),
+      (∀ g f, ρQ g (N.mkQ f) = N.mkQ (ρ g f)) ∧
+      Continuous (fun p : G × (W ⧸ N) ↦ ρQ p.1 p.2) ∧
+      ∃ U : (↥(actionIsotype (ρ.comp K.subtype) ω) ⧸
+          N.comap (actionIsotype (ρ.comp K.subtype) ω).subtype) ≃ₗᵢ[ℂ]
+          actionIsotype (ρQ.comp K.subtype) ω,
+        ∀ f : actionIsotype (ρ.comp K.subtype) ω,
+          (U ((N.comap (actionIsotype (ρ.comp K.subtype) ω).subtype).mkQ f) : W ⧸ N) =
+            N.mkQ f.val := by
+  let E := actionIsotype (ρ.comp K.subtype) ω
+  let M := N.comap E.subtype
+  let P : W →L[ℂ] W := E.subtypeL.comp A
+  let c : ℝ := μ.real univ
+  have hc : 0 < c := ENNReal.toReal_pos hμ (measure_ne_top μ univ)
+  have hker (g : G) : N ≤ (N.mkQL.comp (ρ g)).ker := fun n hn ↦
+    (Submodule.Quotient.mk_eq_zero N).2 (hN g n hn)
+  let T (g : G) : (W ⧸ N) →L[ℂ] (W ⧸ N) := N.liftQL (N.mkQL.comp (ρ g)) (hker g)
+  have hT (g : G) (f : W) : T g (N.mkQ f) = N.mkQ (ρ g f) := rfl
+  let ρQ : G →* ((W ⧸ N) →L[ℂ] (W ⧸ N)) :=
+    { toFun := T
+      map_one' := by
+        refine ContinuousLinearMap.ext fun x ↦ ?_
+        obtain ⟨f, rfl⟩ := N.mkQ_surjective x
+        change T 1 (N.mkQ f) = N.mkQ f
+        rw [hT, map_one, one_apply_eq_self]
+      map_mul' := fun g h ↦ by
+        refine ContinuousLinearMap.ext fun x ↦ ?_
+        obtain ⟨f, rfl⟩ := N.mkQ_surjective x
+        change T (g * h) (N.mkQ f) = T g (T h (N.mkQ f))
+        rw [hT, hT, hT, map_mul, mul_apply_eq_comp] }
+  have hρQ (g : G) (f : W) : ρQ g (N.mkQ f) = N.mkQ (ρ g f) := rfl
+  refine ⟨ρQ, hρQ, ?_, ?_⟩
+  · have hq : IsOpenQuotientMap (Prod.map id N.mkQ : G × W → G × (W ⧸ N)) :=
+      IsOpenQuotientMap.id.prodMap N.isOpenQuotientMap_mkQL
+    rw [hq.isQuotientMap.continuous_iff]
+    exact N.mkQL.continuous.comp hρ
+  -- the isometry
+  have hmemQ (f : E) : N.mkQ (f : W) ∈ actionIsotype (ρQ.comp K.subtype) ω := by
+    refine (mem_actionIsotype _ _ _).2 fun k ↦ ?_
+    change ρQ k (N.mkQ (f : W)) = _
+    rw [hρQ, show ρ k (f : W) = (ω k : ℂ) • (f : W) from (mem_actionIsotype _ _ _).1 f.2 k,
+      map_smul]
+  let L₀ : E →ₗ[ℂ] actionIsotype (ρQ.comp K.subtype) ω :=
+    LinearMap.codRestrict _ (N.mkQ ∘ₗ E.subtype) hmemQ
+  have hL₀ : M ≤ LinearMap.ker L₀ := fun f hf ↦ by
+    apply Subtype.ext
+    exact (Submodule.Quotient.mk_eq_zero N).2 hf
+  let L : (E ⧸ M) →ₗ[ℂ] actionIsotype (ρQ.comp K.subtype) ω := M.liftQ L₀ hL₀
+  have hL (f : E) : (L (M.mkQ f) : W ⧸ N) = N.mkQ (f : W) := rfl
+  -- the projection `c⁻¹ • A` onto `E`
+  have hfix (f : E) : P f = (c : ℂ) • (f : W) :=
+    spectralSobolevIsotypeQuotient_isometry_fix K ρ ω μ P hA f.2
+  have hnorm (w : W) : ‖P w‖ ≤ c * ‖w‖ :=
+    spectralSobolevIsotypeQuotient_isometry_norm K ρ hK ω μ P hA w
+  let B (w : W) : E := (c⁻¹ : ℂ) • A w
+  have hB (f : E) (w : W) (hw : N.mkQ w = N.mkQ (f : W)) : M.mkQ (B w) = M.mkQ f := by
+    apply (Submodule.Quotient.eq M).2
+    change ((c⁻¹ : ℂ) • P w - (f : W)) ∈ N
+    have h1 : w - (f : W) ∈ N := (Submodule.Quotient.eq N).1 hw
+    have h2 := spectralSobolevIsotypeQuotient_isometry_mem K ρ N hN ω μ P hA h1
+    rw [map_sub, hfix f] at h2
+    have hc' : (c : ℂ) ≠ 0 := by exact_mod_cast hc.ne'
+    convert N.smul_mem (c⁻¹ : ℂ) h2 using 1
+    rw [smul_sub, smul_smul, inv_mul_cancel₀ hc', one_smul]
+  have hBn (w : W) : ‖B w‖ ≤ ‖w‖ := by
+    change ‖(c⁻¹ : ℂ) • P w‖ ≤ ‖w‖
+    rw [norm_smul, norm_inv, Complex.norm_real, Real.norm_of_nonneg hc.le]
+    calc c⁻¹ * ‖P w‖ ≤ c⁻¹ * (c * ‖w‖) := by gcongr; exact hnorm w
+      _ = ‖w‖ := by field_simp
+  have hiso (x : E ⧸ M) : ‖L x‖ = ‖x‖ := by
+    obtain ⟨f, rfl⟩ := M.mkQ_surjective x
+    change ‖N.mkQ (f : W)‖ = ‖M.mkQ f‖
+    apply le_antisymm
+    · refine le_of_forall_pos_lt_add fun ε hε ↦ ?_
+      obtain ⟨m, hm, hmε⟩ := Submodule.Quotient.norm_mk_lt (M.mkQ f) hε
+      have hmN : N.mkQ (m : W) = N.mkQ (f : W) := by
+        apply (Submodule.Quotient.eq N).2
+        exact (Submodule.Quotient.eq M).1 hm
+      rw [← hmN]
+      exact (Submodule.Quotient.norm_mk_le N (m : W)).trans_lt hmε
+    · refine le_of_forall_pos_lt_add fun ε hε ↦ ?_
+      obtain ⟨w, hw, hwε⟩ := Submodule.Quotient.norm_mk_lt (N.mkQ (f : W)) hε
+      rw [← hB f w hw]
+      exact ((Submodule.Quotient.norm_mk_le M (B w)).trans (hBn w)).trans_lt hwε
+  have hsurj : Surjective L := by
+    rintro ⟨y, hy⟩
+    obtain ⟨w, rfl⟩ := N.mkQ_surjective y
+    refine ⟨M.mkQ (B w), Subtype.ext ?_⟩
+    rw [hL]
+    change N.mkQ ((c⁻¹ : ℂ) • P w) = N.mkQ w
+    have hw : ∀ k : K, N.mkQ (ρ k w) = (ω k : ℂ) • N.mkQ w := fun k ↦
+      (mem_actionIsotype _ _ _).1 hy k
+    rw [map_smul, spectralSobolevIsotypeQuotient_isometry_quotFix K ρ N ω μ P hA hw, smul_smul,
+      inv_mul_cancel₀ (by exact_mod_cast hc.ne'), one_smul]
+  exact ⟨LinearIsometryEquiv.ofSurjective ⟨L, hiso⟩ hsurj, fun f ↦ rfl⟩
+
 /-- Paper: (10.2.1.2), p. 439, and (10.2.2.2), p. 445. The isotype quotient
 maps isometrically onto the isotype of the full quotient by inclusion of
 representatives. The isotype action is the restriction of the continuous
@@ -113,7 +326,35 @@ theorem spectralSobolevIsotypeQuotient_isometry (a : ℝ) {l r s : ℝ} (hI : l 
       Continuous (fun p : C𝔽 × Q ↦ ρQ p.1 p.2) ∧
       ∃ U : spectralSobolevIsotypeQuotient F a hI hs ω ≃ₗᵢ[ℂ]
           actionIsotype (ρQ.comp (ideleClassNorm F).ker.subtype) ω,
-        ∀ f : E, (U ((N.comap E.subtype).mkQ f) : Q) = N.mkQ f.val := by sorry
+        ∀ f : E, (U ((N.comap E.subtype).mkQ f) : Q) = N.mkQ f.val := by
+  let : CompactSpace C₁ := (ideleClassGroup_finiteness F).2.1
+  let : (normOneIdeleClassTamagawaMeasure F).IsHaarMeasure :=
+    (multiplicativeTamagawaMeasures_existsUnique F).exists.choose_spec.2.2.2.1
+  have hρ := (exists_hardySobolevTranslation μ𝔽 m𝔽 l r s hI hs).choose_spec.2
+  have hA := (existsUnique_thetaSobolevAverage_of_compact (ideleClassNorm F).ker
+    (normOneIdeleClassTamagawaMeasure F) (hardySobolevTranslation μ𝔽 m𝔽 l r s hI hs) hρ
+    ω).exists
+  have hR := (exists_globalThetaSobolevAction (F := F) a hI hs).choose_spec.1
+  have hN (g : C𝔽) (n : W(l, r, s)) (hn : n ∈ Θ(a, hI, hs)) :
+      hardySobolevTranslation μ𝔽 m𝔽 l r s hI hs g n ∈ Θ(a, hI, hs) := by
+    rw [← hR g ⟨n, hn⟩]
+    exact (_ : ↥(Θ(a, hI, hs))).2
+  have hK (k : C₁) (u : W(l, r, s)) :
+      ‖hardySobolevTranslation μ𝔽 m𝔽 l r s hI hs k u‖ ≤ ‖u‖ := by
+    have h1 : ((m𝔽 (k : C𝔽)).val : ℝ) = 1 := by
+      have h : ideleClassNorm F (k : C𝔽) = 1 := k.2
+      change (((ideleClassNorm F (k : C𝔽)).val : ℝ≥0) : ℝ) = 1
+      rw [h]
+      rfl
+    have h := norm_hardySobolevTranslation_le μ𝔽 m𝔽 l r s hI hs (k : C𝔽)
+    simp only [h1, Real.log_one, mul_zero, Real.exp_zero, max_self, abs_zero, add_zero,
+      Real.one_rpow, mul_one] at h
+    exact (ContinuousLinearMap.le_opNorm _ _).trans (mul_le_of_le_one_left (norm_nonneg _) h)
+  have hμ : normOneIdeleClassTamagawaMeasure F univ ≠ 0 :=
+    isOpen_univ.measure_ne_zero _ univ_nonempty
+  exact spectralSobolevIsotypeQuotient_isometry_abstract (ideleClassNorm F).ker
+    (hardySobolevTranslation μ𝔽 m𝔽 l r s hI hs) hρ (Θ(a, hI, hs)) hN hK ω
+    (normOneIdeleClassTamagawaMeasure F) hμ hA.choose hA.choose_spec.1
 
 /-- Paper: (10.2.1.3), pp. 439–440, and (10.2.2.3), p. 445. The Sobolev
 duality evaluates the unweighted bilinear product integral. -/
@@ -686,24 +927,6 @@ local notation "lineHs(" hs ")" => le_of_lt (zero_lt_one.trans hs)
 local notation "lineU(" χ ", " hs ")" =>
   (fun j ↦ (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j)))
 
-/-- Paper: Theorem 10.2.1.1, pp. 440–443. The weighted theta closure is
-the common kernel of the admitted line jets.
-Gap: The proof on p. 443 does not identify this closure in the line norm. -/
-theorem spectralLineJet_commonKernel (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
-    (_hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
-    let u : SpectralLineJetIndex χ a s → W'(0, 0, s) := lineU(χ, hs)
-    JetKernel(a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by sorry
-
-/-- Paper: Theorem 10.2.1.1, pp. 440–443. Single-jet interpolants have
-representatives whose images span a dense subspace of the line quotient.
-Gap: The asserted finite-band adjoint range does not supply these interpolants
-and their density. -/
-theorem spectralLineJet_denseInterpolants (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
-    (_hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
-    let J := SpectralLineJetIndex χ a s
-    let u : J → W'(0, 0, s) := lineU(χ, hs)
-    JetInterpolation(J, a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by sorry
-
 /-- Paper: Theorem 10.2.1.1, p. 440. The norm-one dual and the discrete
 zero sets in its charts give countably many admitted line jets. -/
 theorem spectralLineJet_countable (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (a s : ℝ) :
@@ -742,21 +965,6 @@ theorem spectralLineJet_countable (χ : PontryaginDual C₁ → PontryaginDual C
   have hk := congrArg (fun p : PontryaginDual C₁ × W × ℕ ↦ p.2.2) hij
   exact Subtype.ext (Prod.ext hω (Prod.ext (by simpa [e] using him) hk))
 
-/-- Paper: Theorem 10.2.1.1 and Terminology 10.2.1.1, p. 440. The a-line
-jets represent quotient functionals and admit a Markushevich biorthogonal family.
-Deviation: Index directly by the admitted jets, so reindexing permits any
-enumeration, including finite and empty families. Apply the strict cutoff. -/
-theorem spectralLineMarkushevichBasis (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
-    (hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
-    let J := SpectralLineJetIndex χ a s
-    let Q := spectralSobolevQuotient F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
-    let D := spectralSobolevDualEmbedding F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
-    Countable J ∧ ∃ (x : J → Q) (Λ : J → StrongDual ℂ Q), IsSpectralMarkushevichBasis x Λ ∧
-      ∀ j, D (Λ j) = (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j)) := by
-  exact ⟨spectralLineJet_countable χ a s, spectralSobolevQuotient_basis_of_interpolation a
-    (le_rfl (a := (0 : ℝ))) (lineHs(hs)) (lineU(χ, hs))
-    (spectralLineJet_commonKernel χ hχ hs) (spectralLineJet_denseInterpolants χ hχ hs)⟩
-
 section TestDuality
 
 local notation "E" => ModulatedExponentialDecay m𝔽 univ
@@ -764,6 +972,95 @@ local notation "ρE" => (exists_modulatedExponentialDecay_translationAction m�
   hm𝔽 hms𝔽 ordConnected_univ univ_nonempty).choose
 local notation "Eω(" ω ")" => actionIsotype ((ρE).comp (ideleClassNorm F).ker.subtype) ω
 local notation "ℬ₀" => ↥(adelePolarSubspace F)
+
+/-- A jointly continuous family on a compact parameter space preserves sequence
+convergence uniformly in the parameter. -/
+private theorem existsUnique_spectralLineTestCompletion_uniform
+    {H Z : Type*} [TopologicalSpace H] [CompactSpace H] [UniformSpace Z]
+    (T : H → Z → Z) (hT : Continuous (fun p : H × Z ↦ T p.1 p.2))
+    (u : ℕ → Z) (v : Z) (hu : Tendsto u atTop (𝓝 v)) :
+    TendstoUniformly (fun n k ↦ T k (u n)) (fun k ↦ T k v) atTop := by
+  intro U hU
+  have hc : Continuous (fun p : Z × H ↦ T p.2 p.1) := hT.comp continuous_swap
+  obtain ⟨V, hV, h⟩ := (isCompact_univ (X := H)).mem_uniformity_of_prod
+    (f := fun f : Z ↦ fun k : H ↦ T k f)
+    (s := univ) (q := v) hc.continuousOn (mem_univ v) (symm_le_uniformity hU)
+  rw [nhdsWithin_univ] at hV
+  filter_upwards [hu.eventually hV] with n hn k
+  exact h (u n) hn k (mem_univ k)
+
+/-- Compact character averaging preserves density of an equivariant map. -/
+private theorem existsUnique_spectralLineTestCompletion_dense
+    {H X Y : Type*} [CommGroup H] [TopologicalSpace H] [IsTopologicalGroup H]
+    [T2Space H] [MeasurableSpace H] [BorelSpace H] [CompactSpace H]
+    [AddCommGroup X] [Module ℂ X] [UniformSpace X] [IsUniformAddGroup X]
+    [T2Space X] [PolynormableSpace ℂ X] [CompleteSpace X]
+    [NormedAddCommGroup Y] [NormedSpace ℂ Y] [CompleteSpace Y]
+    (μ : Measure H) [μ.IsHaarMeasure]
+    (σ : H →* (X →L[ℂ] X)) (τ : H →* (Y →L[ℂ] Y))
+    (hσ : Continuous (fun p : H × X ↦ σ p.1 p.2))
+    (hτ : Continuous (fun p : H × Y ↦ τ p.1 p.2))
+    (hborn : ∀ p : Seminorm ℂ X,
+      (∀ B : Set X, Bornology.IsVonNBounded ℂ B → BddAbove (p '' B)) → Continuous p)
+    (ω : PontryaginDual H) (j : X →L[ℂ] Y) (hd : DenseRange j)
+    (heq : ∀ k f, j (σ k f) = τ k (j f))
+    (i : actionIsotype σ ω →L[ℂ] actionIsotype τ ω)
+    (hi : ∀ f, (i f : Y) = j (f : X)) : DenseRange i := by
+  letI : Module ℝ X := Module.restrictScalars ℝ ℂ X
+  letI : IsScalarTower ℝ ℂ X := IsScalarTower.restrictScalars ℝ ℂ X
+  letI : LocallyConvexSpace ℝ X :=
+    (PolynormableSpace.withSeminorms ℂ X).toLocallyConvexSpace
+  letI : NormedSpace ℝ Y := NormedSpace.complexToReal
+  have hbornY (p : Seminorm ℂ Y)
+      (hp : ∀ B : Set Y, Bornology.IsVonNBounded ℂ B → BddAbove (p '' B)) :
+      Continuous p := by
+    obtain ⟨M, hM⟩ := hp _ (NormedSpace.isVonNBounded_closedBall ℂ Y 1)
+    have hball : p.closedBall 0 (max M 0 + 1) ∈ 𝓝 (0 : Y) := by
+      refine Filter.mem_of_superset (Metric.closedBall_mem_nhds (0 : Y) zero_lt_one) ?_
+      intro x hx
+      rw [Seminorm.mem_closedBall_zero]
+      exact (hM ⟨x, hx, rfl⟩).trans
+        (le_of_lt <| lt_of_le_of_lt (le_max_left M 0) (lt_add_one _))
+    exact p.continuous' hball
+  obtain ⟨A, hA⟩ := (existsUnique_compactActionIsotypicAverage μ σ hσ
+    hborn (existsUnique_spectralLineTestCompletion_uniform (Z := X)
+      (fun k f ↦ σ k f) hσ) ω).exists
+  obtain ⟨B, hB⟩ := (existsUnique_compactActionIsotypicAverage μ τ hτ
+    hbornY (existsUnique_spectralLineTestCompletion_uniform (Z := Y)
+      (fun k f ↦ τ k f) hτ) ω).exists
+  have hrangeA := compactActionAverage_range μ σ hσ ω A hA
+  have hrangeB := compactActionAverage_range μ τ hτ ω B hB
+  let A' := A.codRestrict (actionIsotype σ ω) (by
+    intro u
+    rw [← hrangeA]
+    exact ⟨u, rfl⟩)
+  let B' := B.codRestrict (actionIsotype τ ω) (by
+    intro u
+    rw [← hrangeB]
+    exact ⟨u, rfl⟩)
+  have hsurj : Surjective B' := by
+    intro u
+    have hu : (u : Y) ∈ B.toLinearMap.range := hrangeB.symm ▸ u.property
+    obtain ⟨v, hv⟩ := hu
+    exact ⟨v, Subtype.ext hv⟩
+  have hcomm (f : X) : j (A f) = B (j f) := by
+    letI : SeparatingDual ℂ Y := locallyConvexSpace_separatingDual ℂ Y
+    apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+    intro φ
+    obtain ⟨_, hs⟩ := hA f
+    obtain ⟨_, ht⟩ := hB (j f)
+    have hs' := LinearMap.congr_fun hs (φ.comp j)
+    have ht' := LinearMap.congr_fun ht φ
+    change φ (j (A f)) =
+      ∫ k : H, φ (j (star (ω k : ℂ) • σ k f)) ∂μ.restrict univ at hs'
+    change φ (B (j f)) =
+      ∫ k : H, φ (star (ω k : ℂ) • τ k (j f)) ∂μ.restrict univ at ht'
+    simpa only [map_smul j, heq, ← ht'] using hs'
+  have hcomp : (i : _ → _) ∘ A' = (B' : _ → _) ∘ j :=
+    funext fun f ↦ Subtype.ext ((hi (A' f)).trans (hcomm f))
+  apply DenseRange.of_comp (g := A')
+  rw [hcomp]
+  exact hsurj.denseRange.comp hd B'.continuous
 
 /-- Paper: (10.2.1.7), p. 441. The weighted completion map on exponential-decay
 tests preserves the norm-one isotype and has dense image in its Sobolev isotype.
@@ -780,7 +1077,129 @@ theorem existsUnique_spectralLineTestCompletion (a : ℝ) {s : ℝ} (hs : 0 ≤ 
         ∃ T : W'(0, 0, s) →L[ℂ] StrongDual ℂ Eω(ω),
           (∀ u φ, T u φ = spectralSobolevPairing (F := F) (i φ).val u) ∧
           ∀ u, (∀ k : C₁, (fun g ↦ u (k.val⁻¹ * g)) =ᵐ[μ𝔽]
-            fun g ↦ (ω⁻¹ k : ℂ) * u g) → T u = 0 → u = 0 := by sorry
+            fun g ↦ (ω⁻¹ k : ℂ) * u g) → T u = 0 → u = 0 := by
+  have hshift : (fun b : ℝ ↦ b - a) '' univ = univ :=
+    image_univ_of_surjective fun b ↦ ⟨b + a, add_sub_cancel_right b a⟩
+  have hShiftEx : ∃ S : E ≃L[ℂ] E,
+      ∀ f, (S f).val = modulationWeight m𝔽 a f.val :=
+    (congrArg (fun J : Set ℝ ↦ ∃ S : E ≃L[ℂ] ModulatedExponentialDecay m𝔽 J,
+      ∀ f, (S f).val = modulationWeight m𝔽 a f.val) hshift).mp
+      (modulatedExponentialDecay_shift_equiv (G := C𝔽) m𝔽 univ hm𝔽 hms𝔽
+        ordConnected_univ univ_nonempty a)
+  let S := hShiftEx.choose
+  have hS := hShiftEx.choose_spec
+  have hDenseEx :=
+    modulatedIntervalSobolev_dense (G := C𝔽) m𝔽 hm𝔽 0 0 s le_rfl hs univ
+      isOpen_univ ordConnected_univ (subset_univ _)
+  let j₀ := hDenseEx.choose
+  have hj₀inj := hDenseEx.choose_spec.1
+  have hj₀dense := hDenseEx.choose_spec.2.1
+  have hj₀coe := hDenseEx.choose_spec.2.2
+  have hEquivEx := globalThetaAmbient_equiv_canonical (F := F) hm𝔽 0 0 s
+  let e := hEquivEx.choose
+  have he := hEquivEx.choose_spec
+  let j : E →L[ℂ] W(0, 0, s) :=
+    e.symm.toContinuousLinearMap.comp (j₀.comp S.toContinuousLinearMap)
+  have hjinj : Injective j := e.symm.injective.comp (hj₀inj.comp S.injective)
+  have hjdense : DenseRange j := e.symm.surjective.denseRange.comp
+    (hj₀dense.comp S.surjective.denseRange j₀.continuous) e.symm.continuous
+  have hj (f : E) : (j f : C𝔽 → ℂ) =ᵐ[μ𝔽] modulationWeight m𝔽 a f.val := by
+    have h₀ : (j₀ (S f) : C𝔽 → ℂ) =ᵐ[μ𝔽] (S f).val := by
+      rw [ideleClassTamagawaMeasure_eq_smul_canonical (F := F)]
+      exact Measure.ae_smul_measure (hj₀coe (S f)) _
+    have he' := (he (j f)).1
+    have hej : e (j f) = j₀ (S f) := by simp [j]
+    rw [hej] at he'
+    exact he'.symm.trans (h₀.trans (ae_of_all _ fun g ↦ congrFun (hS f) g))
+  let σ : C₁ →* (E →L[ℂ] E) := (ρE).comp (ideleClassNorm F).ker.subtype
+  let τ : C₁ →* (W(0, 0, s) →L[ℂ] W(0, 0, s)) := ρ(0, 0, s, le_rfl, hs)
+  have hE := (exists_modulatedExponentialDecay_translationAction (G := C𝔽) m𝔽 univ
+    hm𝔽 hms𝔽 ordConnected_univ univ_nonempty).choose_spec
+  have hjρ (k : C₁) (f : E) : j (σ k f) = τ k (j f) := by
+    apply Lp.ext
+    apply (withDensity_absolutelyContinuous μ𝔽 _).ae_eq
+    have htr := hardySobolevTranslation_apply μ𝔽 m𝔽 0 0 s le_rfl hs k.val (j f)
+    have ht := (measurePreserving_mul_left μ𝔽 k.val⁻¹).quasiMeasurePreserving.ae_eq_comp (hj f)
+    filter_upwards [hj (σ k f), htr, ht] with g hleft hright hcomp
+    change (j f) (k.val⁻¹ * g) = (modulationWeight m𝔽 a f.val) (k.val⁻¹ * g) at hcomp
+    have hweight : (modulationWeight m𝔽 a (σ k f).val) g =
+        (modulationWeight m𝔽 a f.val) (k.val⁻¹ * g) := by
+      have hk : m𝔽 k.val = 1 := k.property
+      have hn : m𝔽 (k.val⁻¹ * g) = m𝔽 g := by
+        rw [map_mul, map_inv, hk, inv_one, one_mul]
+      change Complex.ofReal (((m𝔽 g).val : ℝ) ^ a) * ((ρE) k.val f).val g =
+        Complex.ofReal (((m𝔽 (k.val⁻¹ * g)).val : ℝ) ^ a) * f.val (k.val⁻¹ * g)
+      have hv := congrArg (fun z : ℂ ↦ Complex.ofReal (((m𝔽 g).val : ℝ) ^ a) * z)
+        (hE.1 k.val f g)
+      have hw := congrArg (fun t : ℝ≥0ˣ ↦
+        Complex.ofReal ((t.val : ℝ) ^ a) * f.val (k.val⁻¹ * g)) hn.symm
+      exact hv.trans hw
+    exact hleft.trans (hweight.trans (hcomp.symm.trans hright.symm))
+  let i : actionIsotype σ ω →L[ℂ] actionIsotype τ ω :=
+    (j.comp (actionIsotype σ ω).subtypeL).codRestrict (actionIsotype τ ω) (by
+      intro φ
+      apply (mem_actionIsotype τ ω _).2
+      intro k
+      change τ k (j φ.val) = (ω k : ℂ) • j φ.val
+      rw [← hjρ, ((mem_actionIsotype σ ω _).1 φ.property k), map_smul])
+  have hicoe (φ : Eω(ω)) : ((i φ).val : C𝔽 → ℂ) =ᵐ[μ𝔽]
+      modulationWeight m𝔽 a φ.val.val := hj φ.val
+  letI : T2Space E := T2Space.of_injective_continuous (f := j) hjinj j.continuous
+  let q : IdeleGroup (𝓞 F) F →ₜ* C𝔽 := ⟨QuotientGroup.mk' _, continuous_quotient_mk'⟩
+  let sectionNorm : ℝ≥0ˣ →ₜ* C𝔽 := q.comp
+    ⟨canonicalIdeleNormSection F, canonicalIdeleNormSection_continuous F⟩
+  have hsection : Function.RightInverse sectionNorm m𝔽 := canonicalIdeleNormSection_rightInverse F
+  letI : CompleteSpace E := modulatedExponentialDecay_complete (G := C𝔽) m𝔽 univ hm𝔽
+    ordConnected_univ univ_nonempty sectionNorm hsection
+  letI : CompactSpace C₁ :=
+    isCompact_iff_compactSpace.mp (IsModulation.isCompact_ker (m := m𝔽) hm𝔽)
+  letI : MeasurableSpace C₁ := borel _
+  letI : BorelSpace C₁ := ⟨rfl⟩
+  have hσ : Continuous (fun p : C₁ × E ↦ σ p.1 p.2) :=
+    hE.2.comp ((continuous_subtype_val.comp continuous_fst).prodMk continuous_snd)
+  have hτ : Continuous (fun p : C₁ × W(0, 0, s) ↦ τ p.1 p.2) :=
+    (exists_hardySobolevTranslation μ𝔽 m𝔽 0 0 s le_rfl hs).choose_spec.2.comp
+      ((continuous_subtype_val.comp continuous_fst).prodMk continuous_snd)
+  have hidense : DenseRange i := existsUnique_spectralLineTestCompletion_dense
+    (H := C₁) (X := E) (Y := W(0, 0, s)) Measure.haar σ τ hσ hτ
+    (modulatedExponentialDecay_bornological (G := C𝔽) m𝔽 univ hm𝔽 ordConnected_univ
+      univ_nonempty sectionNorm hsection) ω j hjdense hjρ i (fun _ ↦ rfl)
+  let D : StrongDual ℂ W(0, 0, s) ≃ₗᵢ[ℂ] W'(0, 0, s) :=
+    (modulatedIntervalSobolev_dual m𝔽 hm𝔽 μ𝔽 0 0 s le_rfl hs).exists.choose
+  let T' : W'(0, 0, s) →L[ℂ] StrongDual ℂ Eω(ω) :=
+    (((actionIsotype τ ω).subtypeL.comp i).precomp ℂ).comp
+      D.symm.toContinuousLinearEquiv.toContinuousLinearMap
+  have hT (u : W'(0, 0, s)) (φ : Eω(ω)) :
+      T' u φ = spectralSobolevPairing (F := F) (i φ).val u := by
+    change (D.symm u) (i φ).val = _
+    have h := (spectralSobolevPairing_dual le_rfl hs (D.symm u) (i φ).val).2
+    change (D.symm u) (i φ).val = spectralSobolevPairing (F := F) (i φ).val
+      (D (D.symm u)) at h
+    exact h.trans (congrArg (spectralSobolevPairing (F := F) (i φ).val) (D.apply_symm_apply u))
+  refine ⟨i, ⟨hicoe, hidense, T', hT, ?_⟩, ?_⟩
+  · intro u hu hTu
+    let Λ : StrongDual ℂ (actionIsotype τ ω) := (D.symm u).comp (actionIsotype τ ω).subtypeL
+    have hΛ : Λ = 0 := by
+      apply DFunLike.coe_injective
+      apply hidense.equalizer Λ.continuous (0 : StrongDual ℂ (actionIsotype τ ω)).continuous
+      funext φ
+      change T' u φ = 0
+      exact congrArg (fun L : StrongDual ℂ Eω(ω) ↦ L φ) hTu
+    by_contra hu0
+    obtain ⟨f, hf⟩ := (spectralSobolevPairing_isotype le_rfl hs ω).2 u hu hu0
+    apply hf
+    have h := (spectralSobolevPairing_dual le_rfl hs (D.symm u) f.val).2
+    change (D.symm u) f.val = spectralSobolevPairing (F := F) f.val
+      (D (D.symm u)) at h
+    exact (h.trans (congrArg (spectralSobolevPairing (F := F) f.val)
+      (D.apply_symm_apply u))).symm.trans
+        (congrArg (fun L : StrongDual ℂ (actionIsotype τ ω) ↦ L f) hΛ)
+  · intro i' hi'
+    apply ContinuousLinearMap.ext
+    intro φ
+    apply Subtype.ext
+    exact Lp.ext ((withDensity_absolutelyContinuous μ𝔽 _).ae_eq
+      ((hi'.1 φ).trans (hicoe φ).symm))
 
 /-- Paper: (10.2.1.8), pp. 441–442. Pullback sends a functional on the
 isotypic Sobolev quotient injectively into the test dual and annihilates
@@ -1296,26 +1715,6 @@ theorem spectralFamily_singleton_normalized {E : Type*} [NormedAddCommGroup E] (
     (_hx : x ≠ 0) : IsNormalizedSpectralFamily (fun _ : Unit ↦ x) := by
   exact ⟨⟨‖x‖, fun _ ↦ le_rfl⟩, ‖x‖, norm_pos_iff.mpr _hx, fun _ ↦ le_rfl⟩
 
-/-- Paper: Corollary 10.2.1.4, p. 444. The a-line basis in the quotient dual
-is normalized in the norm of its realization in the negative space.
-Deviation: Apply the strict cutoff and allow finite or empty index types. -/
-theorem spectralLineMarkushevichBasis_normalized
-    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
-    {a s : ℝ} (hs : 1 < s) :
-    let J := SpectralLineJetIndex χ a s
-    let Q := spectralSobolevQuotient F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
-    let D := spectralSobolevDualEmbedding F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
-    ∃ (x : J → Q) (Λ : J → StrongDual ℂ Q), IsSpectralMarkushevichBasis x Λ ∧
-      (∀ j, D (Λ j) = (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j))) ∧
-      IsNormalizedSpectralFamily (fun j ↦ D (Λ j)) := by
-  obtain ⟨x, Λ, hB, hD⟩ := (spectralLineMarkushevichBasis (a := a) χ _hχ hs).2
-  obtain ⟨C, hC, hbound⟩ := spectralLineJet_annulus (a := a) χ _hχ hs
-  refine ⟨x, Λ, hB, hD, ⟨C, ?_⟩, ⟨C⁻¹, inv_pos.mpr hC, ?_⟩⟩
-  · intro j
-    simpa only [hD j] using (hbound j).2
-  · intro j
-    simpa only [hD j] using (hbound j).1
-
 -- TODO(paper-gap): The general claim about the Schauder property on p. 444
 -- lacks a proof. The primal normalization invoked again on p. 451 is false:
 -- close simple critical-line zeta zeros give jets at distance tending to zero,
@@ -1324,6 +1723,263 @@ theorem spectralLineMarkushevichBasis_normalized
 section BandProjections
 
 attribute [local instance] instDualMeasurableSpaceSec3
+
+/-- Orthogonal projections onto closures of subspaces converge strongly whenever each
+vector has a convergent sequence of approximants in the corresponding subspaces. -/
+private theorem spectralLineIsotype_bandProjections_of_approximants
+    {Q : Type*} [NormedAddCommGroup Q] [InnerProductSpace ℂ Q] [CompleteSpace Q]
+    (S : ℕ → Submodule ℂ Q)
+    (happrox : ∀ q : Q, ∃ y : ℕ → Q,
+      (∀ n, y n ∈ S n) ∧ Tendsto y atTop (𝓝 q)) :
+    ∃ P : ℕ → (Q →L[ℂ] Q),
+      (∀ n, Set.range (P n) = closure (S n : Set Q)) ∧
+      (∀ n q y, y ∈ closure (S n : Set Q) → ‖q - P n q‖ ≤ ‖q - y‖) ∧
+      ∀ q, Tendsto (fun n ↦ P n q) atTop (𝓝 q) := by
+  let C (n : ℕ) := (S n).topologicalClosure
+  let : ∀ n, CompleteSpace (C n) := fun n ↦
+    (Submodule.isClosed_topologicalClosure (S n)).completeSpace_coe
+  let P (n : ℕ) : Q →L[ℂ] Q := (C n).starProjection
+  have hmin (n : ℕ) (q y : Q) (hy : y ∈ closure (S n : Set Q)) :
+      ‖q - P n q‖ ≤ ‖q - y‖ := by
+    change ‖q - (C n).starProjection q‖ ≤ ‖q - y‖
+    rw [Submodule.starProjection_minimal]
+    exact ciInf_le ⟨0, Set.forall_mem_range.mpr fun _ ↦ norm_nonneg _⟩
+      (⟨y, hy⟩ : C n)
+  refine ⟨P, ?_, hmin, ?_⟩
+  · intro n
+    change ((C n).starProjection.range : Set Q) = closure (S n : Set Q)
+    rw [Submodule.range_starProjection]
+    rfl
+  · intro q
+    obtain ⟨y, hy, hlim⟩ := happrox q
+    apply tendsto_iff_dist_tendsto_zero.mpr
+    refine squeeze_zero (fun n ↦ dist_nonneg) (fun n ↦ ?_)
+      (tendsto_iff_dist_tendsto_zero.mp hlim)
+    calc
+      dist (P n q) q = ‖q - P n q‖ := by
+        simpa only [dist_eq_norm] using norm_sub_rev (P n q) q
+      _ ≤ ‖q - y n‖ := hmin n q (y n) (subset_closure (hy n))
+      _ = dist (y n) q := by
+        simpa only [dist_eq_norm] using norm_sub_rev q (y n)
+
+/-- A Fourier band defines a submodule, and its image under a linear quotient map
+agrees with the description using any almost-everywhere equal L² representative. -/
+private theorem spectralLineIsotype_bandProjections_band_submodule
+    {X Y E Q : Type*} [MeasurableSpace X] [MeasurableSpace Y]
+    [AddCommGroup E] [Module ℂ E] [AddCommGroup Q] [Module ℂ Q]
+    (μ : Measure X) (ν : Measure Y)
+    (r : E → X → ℂ) (J : E →ₗ[ℂ] Lp ℂ 2 μ)
+    (hJ : ∀ f, (J f : X → ℂ) =ᵐ[μ] r f)
+    (q : E →ₗ[ℂ] Q) (U : Lp ℂ 2 μ →ₗ[ℂ] Lp ℂ 2 ν) (band : Set Y) :
+    ∃ S : Submodule ℂ Q, (S : Set Q) =
+      {z : Q | ∃ f : E, z = q f ∧ ∃ u : Lp ℂ 2 μ,
+        (u : X → ℂ) =ᵐ[μ] r f ∧ ∀ᵐ ψ ∂ν, ψ ∉ band → U u ψ = 0} := by
+  let A : Submodule ℂ (Lp ℂ 2 ν) := {
+    carrier := {v | ∀ᵐ ψ ∂ν, ψ ∉ band → v ψ = 0}
+    zero_mem' := by
+      filter_upwards [Lp.coeFn_zero (E := ℂ) (p := 2) (μ := ν)] with ψ hψ
+      exact fun _ ↦ hψ
+    add_mem' := by
+      intro v w hv hw
+      change ∀ᵐ ψ ∂ν, ψ ∉ band → (v + w) ψ = 0
+      filter_upwards [Lp.coeFn_add v w, hv, hw] with ψ hψ hvψ hwψ
+      intro hψband
+      rw [hψ, Pi.add_apply, hvψ hψband, hwψ hψband, add_zero]
+    smul_mem' := by
+      intro c v hv
+      change ∀ᵐ ψ ∂ν, ψ ∉ band → (c • v) ψ = 0
+      filter_upwards [Lp.coeFn_smul c v, hv] with ψ hψ hvψ
+      intro hψband
+      rw [hψ, Pi.smul_apply, hvψ hψband, smul_zero]
+  }
+  refine ⟨(A.comap (U.comp J)).map q, ?_⟩
+  ext z
+  constructor
+  · rintro ⟨f, hf, rfl⟩
+    exact ⟨f, rfl, J f, hJ f, hf⟩
+  · rintro ⟨f, rfl, u, hu, hUu⟩
+    refine ⟨f, ?_, rfl⟩
+    have heq : u = J f := Lp.ext (hu.trans (hJ f).symm)
+    change ∀ᵐ ψ ∂ν, ψ ∉ band → U (J f) ψ = 0
+    simpa only [heq] using hUu
+
+/-- Set-valued version of the projection argument, allowing the Fourier-band submodules
+to be constructed independently from their concrete sets. -/
+private theorem spectralLineIsotype_bandProjections_of_sets
+    {Q : Type*} [NormedAddCommGroup Q] [InnerProductSpace ℂ Q] [CompleteSpace Q]
+    (B : ℕ → Set Q) (hsub : ∀ n, ∃ S : Submodule ℂ Q, (S : Set Q) = B n)
+    (happrox : ∀ q : Q, ∃ y : ℕ → Q,
+      (∀ n, y n ∈ B n) ∧ Tendsto y atTop (𝓝 q)) :
+    ∃ P : ℕ → (Q →L[ℂ] Q),
+      (∀ n, Set.range (P n) = closure (B n)) ∧
+      (∀ n q y, y ∈ closure (B n) → ‖q - P n q‖ ≤ ‖q - y‖) ∧
+      ∀ q, Tendsto (fun n ↦ P n q) atTop (𝓝 q) := by
+  choose S hS using hsub
+  have happrox' : ∀ q : Q, ∃ y : ℕ → Q,
+      (∀ n, y n ∈ S n) ∧ Tendsto y atTop (𝓝 q) := by
+    intro q
+    obtain ⟨y, hy, hlim⟩ := happrox q
+    refine ⟨y, fun n ↦ ?_, hlim⟩
+    change y n ∈ (S n : Set Q)
+    rw [hS n]
+    exact hy n
+  obtain ⟨P, hrange, hmin, hlim⟩ :=
+    spectralLineIsotype_bandProjections_of_approximants S happrox'
+  refine ⟨P, fun n ↦ ?_, fun n q y hy ↦ ?_, hlim⟩
+  · simpa only [hS n] using hrange n
+  · apply hmin n q y
+    simpa only [hS n] using hy
+
+/-- A surjective continuous linear image of supported approximants admits strongly
+convergent orthogonal projections onto the closures of the corresponding bands. -/
+private theorem spectralLineIsotype_bandProjections_of_supported_approximants
+    {X Y E Q : Type*} [MeasurableSpace X] [MeasurableSpace Y]
+    [NormedAddCommGroup E] [NormedSpace ℂ E]
+    [NormedAddCommGroup Q] [InnerProductSpace ℂ Q] [CompleteSpace Q]
+    (μ : Measure X) (ν : Measure Y)
+    (r : E → X → ℂ) (J : E →ₗ[ℂ] Lp ℂ 2 μ)
+    (hJ : ∀ f, (J f : X → ℂ) =ᵐ[μ] r f)
+    (q : E →L[ℂ] Q) (hq : Surjective q)
+    (U : Lp ℂ 2 μ →ₗ[ℂ] Lp ℂ 2 ν) (band : ℕ → Set Y)
+    (R : ℕ → E → E)
+    (hsupport : ∀ n f, ∀ᵐ ψ ∂ν, ψ ∉ band n → U (J (R n f)) ψ = 0)
+    (hlim : ∀ f, Tendsto (fun n ↦ R n f) atTop (𝓝 f)) :
+    let B (n : ℕ) := {z : Q | ∃ f : E, z = q f ∧ ∃ u : Lp ℂ 2 μ,
+      (u : X → ℂ) =ᵐ[μ] r f ∧ ∀ᵐ ψ ∂ν, ψ ∉ band n → U u ψ = 0}
+    ∃ P : ℕ → (Q →L[ℂ] Q),
+      (∀ n, Set.range (P n) = closure (B n)) ∧
+      (∀ n z y, y ∈ closure (B n) → ‖z - P n z‖ ≤ ‖z - y‖) ∧
+      ∀ z, Tendsto (fun n ↦ P n z) atTop (𝓝 z) := by
+  intro B
+  have hmem (n : ℕ) (f : E) : q (R n f) ∈ B n :=
+    ⟨R n f, rfl, J (R n f), hJ (R n f), hsupport n f⟩
+  have happrox (z : Q) : ∃ y : ℕ → Q,
+      (∀ n, y n ∈ B n) ∧ Tendsto y atTop (𝓝 z) := by
+    obtain ⟨f, rfl⟩ := hq z
+    refine ⟨fun n ↦ q (R n f), fun n ↦ hmem n f, ?_⟩
+    exact q.continuous.continuousAt.tendsto.comp (hlim f)
+  have hsub (n : ℕ) : ∃ S : Submodule ℂ Q, (S : Set Q) = B n := by
+    exact spectralLineIsotype_bandProjections_band_submodule μ ν r J hJ
+      q.toLinearMap U (band n)
+  exact spectralLineIsotype_bandProjections_of_sets B hsub happrox
+
+private theorem spectralLineIsotype_bandProjections_support_closed
+    {X : Type*} [MeasurableSpace X] (ν : Measure X) (S : Set X)
+    (hS : MeasurableSet S) :
+    IsClosed {f : Lp ℂ 2 ν | ∀ᵐ x ∂ν, x ∉ S → f x = 0} := by
+  obtain ⟨P, -, hP⟩ := hardySobolevCutoff_spec (μ := ν) hS
+  have hset : {f : Lp ℂ 2 ν | ∀ᵐ x ∂ν, x ∉ S → f x = 0} =
+      {f : Lp ℂ 2 ν | P f = f} := by
+    ext f
+    constructor
+    · intro hf
+      apply Lp.ext
+      filter_upwards [(hP f).2.2, hf] with x hx hfx
+      rw [hx]
+      by_cases hxs : x ∈ S
+      · exact Set.indicator_of_mem hxs _
+      · rw [Set.indicator_of_notMem hxs, hfx hxs]
+    · intro hf
+      filter_upwards [(hP f).2.2] with x hx
+      intro hxs
+      rw [hf] at hx
+      exact hx.trans (Set.indicator_of_notMem hxs _)
+  rw [hset]
+  exact isClosed_eq P.continuous continuous_id
+
+private theorem spectralLineIsotype_bandProjections_dense_integrable
+    {G : Type*} [TopologicalSpace G] [T2Space G] [LocallyCompactSpace G]
+    [NormalSpace G]
+    [MeasurableSpace G] [BorelSpace G] (μ w : Measure G)
+    [IsLocallyFiniteMeasure μ] [w.Regular] (hle : μ ≤ w) :
+    Dense {u : Lp ℂ 2 w | Integrable (u : G → ℂ) μ} := by
+  intro u
+  apply EMetric.mem_closure_iff.mpr
+  intro ε hε
+  obtain ⟨r, hr, hlt⟩ := exists_between hε
+  obtain ⟨f, hc, he, hf, hm⟩ :=
+    (Lp.memLp u).exists_hasCompactSupport_eLpNorm_sub_le (by simp) hr.ne'
+  refine ⟨hm.toLp f,
+    (hf.integrable_of_hasCompactSupport hc).congr (ae_mono hle hm.coeFn_toLp.symm), ?_⟩
+  rw [Lp.edist_def, eLpNorm_congr_ae (EventuallyEq.rfl.sub hm.coeFn_toLp)]
+  exact he.trans_lt hlt
+
+private theorem spectralLineIsotype_bandProjections_convolution_support
+    {G : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G]
+    [T2Space G] [LocallyCompactSpace G] [SecondCountableTopology G]
+    [MeasurableSpace G] [BorelSpace G]
+    (μ : Measure G) [μ.IsHaarMeasure] (ν : Measure (PontryaginDual G))
+    (hν : IsLCAPlancherelMeasure μ ν) (w : Measure G) [w.Regular]
+    (hle : μ ≤ w) (J : Lp ℂ 2 w →L[ℂ] Lp ℂ 2 μ)
+    (hJ : ∀ u, (J u : G → ℂ) =ᵐ[μ] (u : G → ℂ))
+    (τ : G →* (Lp ℂ 2 w →L[ℂ] Lp ℂ 2 w))
+    (hτ : ∀ g u, (τ g u : G → ℂ) =ᵐ[μ] fun x ↦ u (g⁻¹ * x))
+    (hcτ : Continuous (fun z : G × Lp ℂ 2 w ↦ τ z.1 z.2))
+    (φ : G → ℂ) (hφ : Integrable φ μ) (A : Lp ℂ 2 w →L[ℂ] Lp ℂ 2 w)
+    (hA : ∀ u, HasPettisIntegral (.positive μ) (fun g ↦ φ g • τ g u) (A u))
+    (u : Lp ℂ 2 w) :
+    ∀ᵐ ψ ∂ν, ψ ∉ tsupport (lcaFourier μ φ) →
+      (lcaFourier_unitary μ ν hν).exists.choose (J (A u)) ψ = 0 := by
+  let : BorelSpace (PontryaginDual G) := ⟨rfl⟩
+  let U := (lcaFourier_unitary μ ν hν).exists.choose
+  let S := tsupport (lcaFourier μ φ)
+  have hclosed : IsClosed {u : Lp ℂ 2 w |
+      ∀ᵐ ψ ∂ν, ψ ∉ S → U (J (A u)) ψ = 0} :=
+    (spectralLineIsotype_bandProjections_support_closed ν S
+      (isClosed_tsupport _).measurableSet).preimage
+      (U.continuous.comp (J.continuous.comp A.continuous))
+  have hD := spectralLineIsotype_bandProjections_dense_integrable μ w hle
+  apply hclosed.closure_subset_iff.mpr ?_ (hD u)
+  intro z hz
+  let f := lcaConvolution μ φ z
+  have hv : (J (A z) : G → ℂ) =ᵐ[μ] f :=
+    pettis_convolution_haar_L2 μ J hJ τ hτ hcτ φ hφ z (A z) (hA z)
+  have hf : MemLp f 2 μ := (Lp.memLp (J (A z))).ae_eq hv
+  have heq : J (A z) = hf.toLp f := Lp.ext (hv.trans hf.coeFn_toLp.symm)
+  have hFourier : (U (J (A z)) : PontryaginDual G → ℂ) =ᵐ[ν] lcaFourier μ f := by
+    rw [heq]
+    exact (lcaFourier_unitary μ ν hν).exists.choose_spec f
+      (lcaConvolution_integrable μ hφ hz).2.1 hf
+  filter_upwards [hFourier] with ψ hψ
+  intro hψS
+  rw [hψ, show lcaFourier μ f = _ from lcaFourier_convolution μ hφ hz,
+    Pi.mul_apply, image_eq_zero_of_notMem_tsupport hψS, zero_mul]
+
+private theorem spectralLineIsotype_bandProjections_zeroLine_support
+    {G : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G]
+    [T2Space G] [LocallyCompactSpace G] [SecondCountableTopology G]
+    [MeasurableSpace G] [BorelSpace G]
+    (μ : Measure G) [μ.IsHaarMeasure] (m : G →ₜ* ℝ≥0ˣ) (s : ℝ) (hs : 0 ≤ s)
+    (ν : Measure (PontryaginDual G)) (hν : IsLCAPlancherelMeasure μ ν) :
+    let W := CompactIntervalSobolev μ (fun x ↦ Real.log ((m x).val : ℝ)) 0 0 s
+    let A := (existsUnique_schwartzBruhat_zeroLineAction μ m s hs).exists.choose
+    let U := (lcaFourier_unitary μ ν hν).exists.choose
+    ∃ J : W →L[ℂ] Lp ℂ 2 μ,
+      (∀ u, (J u : G → ℂ) =ᵐ[μ] (u : G → ℂ)) ∧
+      ∀ (φ : SchwartzBruhat G) (u : W), ∀ᵐ ψ ∂ν,
+        ψ ∉ tsupport (lcaFourier μ φ) → U (J (A φ u)) ψ = 0 := by
+  intro W A U
+  let w := μ.withDensity fun x ↦ ENNReal.ofReal
+    (intervalSobolevDensity 0 0 s (Real.log ((m x).val : ℝ)))
+  have hle : μ ≤ w := by
+    calc
+      μ = μ.withDensity 1 := withDensity_one.symm
+      _ ≤ _ := withDensity_mono (.of_forall fun x ↦ by
+        change 1 ≤ ENNReal.ofReal (intervalSobolevDensity 0 0 s _)
+        rw [ENNReal.one_le_ofReal]
+        simpa [intervalSobolevDensity] using Real.one_le_rpow
+          (le_add_of_nonneg_right (sq_nonneg _)) (by linarith : 0 ≤ s / 2))
+  let : IsLocallyFiniteMeasure w := IsLocallyFiniteMeasure.withDensity_ofReal
+    ((continuous_intervalSobolevDensity 0 0 s).comp (continuous_logModule' m))
+  obtain ⟨J, hJ⟩ := exists_L2_restriction w μ hle
+  refine ⟨J, hJ, ?_⟩
+  intro φ u
+  exact spectralLineIsotype_bandProjections_convolution_support μ ν hν w hle J hJ
+    (hardySobolevTranslation μ m 0 0 s le_rfl hs)
+    (hardySobolevTranslation_apply μ m 0 0 s le_rfl hs)
+    (exists_hardySobolevTranslation μ m 0 0 s le_rfl hs).choose_spec.2
+    (φ : G → ℂ) ((schwartzBruhat_fourier_equiv μ).choose_spec φ).1 (A φ)
+    ((existsUnique_schwartzBruhat_zeroLineAction μ m s hs).exists.choose_spec φ) u
 
 /-- Paper: Remark 10.2.1.5, p. 444. The projections on the isotypic quotient
 onto the closures of the images of the Fourier bands converge strongly to
@@ -1343,7 +1999,40 @@ theorem spectralLineIsotype_bandProjections (χ : PontryaginDual C𝔽) (a : ℝ
     ∃ P : ℕ → (Q →L[ℂ] Q),
       (∀ n, range (P n) = closure (B n)) ∧
       (∀ n q y, y ∈ closure (B n) → ‖q - P n q‖ ≤ ‖q - y‖) ∧
-      ∀ q, Tendsto (fun n ↦ P n q) atTop (𝓝 q) := by sorry
+      ∀ q, Tendsto (fun n ↦ P n q) atTop (𝓝 q) := by
+  intro hI ω E N Q U B
+  have hrestriction :=
+    spectralLineIsotype_bandProjections_zeroLine_support (G := C𝔽) μ𝔽 m𝔽 s hs ν hν
+  let J := hrestriction.choose
+  have hJ := hrestriction.choose_spec.1
+  have hJsupp := hrestriction.choose_spec.2
+  have hconvolution := exists_spectralLineIsotypeConvolution (F := F) χ hs
+  let φ := hconvolution.choose
+  let R := hconvolution.choose_spec.choose
+  have hband := hconvolution.choose_spec.choose_spec.2.2.1
+  have hR := hconvolution.choose_spec.choose_spec.2.2.2.1
+  have hlim := hconvolution.choose_spec.choose_spec.2.2.2.2
+  have hsupported (n : ℕ) (f : E) :
+      ∀ᵐ ψ ∂ν, ψ ∉ modulatedFrequencyBand m𝔽 χ⁻¹ (-(n : ℝ)) n →
+        U (J (R n f).val) ψ = 0 := by
+    have hsupp := hJsupp (φ n) f.val
+    rw [hR n f]
+    filter_upwards [hsupp] with ψ hψ
+    intro hψband
+    exact hψ (fun hψsupp ↦ hψband (hband n hψsupp))
+  let hEclosed : IsClosed (E : Set W(0, 0, s)) :=
+    instClosedSpectralIsotypeSec2 (F := F) hI hs ω
+  let : CompleteSpace E := hEclosed.completeSpace_coe
+  let hNclosed : IsClosed (N : Set E) :=
+    instClosedSpectralIsotypeThetaSec2 (F := F) a hI hs ω
+  let : CompleteSpace N := hNclosed.completeSpace_coe
+  exact spectralLineIsotype_bandProjections_of_supported_approximants
+    (X := C𝔽) (Y := PontryaginDual C𝔽) (E := E) (Q := Q)
+    μ𝔽 ν (fun f : E ↦ (f.val : C𝔽 → ℂ))
+    (J.toLinearMap.comp E.subtype) (fun f ↦ hJ f.val)
+    N.mkQL N.mkQ_surjective U.toLinearEquiv.toLinearMap
+    (fun n ↦ modulatedFrequencyBand m𝔽 χ⁻¹ (-(n : ℝ)) n)
+    (fun n f ↦ R n f) hsupported hlim
 
 end BandProjections
 
@@ -1569,6 +2258,211 @@ theorem spectralStripJet_memLp (χ : PontryaginDual C₁ → PontryaginDual C�
     ENNReal.toReal_ofReal (inv_nonneg.mpr (symmIntervalSobolevDensity_pos _hα s (logNorm g)).le),
     stripJet_integrand_eq _hα]
 
+section
+
+open Polynomial
+open scoped Polynomial
+
+/-- Multiplying distinct powers of an additive coordinate by one character preserves
+linear independence when the coordinate has infinite range. -/
+private theorem jetPowers_independent {G : Type*} [Group G] (χ : G →* ℂ)
+    (L : G → ℂ) (hL : (range L).Infinite) :
+    LinearIndependent ℂ (fun n : ℕ ↦ fun g ↦ χ g * (L g) ^ n) := by
+  let E : ℂ[X] →ₗ[ℂ] (G → ℂ) :=
+    { toFun := fun p g ↦ χ g * p.eval (L g)
+      map_add' := fun p q ↦ funext fun g ↦ by simp [mul_add]
+      map_smul' := fun r p ↦ funext fun g ↦ by simp [smul_eq_mul, mul_left_comm] }
+  have einj : Injective E := by
+    intro p q h
+    apply Polynomial.eq_of_infinite_eval_eq
+    refine hL.mono ?_
+    rintro _ ⟨g, rfl⟩
+    exact mul_left_cancel₀ ((Group.isUnit g).map χ).ne_zero (congrFun h g)
+  have h := (Polynomial.basisMonomials ℂ).linearIndependent.map' E (LinearMap.ker_eq_bot.mpr einj)
+  simpa only [Function.comp_def, Polynomial.coe_basisMonomials, E, LinearMap.coe_mk, AddHom.coe_mk,
+    Polynomial.eval_monomial, one_mul] using h
+
+/-- Translations put the character times the mth power of an additive coordinate in
+the simultaneous generalized eigenspace of that character. -/
+private theorem jetPowers_mem_weight {G : Type*} [CommGroup G] (χ : G →* ℂ) (L : G → ℂ)
+    (hL : ∀ g y, L (g * y) = L g + L y)
+    (τ : G → Module.End ℂ (G → ℂ)) (hτ : ∀ g f y, τ g f y = f (g * y)) (m : ℕ) :
+    (fun g ↦ χ g * (L g) ^ m) ∈ ⨅ g, (τ g).maxGenEigenspace (χ g) := by
+  apply (Submodule.mem_iInf _).mpr
+  intro g
+  let v (i : ℕ) (y : G) := χ y * (L y) ^ i
+  let δ := τ g - χ g • (1 : Module.End ℂ (G → ℂ))
+  change v m ∈ (τ g).maxGenEigenspace (χ g)
+  induction m using Nat.strong_induction_on with | ind m ih => ?_
+  let c (i : ℕ) := χ g * (L g) ^ (m - i) * (m.choose i : ℂ)
+  have diff : δ (v m) = ∑ i ∈ Finset.range m, c i • v i := by
+    funext y
+    change τ g (v m) y - χ g * v m y = _
+    rw [hτ]
+    have hsum : v m (g * y) = ∑ i ∈ Finset.range (m+1), c i * v i y := by
+      simp only [v, map_mul, hL]
+      rw [add_comm (L g), add_pow, Finset.mul_sum]
+      refine Finset.sum_congr rfl fun i hi ↦ ?_
+      dsimp only [c]
+      ring
+    rw [hsum, Finset.sum_range_succ]
+    simp [c, Finset.sum_apply]
+  have hmem : δ (v m) ∈ (τ g).maxGenEigenspace (χ g) := by
+    rw [diff]
+    exact Submodule.sum_mem _ fun i hi ↦ Submodule.smul_mem _ _ (ih i (Finset.mem_range.mp hi))
+  obtain ⟨k, hk⟩ := (Module.End.mem_maxGenEigenspace _ _ _).mp hmem
+  apply (Module.End.mem_maxGenEigenspace _ _ _).mpr
+  exact ⟨k+1, by simpa only [pow_succ, mul_apply_eq_comp] using hk⟩
+
+/-- Exponential polynomials attached to distinct characters have independent coefficients. -/
+private theorem jetPowers_all_independent {G Z : Type*} [CommGroup G]
+    (χ : Z → G →* ℂ) (hc : Injective χ) (L : G → ℂ)
+    (hL : ∀ g y, L (g * y) = L g + L y) (hi : (range L).Infinite) :
+    LinearIndependent ℂ (fun zn : (_ : Z) × ℕ ↦ fun g ↦ χ zn.1 g * (L g) ^ zn.2) := by
+  let τ (g : G) : Module.End ℂ (G → ℂ) :=
+    { toFun := fun f y ↦ f (g * y), map_add' := by intros; rfl, map_smul' := by intros; rfl }
+  have ht (g f y) : τ g f y = f (g * y) := rfl
+  have hcomm (a b : G) : Commute (τ a) (τ b) := by
+    apply LinearMap.ext
+    intro f
+    funext y
+    change f (b * (a * y)) = f (a * (b * y))
+    rw [mul_left_comm]
+  have hind : iSupIndep (fun ψ : G → ℂ ↦ ⨅ g, (τ g).maxGenEigenspace (ψ g)) :=
+    Module.End.independent_iInf_maxGenEigenspace_of_forall_mapsTo τ
+    (fun i j p ↦ Module.End.mapsTo_maxGenEigenspace_of_comm (hcomm j i) p)
+  let V (z : Z) (n : ℕ) := fun g ↦ χ z g * (L g) ^ n
+  have hiχ : Injective (fun z g ↦ χ z g) := fun _ _ h ↦ hc (MonoidHom.ext (congrFun h))
+  have hspaces : iSupIndep fun z ↦ Submodule.span ℂ (range (V z)) :=
+    (hind.comp hiχ).mono (by
+      intro z
+      apply Submodule.span_le.mpr
+      rintro _ ⟨n, rfl⟩
+      exact jetPowers_mem_weight (χ z) L hL τ ht n)
+  apply linearIndependent_iUnion_finite (f := V) (fun z ↦ jetPowers_independent (χ z) L hi)
+  exact fun _ _ _ hz ↦ hspaces.disjoint_biSup hz
+
+section StripJetIndependence
+
+private theorem spectralStripJet_twist_injective
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (hχ : IsSpectralBasepointChoice χ) :
+    Injective (fun p : PontryaginDual C₁ × ℂ ↦ (ideleClassNormTwist (χ p.1) p.2).toMonoidHom) := by
+  have hres (ω : PontryaginDual C₁) (z : ℂ) (g : C₁) :
+      ideleClassNormTwist (χ ω) z g.val = (ω g : ℂ) := by
+    change (χ ω g.val : ℂ) * ((((ideleClassNorm F g.val).val : ℝ) : ℂ) ^ z) = _
+    rw [show ideleClassNorm F g.val = 1 from g.property]
+    simp only [Units.val_one, NNReal.coe_one, Complex.ofReal_one, Complex.one_cpow, mul_one]
+    exact congrArg ((↑) : Circle → ℂ) (DFunLike.congr_fun (hχ ω) g)
+  rintro ⟨ω, z⟩ ⟨η, w⟩ he
+  have htw : ideleClassNormTwist (χ ω) z = ideleClassNormTwist (χ η) w :=
+    ContinuousMonoidHom.ext fun g ↦ DFunLike.congr_fun he g
+  have hω : ω = η := by
+    ext g : 1
+    apply Subtype.ext
+    exact (hres ω z g).symm.trans ((DFunLike.congr_fun htw g.val).trans (hres η w g))
+  subst η
+  have hu := hχ.existsUnique_normTwist ω (ideleClassNormTwist (χ ω) z) (hres ω z)
+  exact Prod.ext rfl (hu.unique rfl htw)
+
+/-- Distinct choices of base character, both real coordinates of a norm twist, or
+logarithmic degree give linearly independent functions on the idele class group. -/
+private theorem spectralAdelicJet_linearIndependent
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (hχ : IsSpectralBasepointChoice χ) :
+    LinearIndependent ℂ (fun j : PontryaginDual C₁ × ℝ × ℝ × ℕ ↦
+      spectralZeroJet (χ j.1) j.2.1 j.2.2.1 j.2.2.2) := by
+  let L (g : C𝔽) : ℂ := logNorm g
+  have hadd (g y : C𝔽) : L (g * y) = L g + L y := by
+    dsimp only [L]
+    rw [map_mul, Units.val_mul, NNReal.coe_mul, Real.log_mul
+      (NNReal.coe_ne_zero.2 (ideleClassNorm F g).ne_zero)
+      (NNReal.coe_ne_zero.2 (ideleClassNorm F y).ne_zero), Complex.ofReal_add]
+  have hinf : (range L).Infinite := by
+    refine (Set.infinite_range_of_injective Complex.ofReal_injective).mono ?_
+    rintro _ ⟨r, rfl⟩
+    let e : ℝ ≃ₜ ℝ≥0ˣ := Real.expOrderIso.toHomeomorph.trans (Nonneg.unitsHomeomorphPos ℝ).symm
+    let g : C𝔽 := QuotientGroup.mk (canonicalIdeleNormSection F (e r))
+    have hg : ideleClassNorm F g = e r := canonicalIdeleNormSection_rightInverse F _
+    refine ⟨g, ?_⟩
+    change (Real.log ((ideleClassNorm F g).val : ℝ) : ℂ) = r
+    rw [hg]
+    exact congrArg ((↑) : ℝ → ℂ) (Real.log_exp r)
+  let char (p : PontryaginDual C₁ × ℂ) := (ideleClassNormTwist (χ p.1) p.2).toMonoidHom
+  let key (j : PontryaginDual C₁ × ℝ × ℝ × ℕ) : (_ : PontryaginDual C₁ × ℂ) × ℕ :=
+    ⟨(j.1, shift(j.2.1, j.2.2.1)), j.2.2.2⟩
+  have hk : Injective key := by
+    intro i j he
+    have hω := congrArg (fun p ↦ p.1.1) he
+    have hre := congrArg (fun p ↦ p.1.2.re) he
+    have him := congrArg (fun p ↦ p.1.2.im) he
+    have hn : i.2.2.2 = j.2.2.2 := eq_of_heq (Sigma.mk.inj he).2
+    exact Prod.ext hω (Prod.ext (by simpa [key] using hre) (Prod.ext (by simpa [key] using him) hn))
+  exact (jetPowers_all_independent char (spectralStripJet_twist_injective χ hχ) L hadd hinf).comp key hk
+
+private theorem spectralStripJet_raw_linearIndependent
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (hχ : IsSpectralBasepointChoice χ) (a α s : ℝ) :
+    LinearIndependent ℂ (fun j : SpectralStripJetIndex χ a α s ↦
+      spectralZeroJet (χ j.val.1) j.val.2.1 j.val.2.2.1 j.val.2.2.2) :=
+  (spectralAdelicJet_linearIndependent χ hχ).comp Subtype.val Subtype.val_injective
+
+open Filter MeasureTheory
+
+/-- Continuous representatives remain linearly independent in L² when a measure positive
+on open sets is absolutely continuous with respect to the L² measure. -/
+private theorem jetFunctions_toLp_independent {X I : Type*} [TopologicalSpace X]
+    [MeasurableSpace X] (μ ν : Measure X) [μ.IsOpenPosMeasure] (hμ : μ ≪ ν)
+    (f : I → X → ℂ) (hc : ∀ i, Continuous (f i)) (hm : ∀ i, MemLp (f i) 2 ν)
+    (hi : LinearIndependent ℂ f) :
+    LinearIndependent ℂ (fun i ↦ (hm i).toLp (f i)) := by
+  rw [linearIndependent_iff'] at hi ⊢
+  intro t c hz
+  apply hi t c
+  have he (i : I) : ((c i • (hm i).toLp (f i) : Lp ℂ 2 ν) : X → ℂ) =ᵐ[ν] c i • f i :=
+    (Lp.coeFn_smul _ _).trans ((hm i).coeFn_toLp.const_smul _)
+  have hsum : (⇑(∑ i ∈ t, c i • (hm i).toLp (f i)) : X → ℂ) =ᵐ[ν] ∑ i ∈ t, c i • f i :=
+    (Lp.coeFn_finsetSum _ _).trans (eventuallyEq_sum fun i _ ↦ he i)
+  rw [hz] at hsum
+  apply MeasureTheory.Measure.eq_of_ae_eq (hμ.ae_le (hsum.symm.trans (Lp.coeFn_zero _ _ _)))
+  · have hfun : (∑ i ∈ t, c i • f i) = fun x ↦ ∑ i ∈ t, (c i • f i) x := by
+      funext x
+      exact Finset.sum_apply _ _ _
+    rw [hfun]
+    exact continuous_finsetSum t fun i _ ↦ (hc i).const_smul (c i)
+  · exact continuous_zero
+
+/-- Paper: Theorem 10.2.2.1, p. 446. The surviving strip jets form a linearly
+independent family in reciprocal-weight L². This holds already for finite
+linear combinations, before passing to any quotient or choosing interpolants. -/
+theorem spectralStripJet_toLp_linearIndependent
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (hχ : IsSpectralBasepointChoice χ)
+    (a : ℝ) {α s : ℝ} (hα : 0 ≤ α) (hs : 0 ≤ s) :
+    LinearIndependent ℂ (fun j : SpectralStripJetIndex χ a α s ↦
+      (spectralStripJet_memLp χ hα hs j).toLp (spectralZeroJet
+        (χ j.val.1) j.val.2.1 j.val.2.2.1 j.val.2.2.2)) := by
+  let μ := ideleClassTamagawaMeasure F
+  let w (g : C𝔽) := intervalSobolevDensity (-α) α s (logNorm g)
+  let ν := μ.withDensity (fun g ↦ ENNReal.ofReal (w g)⁻¹)
+  have hw : Measurable w := by
+    have hD : Continuous (intervalSobolevDensity (-α) α s) := by
+      unfold intervalSobolevDensity
+      fun_prop
+    exact hD.measurable.comp ((NNReal.continuous_coe.comp
+      (Units.continuous_val.comp (isProperMap_ideleClassNorm F).continuous)).measurable.log)
+  have habs : μ ≪ ν := by
+    refine withDensity_absolutelyContinuous' hw.inv.ennreal_ofReal.aemeasurable (.of_forall fun g ↦ ?_)
+    refine ENNReal.ofReal_ne_zero_iff.mpr (inv_pos.mpr ?_)
+    exact mul_pos (lt_max_of_lt_left (Real.exp_pos _)) (Real.rpow_pos_of_pos (by positivity) _)
+  have hlog : Continuous logNorm := (NNReal.continuous_coe.comp
+    (Units.continuous_val.comp (isProperMap_ideleClassNorm F).continuous)).log
+      (fun g ↦ NNReal.coe_ne_zero.2 (ideleClassNorm F g).ne_zero)
+  apply jetFunctions_toLp_independent μ ν habs _ (fun j ↦ ?_) _
+    (spectralStripJet_raw_linearIndependent χ hχ a α s)
+  exact (ideleClassNormTwist (χ j.val.1) (shift(j.val.2.1, j.val.2.2.1))).continuous.mul
+    ((Complex.continuous_ofReal.comp hlog).pow _)
+
+end StripJetIndependence
+
+end
+
 local notation "stripI(" hα ")" => (neg_nonpos.mpr hα |>.trans hα)
 local notation "stripU(" χ ", " hα ", " hs ")" =>
   (fun j ↦ (spectralStripJet_memLp χ hα hs j).toLp (stripJet(χ, j)))
@@ -1592,6 +2486,118 @@ theorem spectralStripJet_denseInterpolants (χ : PontryaginDual C₁ → Pontrya
     let J := SpectralStripJetIndex χ a α s
     let u : J → W'(-α, α, s) := stripU(χ, hα, hs)
     JetInterpolation(J, a, stripI(hα), hs, u) := by sorry
+
+/-- At width zero the real offset of each strip jet is zero, and its remaining
+indices give exactly one line jet with the same function representative. -/
+private theorem spectralLineJet_zeroWidth_indices (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
+    (a s : ℝ) :
+    ∃ e : SpectralLineJetIndex χ a s ≃ SpectralStripJetIndex χ a 0 s,
+      ∀ i, stripJet(χ, e i) = lineJet(χ, i) := by
+  let L := SpectralLineJetIndex χ a s
+  let Z := SpectralStripJetIndex χ a 0 s
+  have hoff (j : Z) : j.val.2.1 = 0 := by
+    simpa using (SpectralStripJetIndex.mem_strip_order_pos (le_refl (0 : ℝ)) j).1
+  have hmult (n : ℕ) : spectralStripMultiplicity 0 s 0 n = spectralBoundaryMultiplicity s n :=
+    spectralStripMultiplicity_boundary le_rfl (Or.inr rfl) s n
+  let e : L ≃ Z :=
+    { toFun := fun i ↦ ⟨(i.val.1, 0, i.val.2.1, i.val.2.2), by
+        simpa only [add_zero, hmult] using i.property⟩
+      invFun := fun j ↦ ⟨(j.val.1, j.val.2.2.1, j.val.2.2.2), by
+        simpa only [hoff j, add_zero, hmult] using j.property⟩
+      left_inv := fun _ ↦ Subtype.ext rfl
+      right_inv := fun j ↦ Subtype.ext (Prod.ext rfl (Prod.ext (hoff j).symm rfl)) }
+  exact ⟨e, fun _ ↦ rfl⟩
+
+/-- Transport a statement about the reindexed reciprocal-weight vectors from
+the interval [−0, 0] to the identical line Sobolev space. -/
+private theorem spectralLineJet_zeroWidth_transport (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
+    (a : ℝ) {s : ℝ} (hs : 1 < s)
+    (P : ∀ {l : ℝ}, l ≤ 0 → (SpectralLineJetIndex χ a s → W'(l, 0, s)) → Prop)
+    (h : ∀ (e : SpectralLineJetIndex χ a s ≃ SpectralStripJetIndex χ a 0 s),
+      P (stripI(le_refl (0 : ℝ))) (fun i ↦ stripU(χ, le_refl (0 : ℝ), lineHs(hs)) (e i))) :
+    P (le_refl (0 : ℝ)) (lineU(χ, hs)) := by
+  obtain ⟨e, he⟩ := spectralLineJet_zeroWidth_indices χ a s
+  let claim (l : ℝ) (hl : l ≤ 0) := ∀ hm : ∀ i : SpectralLineJetIndex χ a s,
+    MemLp (lineJet(χ, i)) 2 L2μ'(l, 0, s), P hl (fun i ↦ (hm i).toLp (lineJet(χ, i)))
+  have hstrip : claim (-0) (stripI(le_refl (0 : ℝ))) := by
+    intro hm
+    have eqv : (fun i ↦ stripU(χ, le_refl (0 : ℝ), lineHs(hs)) (e i)) =
+        fun i ↦ (hm i).toLp (lineJet(χ, i)) := by
+      funext i
+      exact MemLp.toLp_congr _ _ (Filter.Eventually.of_forall (congrFun (he i)))
+    exact eqv ▸ h e
+  have transport (l : ℝ) (hl : l ≤ 0) (hl0 : l = 0) : claim l hl → claim 0 le_rfl := by
+    subst l
+    exact id
+  exact transport (-0) _ neg_zero hstrip (spectralLineJet_memLp χ hs)
+
+/-- Paper: Theorem 10.2.1.1, pp. 440–443. The weighted theta closure is
+the common kernel of the admitted line jets.
+Gap: The line approximation required on p. 443 is the width-zero case of the strip common-kernel assertion. -/
+theorem spectralLineJet_commonKernel (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
+    (_hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
+    let u : SpectralLineJetIndex χ a s → W'(0, 0, s) := lineU(χ, hs)
+    JetKernel(a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by
+  apply spectralLineJet_zeroWidth_transport χ a hs
+    (fun hl u ↦ JetKernel(a, hl, lineHs(hs), u))
+  intro e y
+  refine (spectralStripJet_commonKernel (a := a) χ _hχ (le_refl (0 : ℝ)) (lineHs(hs)) y).trans ?_
+  exact e.surjective.forall
+
+/-- Paper: Theorem 10.2.1.1, pp. 440–443. Single-jet interpolants have
+representatives whose images span a dense subspace of the line quotient.
+Gap: The interpolation and density asserted on p. 443 follow from the corresponding
+strip assertion at width zero. -/
+theorem spectralLineJet_denseInterpolants (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
+    (_hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
+    let J := SpectralLineJetIndex χ a s
+    let u : J → W'(0, 0, s) := lineU(χ, hs)
+    JetInterpolation(J, a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by
+  apply spectralLineJet_zeroWidth_transport χ a hs
+    (fun hl u ↦ JetInterpolation(SpectralLineJetIndex χ a s, a, hl, lineHs(hs), u))
+  intro e
+  obtain ⟨v, hv, hc, hd⟩ :=
+    spectralStripJet_denseInterpolants (a := a) χ _hχ (le_refl (0 : ℝ)) (lineHs(hs))
+  refine ⟨v ∘ e, fun i ↦ hv (e i), fun i j hij ↦ hc (e i) (e j) (e.injective.ne hij), ?_⟩
+  let q := (Θ(a, stripI(le_refl (0 : ℝ)), lineHs(hs))).mkQ
+  change Dense (Submodule.span ℂ (range ((fun j ↦ q (v j)) ∘ e)) :
+    Set (spectralSobolevQuotient F a (stripI(le_refl (0 : ℝ))) (lineHs(hs))))
+  rwa [e.surjective.range_comp]
+
+/-- Paper: Theorem 10.2.1.1 and Terminology 10.2.1.1, p. 440. The a-line
+jets represent quotient functionals and admit a Markushevich biorthogonal family.
+Deviation: Index directly by the admitted jets, so reindexing permits any
+enumeration, including finite and empty families. Apply the strict cutoff. -/
+theorem spectralLineMarkushevichBasis (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
+    (hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
+    let J := SpectralLineJetIndex χ a s
+    let Q := spectralSobolevQuotient F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
+    let D := spectralSobolevDualEmbedding F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
+    Countable J ∧ ∃ (x : J → Q) (Λ : J → StrongDual ℂ Q), IsSpectralMarkushevichBasis x Λ ∧
+      ∀ j, D (Λ j) = (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j)) := by
+  exact ⟨spectralLineJet_countable χ a s, spectralSobolevQuotient_basis_of_interpolation a
+    (le_rfl (a := (0 : ℝ))) (lineHs(hs)) (lineU(χ, hs))
+    (spectralLineJet_commonKernel χ hχ hs) (spectralLineJet_denseInterpolants χ hχ hs)⟩
+
+/-- Paper: Corollary 10.2.1.4, p. 444. The a-line basis in the quotient dual
+is normalized in the norm of its realization in the negative space.
+Deviation: Apply the strict cutoff and allow finite or empty index types. -/
+theorem spectralLineMarkushevichBasis_normalized
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
+    {a s : ℝ} (hs : 1 < s) :
+    let J := SpectralLineJetIndex χ a s
+    let Q := spectralSobolevQuotient F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
+    let D := spectralSobolevDualEmbedding F a (le_rfl (a := (0 : ℝ))) (le_of_lt (zero_lt_one.trans hs))
+    ∃ (x : J → Q) (Λ : J → StrongDual ℂ Q), IsSpectralMarkushevichBasis x Λ ∧
+      (∀ j, D (Λ j) = (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j))) ∧
+      IsNormalizedSpectralFamily (fun j ↦ D (Λ j)) := by
+  obtain ⟨x, Λ, hB, hD⟩ := (spectralLineMarkushevichBasis (a := a) χ _hχ hs).2
+  obtain ⟨C, hC, hbound⟩ := spectralLineJet_annulus (a := a) χ _hχ hs
+  refine ⟨x, Λ, hB, hD, ⟨C, ?_⟩, ⟨C⁻¹, inv_pos.mpr hC, ?_⟩⟩
+  · intro j
+    simpa only [hD j] using (hbound j).2
+  · intro j
+    simpa only [hD j] using (hbound j).1
 
 /-- Paper: Theorem 10.2.2.1, p. 446. The discrete divisor in each norm
 chart gives countably many strip jets over the countable norm-one dual. -/
