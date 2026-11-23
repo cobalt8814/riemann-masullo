@@ -1660,14 +1660,6 @@ theorem realDiracDerivative_one (f : 𝓢(ℝ, ℂ)) :
   change (-1 : ℂ) ^ 1 • (((SchwartzMap.derivCLM ℂ ℂ) ^ 1) f) 0 = _
   rw [pow_one, pow_one, SchwartzMap.derivCLM_apply, neg_one_smul]
 
-/-- Paper: Theorem 5.3.2.1, p. 243.
-Every real tempered distribution supported at zero is a finite linear combination of
-derivatives of the Dirac distribution at zero. -/
-theorem realTemperedDistribution_eq_sum_diracDerivative (T : StrongDual ℂ 𝓢(ℝ, ℂ))
-    (hT : TemperedSupportedAtOrigin T) :
-    ∃ (N : ℕ) (c : Fin (N + 1) → ℂ),
-      T = ∑ k : Fin (N + 1), c k • realDiracDerivative k.val := by sorry
-
 /-- Paper: Theorem 5.3.2.1(1), p. 243.
 The flat real Schwartz subspace is the intersection of the kernels of all Dirac derivatives. -/
 def realSchwartzFlatAtOrigin : Submodule ℂ 𝓢(ℝ, ℂ) :=
@@ -2242,6 +2234,95 @@ theorem realDiracDerivatives_polynomialEquiv :
       norm_neg, norm_one, one_pow, one_mul, Complex.norm_natCast]
     gcongr
     exact (div_le_self (norm_nonneg _) hf1).trans hB
+
+/-- Paper: Theorem 5.3.2.1, p. 243.
+The support hypothesis in Theorem 5.3.2.1 is used only here: a tempered distribution whose
+support is the origin annihilates every Schwartz function flat at the origin. This is the
+structure theorem for distributions supported at a point in the form the quotient by the flat
+subspace needs, and it is the one analytic step of the printed proof.
+Gap: The printed proof quotes Hormander's structure theorem for distributions supported at a
+point. In this development it has to be built from the support hypothesis: a flat function
+times a shrinking bump tends to zero in the Schwartz topology, so its product with a cutoff
+that is one near the origin tests the support.
+Deviation: Stated for the flat subspace of Theorem 5.3.2.1(1) rather than for the
+compactly supported test functions of Hormander's theorem. -/
+private theorem realTemperedDistribution_eq_sum_diracDerivative_flat
+    (T : StrongDual ℂ 𝓢(ℝ, ℂ)) (hT : TemperedSupportedAtOrigin T) :
+    ∀ f ∈ realSchwartzFlatAtOrigin, T f = 0 := by
+  sorry
+
+set_option backward.isDefEq.respectTransparency false in
+/-- Paper: Theorem 5.3.2.1(1) and (5.3.2.2), p. 243.
+The second half of the structure theorem, in which no support hypothesis is used: every
+continuous functional on the flat quotient is a finite linear combination of the Dirac
+derivatives. It is the polynomial description of `realDiracDerivatives_polynomialEquiv`
+written on the Taylor side, with the degree of the polynomial bounding the orders that occur. -/
+private theorem realTemperedDistribution_eq_sum_diracDerivative_finite
+    (U : StrongDual ℂ (𝓢(ℝ, ℂ) ⧸ realSchwartzFlatAtOrigin)) :
+    ∃ (N : ℕ) (c : Fin (N + 1) → ℂ), ∀ f : 𝓢(ℝ, ℂ),
+      U (realSchwartzFlatAtOrigin.mkQ f) =
+        ∑ k : Fin (N + 1), c k * realDiracDerivative k.val f := by
+  obtain ⟨e, he, -⟩ := realDiracDerivatives_polynomialEquiv
+  let p : Polynomial ℂ := e.symm U
+  have hU : (e p : StrongDual ℂ (𝓢(ℝ, ℂ) ⧸ realSchwartzFlatAtOrigin)) = U :=
+    e.apply_symm_apply U
+  -- the monomial expansion of a polynomial, read through `e`
+  have hsum (q : Polynomial ℂ) :
+      e (q : FinestLocallyConvex (Polynomial ℂ)) =
+        ∑ n ∈ q.support, q.coeff n • e (Polynomial.monomial n (1 : ℂ)) := by
+    have hq : (q : FinestLocallyConvex (Polynomial ℂ)) =
+        ∑ n ∈ q.support,
+          (q.coeff n) • (Polynomial.monomial n (1 : ℂ) : FinestLocallyConvex (Polynomial ℂ)) := by
+      have hpoly : q = ∑ n ∈ q.support, q.coeff n • Polynomial.monomial n (1 : ℂ) := by
+        conv_lhs => rw [← Polynomial.sum_C_mul_X_pow_eq q]
+        rw [Polynomial.sum_def]
+        refine Finset.sum_congr rfl fun n _ => ?_
+        rw [Polynomial.smul_eq_C_mul, ← Polynomial.C_mul_X_pow_eq_monomial, map_one, one_mul]
+      exact hpoly
+    conv_lhs => rw [hq]
+    rw [map_sum]
+    refine Finset.sum_congr rfl fun n _ => ?_
+    rw [map_smul]
+  refine ⟨p.natDegree, fun k ↦ p.coeff k.val * ((k.val.factorial : ℂ))⁻¹, fun f ↦ ?_⟩
+  calc U (realSchwartzFlatAtOrigin.mkQ f)
+      = e p (realSchwartzFlatAtOrigin.mkQ f) := by rw [hU]
+    _ = ∑ n ∈ p.support, p.coeff n * (realDiracDerivative n f / (n.factorial : ℂ)) := by
+        rw [hsum p, sum_apply]
+        refine Finset.sum_congr rfl fun n _ => ?_
+        rw [smul_apply, smul_eq_mul, he n f]
+    _ = ∑ k : Fin (p.natDegree + 1),
+          (p.coeff k.val * ((k.val.factorial : ℂ))⁻¹) * realDiracDerivative k.val f := by
+        rw [Fin.sum_univ_eq_sum_range (fun n =>
+          p.coeff n * ((n.factorial : ℂ))⁻¹ * realDiracDerivative n f) (p.natDegree + 1)]
+        have hsub : p.support ⊆ Finset.range (p.natDegree + 1) := fun n hn =>
+          Finset.mem_range.mpr (Nat.lt_succ_of_le (Polynomial.le_natDegree_of_mem_supp n hn))
+        have hz : ∀ n ∈ Finset.range (p.natDegree + 1), n ∉ p.support →
+            (p.coeff n * ((n.factorial : ℂ))⁻¹) * realDiracDerivative n f = 0 := by
+          intro n _ hn
+          rw [Polynomial.notMem_support_iff.mp hn, zero_mul, zero_mul]
+        exact (Finset.sum_congr rfl fun n _ => by rw [div_eq_mul_inv]; ring).trans
+          (Finset.sum_subset hsub hz)
+
+/-- Paper: Theorem 5.3.2.1, p. 243.
+Every real tempered distribution supported at zero is a finite linear combination of
+derivatives of the Dirac distribution at zero. -/
+theorem realTemperedDistribution_eq_sum_diracDerivative (T : StrongDual ℂ 𝓢(ℝ, ℂ))
+    (hT : TemperedSupportedAtOrigin T) :
+    ∃ (N : ℕ) (c : Fin (N + 1) → ℂ),
+      T = ∑ k : Fin (N + 1), c k • realDiracDerivative k.val := by
+  classical
+  have hker : realSchwartzFlatAtOrigin ≤ LinearMap.ker (T : 𝓢(ℝ, ℂ) →ₗ[ℂ] ℂ) :=
+    fun f hf ↦ realTemperedDistribution_eq_sum_diracDerivative_flat T hT f hf
+  obtain ⟨N, c, hc⟩ := realTemperedDistribution_eq_sum_diracDerivative_finite
+    (realSchwartzFlatAtOrigin.liftQL T hker)
+  refine ⟨N, c, ?_⟩
+  refine ContinuousLinearMap.ext fun f ↦ ?_
+  have h1 : realSchwartzFlatAtOrigin.liftQL T hker (realSchwartzFlatAtOrigin.mkQ f) = T f := by
+    have h := DFunLike.congr_fun (Submodule.liftQ_mkQ (p := realSchwartzFlatAtOrigin)
+      (f := (T : 𝓢(ℝ, ℂ) →ₗ[ℂ] ℂ)) hker) f
+    simpa using h
+  rw [← h1, hc f]
+  simp [Finset.sum_apply, smul_eq_mul]
 
 end RealOrigin
 
