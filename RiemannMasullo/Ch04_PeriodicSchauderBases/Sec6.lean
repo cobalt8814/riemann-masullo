@@ -1317,6 +1317,37 @@ variable (hcomm : ∃ a : ℝ, 0 < a ∧ ∀ k, ∃ r : ℚ, Real.log ((m (γs k
 
 include hcomm in
 /-- Paper: Theorem 4.6.1.5 and Equations (4.6.1.15)–(4.6.1.16), p. 212.
+The moment functionals (4.6.1.15) admit a biorthogonal family in the
+difference quotient: some `ψ : J → U` with `D j (ψ j) = 1` for every index and
+`D j (ψ k) = 0` for `k ≠ j`. This is the existence step of the basis claim; the
+basis properties of the three families formed from `ψ` and `D` are
+`modulatedQuotientLogMoment_bases_of_biorthogonal`.
+Deviation: The actual log-periods are commensurate, as required by the
+finite-phase step (4.6.1.25). -/
+theorem modulatedQuotientLogMoment_biorthogonal :
+    ∃ ψ : J → U, (∀ j, D j (ψ j) = 1) ∧ ∀ j k, j ≠ k → D j (ψ k) = 0 := by sorry
+
+include hcomm in
+/-- Paper: Theorem 4.6.1.5 and Equations (4.6.1.15)–(4.6.1.16), p. 212.
+Given a family biorthogonal to the moment functionals, every enumeration of
+the moment family is an unconditional basis of the strong dual, its
+biorthogonal vectors are an absolute basis of the quotient, and the evaluation
+functionals of that basis are an unconditional basis of the double dual.
+This is the basis step of `modulatedQuotientLogMoment_bases`, whose witness `ψ`
+is supplied by `modulatedQuotientLogMoment_biorthogonal`.
+Deviation: The actual log-periods are commensurate, as required by the
+finite-phase step (4.6.1.25). -/
+theorem modulatedQuotientLogMoment_bases_of_biorthogonal (σ : ℕ ≃ J) (ψ : J → U)
+    (hdiag : ∀ j, D j (ψ j) = 1) (hoff : ∀ j k, j ≠ k → D j (ψ k) = 0) :
+    let e := ψ ∘ σ
+    let d := D ∘ σ
+    let ev : ℕ → StrongDual ℂ (StrongDual ℂ U) :=
+      fun n ↦ ContinuousLinearMap.applyₗ ℂ (RingHom.id ℂ) (e n)
+    IsSchauderBasis e d ∧ SchauderBasis.IsAbsolute e d ∧
+      IsSchauderBasis d ev ∧ SchauderBasis.IsUnconditional d ev := by sorry
+
+include hcomm in
+/-- Paper: Theorem 4.6.1.5 and Equations (4.6.1.15)–(4.6.1.16), p. 212.
 Every enumeration of the moment family is an unconditional basis of the
 strong dual. The biorthogonal vectors are an absolute basis of the quotient.
 Deviation: The actual log-periods are commensurate, as required by the
@@ -1328,7 +1359,11 @@ theorem modulatedQuotientLogMoment_bases (σ : ℕ ≃ J) :
       let ev : ℕ → StrongDual ℂ (StrongDual ℂ U) :=
         fun n ↦ ContinuousLinearMap.applyₗ ℂ (RingHom.id ℂ) (e n)
       IsSchauderBasis e d ∧ SchauderBasis.IsAbsolute e d ∧
-        IsSchauderBasis d ev ∧ SchauderBasis.IsUnconditional d ev := by sorry
+        IsSchauderBasis d ev ∧ SchauderBasis.IsUnconditional d ev := by
+  obtain ⟨ψ, hdiag, hoff⟩ :
+      ∃ ψ : J → U, (∀ j, D j (ψ j) = 1) ∧ ∀ j k, j ≠ k → D j (ψ k) = 0 :=
+    modulatedQuotientLogMoment_biorthogonal m hm hms ω γs hγs μ hcomm
+  exact ⟨ψ, modulatedQuotientLogMoment_bases_of_biorthogonal m hm hms ω γs hγs μ hcomm σ ψ hdiag hoff⟩
 
 include hχ hcomm in
 /-- Paper: Theorem 4.6.1.5(1), p. 212. A continuous seminorm of the
