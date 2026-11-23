@@ -777,10 +777,82 @@ theorem globalThetaSobolevPrincipalValue_apply (S : Finset V) (a : ℝ) {s : ℝ
     P(S, a, hs) (j(a, hs) (theta(f))) = j(a, hs) (theta(pvTest(S, f))) :=
   (existsUnique_globalThetaSobolevPrincipalValue S a hs).exists.choose_spec f
 
+/-- Paper: Proposition 11.2.0.1(1), p. 484. At a single finite place the extended
+principal value is injective. The paper's (1) reduces to `P_v = id - ρ(π_v)` on the completed
+theta space, and the proof of (2) shows that its range is closed. On the completion this asks
+for two things: the difference formula for one place, i.e. `P({v}, a, hs) u = u - ρ(hs)(π_v) u`
+for every `u` in `H(a, hs)` (not only on the conjugate isotype as in
+`globalThetaSobolevPrincipalValue_singleton`, and for every norm twist `a`), and then that a
+vector fixed by the uniformizer translate vanishes: `ρ(hs)(π_v) u = u` forces `u = 0`, since
+`u` is then periodic along the norm axis while the compact-interval weight
+`(1 + logNorm ^ 2) ^ (s / 2)` is not summable against a nonzero periodic function. -/
+private theorem globalThetaSobolevPrincipalValue_injective_single (v : V) (a : ℝ) {s : ℝ}
+    (hs : 0 ≤ s) : Injective (P({v}, a, hs)) := by sorry
+
+/-- Paper: Proposition 11.2.0.1(1), p. 484. On the polar-free theta classes, adjoining one
+place to the set of principal-value places is the same as applying the single-place operator
+first: `PV_{T ∪ {v}} = PV_T ∘ PV_v`. This is the test-level composition law for the carving
+operators, `sLocalCutoffCarving_antitone_PV`. -/
+private theorem globalThetaSobolevPrincipalValue_injective_test (v : V) (T : Finset V)
+    (hvT : v ∉ T) (f : ℬ₀) :
+    pvTest(T.cons v hvT, f) = pvTest(T, pvTest({v}, f)) := by
+  classical
+  rw [Finset.cons_eq_insert v T hvT]
+  refine Subtype.ext ?_
+  change adelePrincipalValue F (insert v T) f.val =
+    adelePrincipalValue F T (adelePrincipalValue F {v} f.val)
+  rw [sLocalCutoffCarving_antitone_PV (Finset.subset_insert v T),
+    Finset.insert_sdiff_cancel hvT]
+  rfl
+
+/-- Paper: Proposition 11.2.0.1(1), p. 484. The composition law of the previous lemma holds on
+the whole completion: `PV_{T ∪ {v}} = PV_T ∘ PV_v` as operators on `H(a, hs)`, for every norm
+twist `a` and every `s ≥ 0`. Both sides are continuous and agree on the polar-free theta
+classes, which are dense in the completion. -/
+private theorem globalThetaSobolevPrincipalValue_injective_comp (v : V) (T : Finset V)
+    (hvT : v ∉ T) (a : ℝ) {s : ℝ} (hs : 0 ≤ s) (u : H(a, hs)) :
+    P(T.cons v hvT, a, hs) u = P(T, a, hs) (P({v}, a, hs) u) := by
+  classical
+  have hdense : DenseRange (fun f : ℬ₀ ↦ j(a, hs) (theta(f))) :=
+    (globalThetaSobolev_dense (F := F) a hI hs).comp
+      (Submodule.mkQ_surjective
+        ((LinearMap.ker (adelicThetaLinearMap F)).comap (adelePolarSubspace F).subtype)).denseRange
+      (j(a, hs)).continuous
+  have hcont : Continuous fun u : H(a, hs) ↦ P(T, a, hs) (P({v}, a, hs) u) :=
+    (P(T, a, hs)).continuous.comp (P({v}, a, hs)).continuous
+  have hclosed : IsClosed {u : H(a, hs) |
+      P(T.cons v hvT, a, hs) u = P(T, a, hs) (P({v}, a, hs) u)} :=
+    isClosed_eq (P(T.cons v hvT, a, hs)).continuous hcont
+  refine hdense.induction_on u hclosed (fun f ↦ ?_)
+  refine (globalThetaSobolevPrincipalValue_apply (T.cons v hvT) a hs f).trans ?_
+  refine (congrArg (fun g : ℬ₀ ↦ j(a, hs) (theta(g)))
+    (globalThetaSobolevPrincipalValue_injective_test v T hvT f)).trans ?_
+  exact ((globalThetaSobolevPrincipalValue_apply T a hs (pvTest({v}, f))).symm.trans
+    (congrArg (fun z : H(a, hs) ↦ P(T, a, hs) z)
+      (globalThetaSobolevPrincipalValue_apply {v} a hs f).symm))
+
 /-- Paper: Lead-in to (11.2.0.3), p. 484. The extended principal value is injective.
 Deviation: The inverse on its range can be discontinuous. -/
 theorem globalThetaSobolevPrincipalValue_injective (S : Finset V) (a : ℝ) {s : ℝ}
-    (hs : 0 ≤ s) : Injective (P(S, a, hs)) := by sorry
+    (hs : 0 ≤ s) : Injective (P(S, a, hs)) := by
+  classical
+  refine Finset.cons_induction (motive := fun S : Finset V ↦ Injective (P(S, a, hs))) ?_ ?_ S
+  · have hpv : ∀ f : ℬ₀, pvTest(∅, f) = f := fun f ↦ Subtype.ext (by
+      change adelePrincipalValue F ∅ f.val = f.val
+      rw [sLocalUncutCarving_empty_PV]
+      rfl)
+    have hPid : P(∅, a, hs) = ContinuousLinearMap.id ℂ H(a, hs) :=
+      (existsUnique_globalThetaSobolevPrincipalValue ∅ a hs).unique
+        (existsUnique_globalThetaSobolevPrincipalValue ∅ a hs).exists.choose_spec
+        (fun f ↦ congrArg (fun g : ℬ₀ ↦ j(a, hs) (theta(g))) (hpv f).symm)
+    have hid : Injective (ContinuousLinearMap.id ℂ H(a, hs)) := fun _ _ h ↦ h
+    exact hPid ▸ hid
+  · intro v T hvT ih
+    intro x y hxy
+    have h1 : P(T, a, hs) (P({v}, a, hs) x) = P(T, a, hs) (P({v}, a, hs) y) :=
+      (globalThetaSobolevPrincipalValue_injective_comp v T hvT a hs x).symm.trans
+        (hxy.trans (globalThetaSobolevPrincipalValue_injective_comp v T hvT a hs y))
+    exact globalThetaSobolevPrincipalValue_injective_single v a hs (ih h1)
 
 private theorem globalThetaSobolevPrincipalValue_equivariant_val_eq {A B : Type*}
     (θ : A → B) (pv : A → A) {x x' y y' : A} (hx : x = x') (hy : y = y')
