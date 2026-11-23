@@ -3501,7 +3501,19 @@ local notation "polarValuesₛ" =>
 
 /-- Paper: Equation (7.2.2.3), p. 340.
 Evaluation at zero before and after S-adelic Fourier transform is complex linear. -/
-theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by sorry
+theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by
+  have hInt : ∀ f : ℬₛ, MeasureTheory.Integrable (fun x : Aₛ ↦ f (Multiplicative.ofAdd x))
+      (sAdditiveTamagawaMeasure F S) := fun f => partialTensor_integrable (F := F) S f
+  constructor
+  · intro f g
+    refine Prod.ext rfl ?_
+    rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero,
+      sAdeleSchwartzFourier_apply_zero]
+    exact MeasureTheory.integral_add (hInt f) (hInt g)
+  · intro c f
+    refine Prod.ext rfl ?_
+    rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero]
+    exact MeasureTheory.integral_smul c (fun x : Aₛ ↦ f (Multiplicative.ofAdd x))
 
 variable (F S) in
 /-- Paper: Equation (7.2.2.3), p. 340.
