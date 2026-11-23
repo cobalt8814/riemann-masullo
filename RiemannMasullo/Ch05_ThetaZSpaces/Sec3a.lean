@@ -980,10 +980,61 @@ theorem globalThetaPrincipalValue_continuous (S₀ : Finset V) :
 -- sum or continuity of the inverse on its image. This affects both quotients.
 
 /-- Paper: Lemma 5.3.1.5, p. 242.
+The stage operator on tests does not enlarge the theta kernel backwards: a test whose image
+in the theta quotient is a theta class is already one. This is the injectivity half of the
+printed argument, which obtains it from the Identity Theorem applied to the completed Hecke
+L-functions ("`L_S ∘ PV` multiplies `Z(f,χ|·|^s)` by `∏(1 - q_v^{-s-it_v})`").
+Missing input: neither the zeta function nor the Identity Theorem is available here, so what has
+to be proved is that `θₛ(P f) = 0` forces `θₛ(f) = 0` for every test `f`; the descent is not
+injective without it.
+
+Deviation: none; this is a restatement of one step of the printed proof. -/
+private theorem sLocalThetaPrincipalValue_thetaKernel_comap {S S₀ : Finset V} (h₀ : S₀ ⊆ S) :
+    (Kₛ(S)).comap (sAdelePrincipalValue F h₀) = Kₛ(S) := by sorry
+
+/-- Paper: Lemma 5.3.1.5, p. 242.
+The theta kernel is contained in the range of the stage operator on tests, so the range of the
+descended operator is closed without any completeness assumption on the quotient.
+This is *not* a consequence of the closedness of `range PV` alone: what it says is that every
+theta class is the image of a test that the principal value already produces, i.e. that the
+vanishing conditions imposed by `range PV` (at the zero of each selected local factor) are
+automatically satisfied by theta classes. Locally this is the factorisation of the theta sum
+over the selected coordinates, together with the non-vanishing of the theta map in the
+remaining coordinates.
+
+Deviation: none; the printed proof obtains the closedness of the range differently, from the
+relative openness of the theta map. -/
+private theorem sLocalThetaPrincipalValue_thetaKernel_le_range {S S₀ : Finset V}
+    (h₀ : S₀ ⊆ S) :
+    Kₛ(S) ≤ (sAdelePrincipalValue F h₀).range := by sorry
+
+/-- Paper: Lemma 5.3.1.5, p. 242.
+Descent of a closed embedding to the quotient by a kernel of which it is a self-map.
+
+Given `sLocalThetaPrincipalValue_thetaKernel_comap` (injectivity of the descent) and
+`sLocalThetaPrincipalValue_thetaKernel_le_range` (closedness of its range), the range is closed from `Submodule.range_mapQ`, which writes the range of the descent as
+the image of `range PV` under the quotient map: its preimage is `range PV + K = range PV` by
+the second hypothesis, and the image of a saturated closed set under a quotient map is closed.
+For the embedding one proves that the neighbourhoods of `0` agree: given a saturated open
+`U ∋ 0` take an open `V` with `range PV ∩ V = PV '' U` (a closed embedding is open onto its
+range); then `(descent)⁻¹ (q '' V) = q '' U`, using the first hypothesis to write a `k ∈ K`
+as `PV z` with `z ∈ K` and the saturation of `U`. No completeness of the quotient is needed. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_descent {S S₀ : Finset V}
+    (h₀ : S₀ ⊆ S)
+    (hPV : IsClosedEmbedding (sAdelePrincipalValue F h₀))
+    (hcomap : (Kₛ(S)).comap (sAdelePrincipalValue F h₀) = Kₛ(S))
+    (hrange : Kₛ(S) ≤ (sAdelePrincipalValue F h₀).range) :
+    IsClosedEmbedding (sLocalThetaPrincipalValue F h₀) := by sorry
+
+/-- Paper: Lemma 5.3.1.5, p. 242.
 The S-local principal value on theta classes is a closed topological embedding. -/
 theorem sLocalThetaPrincipalValue_isClosedEmbedding {S S₀ : Finset V} (h₀ : S₀ ⊆ S)
     (hn : S₀.Nonempty) :
-    IsClosedEmbedding (sLocalThetaPrincipalValue F h₀) := by sorry
+    IsClosedEmbedding (sLocalThetaPrincipalValue F h₀) :=
+  sLocalThetaPrincipalValue_isClosedEmbedding_descent h₀
+    (sAdelePrincipalValue_isClosedEmbedding h₀)
+    (sLocalThetaPrincipalValue_thetaKernel_comap h₀)
+    (sLocalThetaPrincipalValue_thetaKernel_le_range h₀)
 
 -- TODO(paper-gap): The proof of global closed range claims that the image is contained in
 -- any fixed S-stage. This does not follow from stage compatibility and fails at larger stages.
