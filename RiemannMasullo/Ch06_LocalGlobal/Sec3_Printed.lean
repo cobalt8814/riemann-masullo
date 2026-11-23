@@ -109,12 +109,35 @@ def Printed.globalConverse_normTwist_bergmanMiddle_residues_surjective : Prop :=
       Surjective fun b : {b : B // EntireMultiple(b.val, G)} ↦
         (complexResidue b.val.val (-shift(t)), complexResidue b.val.val (1 - shift(t)))
 
+/-- The residue of an entire function vanishes: the normalized circle integral of a function
+differentiable everywhere is zero for every radius. -/
+private theorem printed_globalConverse_normTwist_bergmanMiddle_residues_surjective_false_residue_zero
+    {f : ℂ → ℂ} (hf : Differentiable ℂ f) (ρ : ℂ) : complexResidue f ρ = 0 := by
+  have hzero : ∀ᶠ r : ℝ in nhdsWithin (0 : ℝ) (Set.Ioi 0), circleIntegral f ρ r = 0 := by
+    filter_upwards [self_mem_nhdsWithin] with r hr
+    exact (hf.diffContOnCl (s := Metric.ball ρ r)).circleIntegral_eq_zero (le_of_lt hr)
+  have h : Tendsto (fun r : ℝ ↦ circleIntegral f ρ r / (2 * (Real.pi : ℂ) * Complex.I))
+      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (nhds 0) := by
+    refine (tendsto_const_nhds (x := (0 : ℂ))).congr' ?_
+    filter_upwards [hzero] with r hr
+    simp [hr]
+  rw [complexResidue, h.limUnder_eq]
+
 /-- Paper: Theorems 6.3.2.1–2, (6.3.2.8), (6.3.2.25)–(26), p. 304 and p. 310.
 Take ℚ, the trivial character, t₀ = 0 and no removed primes. Every element of the printed
 middle term is entire and both of its residues are zero. In particular (1, 0) has no preimage.
 The standard Gaussian's Mellin transform has poles at 0 and 1. -/
 theorem Printed.globalConverse_normTwist_bergmanMiddle_residues_surjective_false :
-    ¬ Printed.globalConverse_normTwist_bergmanMiddle_residues_surjective := by sorry
+    ¬ Printed.globalConverse_normTwist_bergmanMiddle_residues_surjective := by
+  intro h
+  obtain ⟨b, hb⟩ := h ℚ 1 0 (by simp) ∅ (1, 0)
+  have hdiff : Differentiable ℂ b.val.val := by
+    obtain ⟨-, hd, -⟩ := b.val.property
+    exact differentiableOn_univ.mp (by simpa using hd)
+  have h1 : complexResidue b.val.val 0 = 1 := by simpa using congrArg Prod.fst hb
+  rw [printed_globalConverse_normTwist_bergmanMiddle_residues_surjective_false_residue_zero
+    hdiff 0] at h1
+  exact zero_ne_one h1
 
 /-- Paper: Theorem 6.3.2.2(1), range after (6.3.2.20), p. 310. As printed: every entire
 multiple of the printed principal-value generator lies in the Schwartz–Bergman space.
