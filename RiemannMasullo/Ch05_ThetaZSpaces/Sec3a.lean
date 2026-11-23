@@ -1427,15 +1427,6 @@ theorem sLocalThetaPrincipalValue_toGlobal {S₀ S : Finset V}
   apply sLocalThetaPrincipalValue_transition_mapQ
   exact sLocalThetaPrincipalValue_toGlobal_tests h₀
 
-/-- Paper: Lemma 5.3.1.5, p. 242.
-The S-local principal value commutes with each S-idele translation on theta classes. -/
-theorem sLocalThetaPrincipalValue_equivariant {S₀ S : Finset V}
-    (h₀ : S₀ ⊆ S) (hn : S₀.Nonempty) (g : (SAdeleRing F S)ˣ) (f : ℬₛ(S)) :
-    Submodule.Quotient.mk
-        (sAdelePrincipalValue F h₀ (schwartzBruhatUnitTranslate g f)) =
-      (Submodule.Quotient.mk
-        (schwartzBruhatUnitTranslate g (sAdelePrincipalValue F h₀ f)) : Θₛ(S)) := by sorry
-
 /-- Weil's local principal value commutes with multiplicative translation, since both only
 rescale the argument. -/
 private theorem globalThetaPrincipalValue_equivariant_local (v : V) (c : (v.adicCompletion F)ˣ)
@@ -1495,6 +1486,68 @@ private theorem globalThetaPrincipalValue_equivariant_ext {A B : Type*}
       exact (congrArg M₁ ht).trans ((map_add M₁ _ _).trans ((congrArg₂ (· + ·) h₁ h₂).trans
         ((map_add M₂ _ _).symm.trans (congrArg M₂ ht.symm))))
   exact LinearMap.congr_fun hM t
+
+open Classical in
+/-- For any subset of places, the S-local principal value commutes with translation by an
+S-idele on the test space: it acts place by place, by the local principal value on the selected
+places (which commutes with translation) and by the identity elsewhere. -/
+private theorem sAdelePrincipalValue_equivariant_stage {S₀ S : Finset V}
+    (h₀ : S₀ ⊆ S) (gS : (SAdeleRing F S)ˣ) (k : ℬₛ(S)) :
+    sAdelePrincipalValue F h₀ (schwartzBruhatUnitTranslate gS k) =
+      schwartzBruhatUnitTranslate gS (sAdelePrincipalValue F h₀ k) := by
+  let e' := (sAdeleSchwartz_inductiveTensor_equiv F S).choose
+  have he' := (sAdeleSchwartz_inductiveTensor_equiv F S).choose_spec
+  let P := sAdelePrincipalValue F h₀
+  let T : ℬₛ(S) →ₗ[ℂ] ℬₛ(S) :=
+    { toFun := schwartzBruhatUnitTranslate gS
+      map_add' := fun _ _ ↦ rfl
+      map_smul' := fun _ _ ↦ rfl }
+  let gInf : (InfiniteAdeleRing F)ˣ := Units.map (RingHom.fst _ _).toMonoidHom gS
+  let gw (w : S) : (w.val.adicCompletion F)ˣ :=
+    Units.map ((Pi.evalRingHom _ w).comp (RingHom.snd _ _)).toMonoidHom gS
+  have hT (a : ℬ(InfiniteAdeleRing F)) (g : ∀ w : S, ℬ(w.val.adicCompletion F)) :
+      T (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) = e' (schwartzBruhatUnitTranslate gInf a ⊗ₜ[ℂ]
+        (⨂ₜ[ℂ] w, schwartzBruhatUnitTranslate (gw w) (g w))) := by
+    apply Subtype.ext
+    funext x
+    refine (he' a g ((↑gS⁻¹ : SAdeleRing F S) * x.toAdd)).trans (Eq.trans ?_
+      (he' (schwartzBruhatUnitTranslate gInf a)
+        (fun w ↦ schwartzBruhatUnitTranslate (gw w) (g w)) x.toAdd).symm)
+    rfl
+  have hyp : ∀ (a : ℬ(InfiniteAdeleRing F)) (g : ∀ w : S, ℬ(w.val.adicCompletion F)),
+      (P ∘ₗ T) (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) = (T ∘ₗ P) (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) := by
+    intro a g
+    have h1 := sAdelePrincipalValue_tmul h₀ (schwartzBruhatUnitTranslate gInf a)
+      (fun w ↦ schwartzBruhatUnitTranslate (gw w) (g w))
+    have h2 := sAdelePrincipalValue_tmul h₀ a g
+    refine (congrArg P (hT a g)).trans (h1.trans ?_)
+    refine Eq.trans ?_ (congrArg T h2).symm
+    refine Eq.trans ?_ (hT a _).symm
+    have hfun : (fun w : S ↦ if w.val ∈ S₀ then
+          finitePlacePrincipalValue w.val (schwartzBruhatUnitTranslate (gw w) (g w))
+        else schwartzBruhatUnitTranslate (gw w) (g w)) =
+        fun w ↦ schwartzBruhatUnitTranslate (gw w)
+          (if w.val ∈ S₀ then finitePlacePrincipalValue w.val (g w) else g w) := by
+      funext w
+      by_cases hw : w.val ∈ S₀
+      · simp only [hw, ite_true]
+        exact globalThetaPrincipalValue_equivariant_local w.val (gw w) (g w)
+      · simp only [hw, ite_false]
+    exact congrArg (fun φ : ∀ w : S, ℬ(w.val.adicCompletion F) ↦
+      e' (schwartzBruhatUnitTranslate gInf a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, φ w))) hfun
+  exact globalThetaPrincipalValue_equivariant_ext
+    (D := fun w : S ↦ ℬ(w.val.adicCompletion F)) e' (P ∘ₗ T) (T ∘ₗ P)
+    (by with_reducible exact hyp) k
+
+/-- Paper: Lemma 5.3.1.5, p. 242.
+The S-local principal value commutes with each S-idele translation on theta classes. -/
+theorem sLocalThetaPrincipalValue_equivariant {S₀ S : Finset V}
+    (h₀ : S₀ ⊆ S) (hn : S₀.Nonempty) (g : (SAdeleRing F S)ˣ) (f : ℬₛ(S)) :
+    Submodule.Quotient.mk
+        (sAdelePrincipalValue F h₀ (schwartzBruhatUnitTranslate g f)) =
+      (Submodule.Quotient.mk
+        (schwartzBruhatUnitTranslate g (sAdelePrincipalValue F h₀ f)) : Θₛ(S)) :=
+  congrArg Submodule.Quotient.mk (sAdelePrincipalValue_equivariant_stage h₀ g f)
 
 open Classical in
 /-- The S-local principal value commutes with translation by an S-idele. -/
