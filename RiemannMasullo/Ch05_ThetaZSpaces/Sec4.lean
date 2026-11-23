@@ -2323,6 +2323,27 @@ local notation "upperMiddle(" χ ")" => Eω(rightInterval, restrict₁(χ)) × E
 /-- Paper: (5.4.2.6), p. 276.
 The upper left arrow pairs the two homogeneous theta functions attached to
 a test and to its S-adelic Fourier transform. -/
+-- PROVER NOTE (agent8-m2, stuck): Candidate construction: take the section τ, the
+-- frequency x from existsUnique_sLocalCechFrequency, the Mellin equivalences M₁, M₂ from
+-- existsUnique_sLocalDecayMellin (frequencies x and -x), and the continuous Bergman pair
+-- UB from sLocalCechBergman_exact; then U := (M₁.symm.prodCongr M₂.symm).comp UB.
+-- Elaborating this hits the #5398 isDefEq heartbeat limit on the Eω/ModulatedExponentialDecay
+-- instance terms; it needs an abstract-space helper lemma (do not raise maxHeartbeats).
+-- Uniqueness is immediate from surjectivity of mk. The pointwise characterization reduces
+-- to showing the homogeneous theta of a test lies in the decay isotype, i.e.
+-- ∃ u : Eω(rightInterval, restrict₁ χ), u.val.val = φω(restrict₁ χ) f.
+-- By sLocalCech_left_commutes_mellin its section Mellin transform equals the zeta function,
+-- so this follows from Mellin injectivity once the section profile is known to be a
+-- PositiveRealExponentialDecay profile. That membership is the theta-decay-to-Schwartz
+-- estimate: it needs small-norm AND derivative decay of sLocalHomogeneousAdelicTheta, but
+-- only large-norm decay is available (sLocalHomogeneousAdelicTheta_decay_large /
+-- decay_bounded, Ch02 Sec3; the global version has decay_small/decay_both, the S-local
+-- one does not).
+-- Related: sLocalZetaPair_isClosedEmbedding is circular (continuous_sLocalZetaPair,
+-- injective_sLocalZetaPair, sLocalHomogeneousThetaSpace_frechet all use it);
+-- sLocalZetaPair_first_component_attained is the range-surjectivity step flagged as a
+-- paper gap above; existsUnique_sLocalDecayToThetaL2 needs the L²-closure membership of
+-- decay functions in the theta image.
 theorem existsUnique_sLocalCechThetaPair (χ : PontryaginDual Jₛ) :
     ∃! U : Θω(restrict₁(χ)) →L[ℂ] upperMiddle(χ), ∀ f : ℬₛ,
       (U (Submodule.Quotient.mk f)).1.val.val = ⇑(φω(restrict₁(χ)) f) ∧
