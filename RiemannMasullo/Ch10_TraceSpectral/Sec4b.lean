@@ -328,6 +328,192 @@ local notation "integrates(" μ ", " B ", " k ")" =>
     Integrable (fun y ↦ k (x, y) * u y) μ ∧
     (B u : C𝔽 → ℂ) x = ∫ y, k (x, y) * u y ∂μ)
 
+/-- The compact-interval Sobolev density of this section is continuous. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_w_continuous :
+    Continuous (fun g : C𝔽 ↦ intervalSobolevDensity (-α) α s (logNorm g)) := by
+  have ht : Continuous (fun g : C𝔽 ↦ Real.log ((ideleClassNorm F g).val : ℝ)) :=
+    ((NNReal.continuous_coe.comp (Units.continuous_val.comp
+      (isProperMap_ideleClassNorm F).continuous))).log fun g ↦
+        ne_of_gt (NNReal.coe_pos.mpr (Units.zero_lt _))
+  exact (continuous_intervalSobolevDensity (-α) α s).comp ht
+
+/-- The compact-interval Sobolev density of this section is measurable. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_w_measurable :
+    Measurable (fun g : C𝔽 ↦ intervalSobolevDensity (-α) α s (logNorm g)) :=
+  (sobolevProjectiveKernel_existsUnique_l2_w_continuous).measurable
+
+/-- The compact-interval Sobolev density of this section is positive. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_w_pos (g : C𝔽) :
+    0 < intervalSobolevDensity (-α) α s (logNorm g) := by
+  unfold intervalSobolevDensity
+  exact mul_pos (lt_max_of_lt_left (Real.exp_pos _)) (Real.rpow_pos_of_pos (by positivity) _)
+
+/-- Almost-everywhere statements transfer from the positive-weight measure to Haar measure. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_ae_withDensity {p : C𝔽 → Prop}
+    (h : ∀ᵐ x ∂(ν(α, s)), p x) : ∀ᵐ x ∂μ𝔽, p x :=
+  ((ae_withDensity_iff (sobolevProjectiveKernel_existsUnique_l2_w_measurable).ennreal_ofReal).mp
+      h).mono (fun x hx ↦ hx (ne_of_gt (ENNReal.ofReal_pos.mpr
+        (sobolevProjectiveKernel_existsUnique_l2_w_pos x))))
+
+/-- Almost-everywhere statements transfer from Haar measure to the positive-weight measure. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_ae_of_ae {p : C𝔽 → Prop}
+    (h : ∀ᵐ x ∂μ𝔽, p x) : ∀ᵐ x ∂(ν(α, s)), p x :=
+  (ae_withDensity_iff (sobolevProjectiveKernel_existsUnique_l2_w_measurable).ennreal_ofReal).mpr
+    (h.mono fun x hx _ ↦ hx)
+
+/-- Haar measure is absolutely continuous for the reciprocal-weight measure. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_haar_le_inv : μ𝔽 ≪ ν'(α, s) :=
+  withDensity_absolutelyContinuous'
+    (sobolevProjectiveKernel_existsUnique_l2_w_measurable).inv.ennreal_ofReal.aemeasurable
+    (ae_of_all _ fun y ↦ (ENNReal.ofReal_pos.mpr (inv_pos.mpr
+      (sobolevProjectiveKernel_existsUnique_l2_w_pos y))).ne')
+
+/-- For almost every output point, the input slice of a mixed-weight kernel class is
+square integrable for the reciprocal weight. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_slice_memLp (k : L²mixed) :
+    ∀ᵐ x ∂μ𝔽, MemLp (fun y ↦ k (x, y)) 2 (ν'(α, s)) := by
+  haveI hloc : IsLocallyFiniteMeasure (ν(α, s)) :=
+    IsLocallyFiniteMeasure.withDensity_ofReal
+      (sobolevProjectiveKernel_existsUnique_l2_w_continuous)
+  haveI hSfin : SigmaFinite (ν(α, s)) := inferInstance
+  have hint := (memLp_two_iff_integrable_sq_norm (Lp.aestronglyMeasurable k)).mp (Lp.memLp k)
+  have hν : ∀ᵐ x ∂(ν(α, s)), MemLp (fun y ↦ k (x, y)) 2 (ν'(α, s)) := by
+    filter_upwards [hint.prod_right_ae] with x hx
+    exact (memLp_two_iff_integrable_sq_norm
+      ((Lp.stronglyMeasurable k).comp_measurable
+        measurable_prodMk_left).aestronglyMeasurable).mpr hx
+  exact sobolevProjectiveKernel_existsUnique_l2_ae_withDensity hν
+
+/-- The squared L² norm is the integral of the squared pointwise norm. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_sq_norm {X : Type*}
+    [MeasurableSpace X] {μ : Measure X} (f : Lp ℂ 2 μ) :
+    ‖f‖ ^ 2 = ∫ x, ‖f x‖ ^ 2 ∂μ := by
+  rw [@InnerProductSpace.norm_sq_eq_re_inner ℂ, L2.inner_def]
+  simp_rw [inner_self_eq_norm_sq_to_K]
+  norm_cast
+
+/-- Paper: (10.4.3.25), p. 470. A mixed-weight kernel class that pairs to zero against
+every vector of the compact-interval Sobolev space vanishes, since the unweighted
+integral is the Sobolev duality pairing. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_eq_zero_of_pairing
+    (hα : 0 ≤ α) (hs : 0 ≤ s) (k : L²mixed)
+    (hk : ∀ u : W(α, s), ∀ᵐ x ∂μ𝔽, Integrable (fun y ↦ k (x, y) * u y) μ𝔽 ∧
+      (∫ y, k (x, y) * u y ∂μ𝔽) = 0) : k = 0 := by
+  have hm : IsModulation m𝔽 := ⟨isProperMap_ideleClassNorm F, ideleClassNorm_ne_one (F := F)⟩
+  let T := (modulatedIntervalSobolev_dual m𝔽 hm μ𝔽 (-α) α s (hStrip(hα)) hs).exists.choose
+  have hT (Λ : StrongDual ℂ (W(α, s))) (f : W(α, s)) :
+      Integrable (fun g ↦ f g * T Λ g) μ𝔽 ∧ Λ f = ∫ g, f g * T Λ g ∂μ𝔽 :=
+    (modulatedIntervalSobolev_dual m𝔽 hm μ𝔽 (-α) α s (hStrip(hα)) hs).exists.choose_spec Λ f
+  haveI hloc : IsLocallyFiniteMeasure (ν(α, s)) :=
+    IsLocallyFiniteMeasure.withDensity_ofReal
+      (sobolevProjectiveKernel_existsUnique_l2_w_continuous)
+  haveI hSfin : SigmaFinite (ν(α, s)) := inferInstance
+  haveI hFact : Fact ((2 : ENNReal) ≠ ⊤) := ⟨ENNReal.natCast_ne_top 2⟩
+  haveI hSecond : SecondCountableTopology (W(α, s)) := Lp.SecondCountableTopology
+  have hdense : DenseRange (TopologicalSpace.denseSeq (W(α, s))) :=
+    TopologicalSpace.denseRange_denseSeq (W(α, s))
+  have hkden : ∀ᵐ x ∂μ𝔽, ∀ n, Integrable (fun y ↦ k (x, y) *
+      (TopologicalSpace.denseSeq (W(α, s)) n) y) μ𝔽 ∧
+      (∫ y, k (x, y) * (TopologicalSpace.denseSeq (W(α, s)) n) y ∂μ𝔽) = 0 :=
+    ae_all_iff.mpr fun n ↦ hk (TopologicalSpace.denseSeq (W(α, s)) n)
+  have hrow : ∀ᵐ x ∂μ𝔽, (∫ y, ‖k (x, y)‖ ^ 2 ∂(ν'(α, s))) = 0 := by
+    filter_upwards [sobolevProjectiveKernel_existsUnique_l2_slice_memLp k, hkden]
+      with x hxmem hxden
+    let row : Lp ℂ 2 (ν'(α, s)) := hxmem.toLp (fun y ↦ k (x, y))
+    have hcoe : (row : C𝔽 → ℂ) =ᵐ[ν'(α, s)] fun y ↦ k (x, y) := MemLp.coeFn_toLp hxmem
+    have hcoeμ : (row : C𝔽 → ℂ) =ᵐ[μ𝔽] fun y ↦ k (x, y) :=
+      (sobolevProjectiveKernel_existsUnique_l2_haar_le_inv).ae_le hcoe
+    have hrowInt : ∀ n, (∫ g, (TopologicalSpace.denseSeq (W(α, s)) n) g * row g ∂μ𝔽) = 0 := by
+      intro n
+      have hI : (∫ g, (TopologicalSpace.denseSeq (W(α, s)) n) g * row g ∂μ𝔽) =
+          ∫ g, k (x, g) * (TopologicalSpace.denseSeq (W(α, s)) n) g ∂μ𝔽 := by
+        refine integral_congr_ae ?_
+        filter_upwards [hcoeμ] with y hy
+        rw [hy, mul_comm]
+      rw [hI]
+      exact (hxden n).2
+    have hzero : (T.symm row : W(α, s) →L[ℂ] ℂ) = 0 := by
+      refine ContinuousLinearMap.ext fun u ↦ ?_
+      have hvan : Set.EqOn (fun v : W(α, s) ↦ (T.symm row) v) (fun _ ↦ (0 : ℂ))
+          (Set.range (TopologicalSpace.denseSeq (W(α, s)))) := by
+        rintro v ⟨n, rfl⟩
+        have h1 := (hT (T.symm row) (TopologicalSpace.denseSeq (W(α, s)) n)).2
+        rw [LinearIsometryEquiv.apply_symm_apply] at h1
+        show (T.symm row) (TopologicalSpace.denseSeq (W(α, s)) n) = 0
+        rw [h1]
+        exact hrowInt n
+      exact congrFun (Continuous.ext_on hdense (T.symm row).continuous continuous_const hvan) u
+    have hrow0 : row = 0 := by
+      have h := congrArg (fun (Φ : StrongDual ℂ (W(α, s))) ↦ T Φ) hzero
+      simpa only [map_zero, LinearIsometryEquiv.apply_symm_apply] using h
+    have hnorm : (∫ y, ‖k (x, y)‖ ^ 2 ∂(ν'(α, s))) =
+        ∫ y, ‖row y‖ ^ 2 ∂(ν'(α, s)) := by
+      refine integral_congr_ae ?_
+      filter_upwards [hcoe] with y hy
+      rw [← hy]
+    rw [hnorm, ← sobolevProjectiveKernel_existsUnique_l2_sq_norm row, hrow0, norm_zero]
+    norm_num
+  haveI hloc' : IsLocallyFiniteMeasure (ν(α, s)) :=
+    IsLocallyFiniteMeasure.withDensity_ofReal
+      (sobolevProjectiveKernel_existsUnique_l2_w_continuous)
+  haveI hSfin' : SigmaFinite (ν(α, s)) := inferInstance
+  have hint := (memLp_two_iff_integrable_sq_norm (Lp.aestronglyMeasurable k)).mp (Lp.memLp k)
+  have hν0 : ∀ᵐ x ∂(ν(α, s)), (∫ y, ‖k (x, y)‖ ^ 2 ∂(ν'(α, s))) = 0 :=
+    sobolevProjectiveKernel_existsUnique_l2_ae_of_ae hrow
+  have hprod : (∫ p : C𝔽 × C𝔽, ‖k p‖ ^ 2 ∂((ν(α, s)).prod (ν'(α, s)))) = 0 := by
+    rw [integral_prod _ hint, integral_congr_ae hν0, integral_zero]
+  have h2 : ‖k‖ ^ 2 = 0 := by rw [sobolevProjectiveKernel_existsUnique_l2_sq_norm k, hprod]
+  exact norm_eq_zero.mp (by nlinarith [norm_nonneg k])
+
+/-- Paper: (10.4.3.23)–(10.4.3.25), p. 470. Existence half of the mixed-weight kernel
+correspondence: every completed projective kernel is realized by a square-integrable
+mixed-weight kernel whose unweighted integral gives its operator.
+Deviation: The product has positive weight in the output coordinate and reciprocal
+weight in the input coordinate. -/
+theorem sobolevProjectiveKernel_l2_exists (hα : 0 ≤ α) (hs : 0 ≤ s)
+    (K : Π(W'(α, s), W(α, s))) :
+    ∃ k : L²mixed,
+      integrates(μ𝔽, sobolevProjectiveKernelOperator (F := F) hα hs K, k) := by
+  sorry
+
+/-- Paper: (10.4.3.23)–(10.4.3.25), p. 470. Two mixed-weight kernel classes
+that represent the same projective kernel coincide: their difference pairs to zero
+against every vector of the compact-interval Sobolev space, and hence vanishes. -/
+private theorem sobolevProjectiveKernel_existsUnique_l2_unique
+    (hα : 0 ≤ α) (hs : 0 ≤ s) (K : Π(W'(α, s), W(α, s))) {k k' : L²mixed}
+    (hk : integrates(μ𝔽, sobolevProjectiveKernelOperator (F := F) hα hs K, k))
+    (hk' : integrates(μ𝔽, sobolevProjectiveKernelOperator (F := F) hα hs K, k')) :
+    k' = k := by
+  have hsub : ∀ u : W(α, s), ∀ᵐ x ∂μ𝔽,
+      Integrable (fun y ↦ ((k' - k : L²mixed) : C𝔽 × C𝔽 → ℂ) (x, y) * u y) μ𝔽 ∧
+      (∫ y, ((k' - k : L²mixed) : C𝔽 × C𝔽 → ℂ) (x, y) * u y ∂μ𝔽) = 0 := by
+    intro u
+    have hpoint : ∀ᵐ x ∂μ𝔽, ∀ᵐ y ∂(ν'(α, s)),
+        ((k' - k : L²mixed) : C𝔽 × C𝔽 → ℂ) (x, y) = k' (x, y) - k (x, y) :=
+      sobolevProjectiveKernel_existsUnique_l2_ae_withDensity
+        (Measure.ae_ae_of_ae_prod (Lp.coeFn_sub k' k))
+    filter_upwards [hk u, hk' u, hpoint] with x h1 h2 h3
+    have h3μ : ∀ᵐ y ∂μ𝔽, ((k' - k : L²mixed) : C𝔽 × C𝔽 → ℂ) (x, y) = k' (x, y) - k (x, y) :=
+      (sobolevProjectiveKernel_existsUnique_l2_haar_le_inv).ae_le h3
+    have hdiff : (∫ y, k' (x, y) * u y ∂μ𝔽) = ∫ y, k (x, y) * u y ∂μ𝔽 :=
+      h2.2.symm.trans h1.2
+    refine ⟨?_, ?_⟩
+    · refine (h2.1.sub h1.1).congr ?_
+      filter_upwards [h3μ] with y hy
+      rw [hy]
+      simp only [Pi.sub_apply]
+      ring
+    · have hI : (∫ y, ((k' - k : L²mixed) : C𝔽 × C𝔽 → ℂ) (x, y) * u y ∂μ𝔽) =
+          ∫ y, (k' (x, y) * u y - k (x, y) * u y) ∂μ𝔽 := by
+        refine integral_congr_ae ?_
+        filter_upwards [h3μ] with y hy
+        rw [hy]
+        ring
+      rw [hI, integral_sub h2.1 h1.1, hdiff, sub_self]
+  have hzero : k' - k = 0 :=
+    sobolevProjectiveKernel_existsUnique_l2_eq_zero_of_pairing hα hs (k' - k) hsub
+  exact sub_eq_zero.mp hzero
+
 /-- Paper: (10.4.3.23)–(10.4.3.25), p. 470. A projective kernel has a unique
 square-integrable mixed-weight kernel whose unweighted integral realizes its operator.
 Deviation: The product has positive weight in the output coordinate and reciprocal
@@ -336,8 +522,12 @@ weight in the input coordinate. The Sobolev duality is already unweighted, so
 is used on compact symmetric intervals. -/
 theorem sobolevProjectiveKernel_existsUnique_l2 (hα : 0 ≤ α) (hs : 0 ≤ s)
     (K : Π(W'(α, s), W(α, s))) :
-    ∃! k : L²mixed, integrates(μ𝔽, sobolevProjectiveKernelOperator (F := F) hα hs K, k) :=
-  by sorry
+    ∃! k : L²mixed, integrates(μ𝔽, sobolevProjectiveKernelOperator (F := F) hα hs K, k) := by
+  refine ⟨Classical.choose (sobolevProjectiveKernel_l2_exists (F := F) hα hs K), ?_, ?_⟩
+  · exact Classical.choose_spec (sobolevProjectiveKernel_l2_exists (F := F) hα hs K)
+  · intro k' hk'
+    exact sobolevProjectiveKernel_existsUnique_l2_unique hα hs K
+      (Classical.choose_spec (sobolevProjectiveKernel_l2_exists (F := F) hα hs K)) hk'
 
 /-- Paper: (10.4.3.23)–(10.4.3.25), p. 470.
 The product of two weighted square-integrable functions lies in the mixed product space. -/
