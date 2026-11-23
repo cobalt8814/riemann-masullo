@@ -582,11 +582,215 @@ theorem introTraceApprox_differentiable (h ρ : ℕ → ℝ → ℝ)
     hF_int hF'_meas h_bound (hρint.norm.mul_const C) h_diff
   exact (differentiableAt_const _).mul key.2.differentiableAt
 
+private theorem introTrace_measurable_power (z : ℂ) : Measurable (introTracePower z) :=
+  Measurable.ite measurableSet_Ioi (by fun_prop)
+    (Measurable.ite (measurableSet_singleton 1) measurable_const measurable_const)
+
+private theorem introTrace_locallyIntegrable_power (z : ℂ) :
+    LocallyIntegrable (introTracePower z) volume := by
+  rw [locallyIntegrable_iff]
+  intro K hK
+  haveI : Fact (volume K < ⊤) := ⟨lt_top_iff_ne_top.mpr hK.measure_ne_top⟩
+  refine ⟨(introTrace_measurable_power z).aestronglyMeasurable, ?_⟩
+  obtain ⟨r, hr⟩ := hK.isBounded.exists_norm_le
+  set R : ℝ := max 1 r with hRdef
+  have hR1 : (1 : ℝ) ≤ R := le_max_left _ _
+  refine HasFiniteIntegral.of_bounded (C := max 1 (R ^ (-z.re))) ?_
+  filter_upwards [ae_restrict_mem hK.measurableSet] with s hs
+  have hsR : s ≤ R := (le_abs_self s).trans ((hr s hs).trans (le_max_right _ _))
+  simp only [introTracePower]
+  split_ifs with h1 h2
+  · rw [Complex.norm_cpow_eq_rpow_re_of_pos (by linarith : (0 : ℝ) < s)]
+    by_cases hz : 0 ≤ -z.re
+    · exact (Real.rpow_le_rpow (by linarith) hsR hz).trans (le_max_right _ _)
+    · have hle : s ^ (-z.re) ≤ s ^ (0 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le h1.le (le_of_not_ge hz)
+      simpa using hle.trans (le_max_left _ _)
+  · norm_num
+  · exact le_trans (by simp) (le_max_left _ _)
+
+open scoped Convolution in
+private theorem introTrace_contDiff_mollifiedIntegral (ρ : ℝ → ℝ)
+    (hρ : ContDiff ℝ (⊤ : ℕ∞) ρ) (hρc : HasCompactSupport ρ) (z : ℂ) :
+    ContDiff ℝ (⊤ : ℕ∞) (fun t : ℝ => ∫ u : ℝ, (ρ u : ℂ) * introTracePower z (t - u)) := by
+  have hρc' : HasCompactSupport (fun u : ℝ => (ρ u : ℂ)) :=
+    hρc.comp_left (g := fun x : ℝ => (x : ℂ)) (by norm_num)
+  have hρ' : ContDiff ℝ (⊤ : ℕ∞) (fun u : ℝ => (ρ u : ℂ)) :=
+    Complex.ofRealCLM.contDiff.comp hρ
+  show ContDiff ℝ (⊤ : ℕ∞)
+    ((fun u : ℝ => (ρ u : ℂ)) ⋆[ContinuousLinearMap.mul ℝ ℂ, volume] introTracePower z)
+  exact hρc'.contDiff_convolution_left (ContinuousLinearMap.mul ℝ ℂ) hρ'
+    (introTrace_locallyIntegrable_power z)
+
+private theorem introTrace_contDiff_approx_exp (h ρ : ℕ → ℝ → ℝ)
+    (hA : IsIntroTraceApproximation h ρ) (n : ℕ) (z : ℂ) :
+    ContDiff ℝ (⊤ : ℕ∞) (fun t : ℝ => introTraceApprox (h n) (ρ n) z (Real.exp t)) := by
+  obtain ⟨hh, -, -, ε, -, hε⟩ := hA
+  obtain ⟨-, hρc, -, hρs, -⟩ := hε n
+  have hρc' : HasCompactSupport (ρ n) :=
+    isCompact_Icc.of_isClosed_subset (isClosed_tsupport _) hρs
+  have h1 : ContDiff ℝ (⊤ : ℕ∞) (fun t : ℝ => (h n (Real.exp t) : ℂ)) :=
+    Complex.ofRealCLM.contDiff.comp ((hh n).1.comp Real.contDiff_exp)
+  have h2 : ContDiff ℝ (⊤ : ℕ∞)
+      (fun t : ℝ => ∫ u : ℝ, (ρ n u : ℂ) * introTracePower z (Real.exp t - u)) :=
+    (introTrace_contDiff_mollifiedIntegral (ρ n) hρc hρc' z).comp Real.contDiff_exp
+  exact h1.mul h2
+
+private theorem introTrace_hasCompactSupport_approx_exp (h ρ : ℕ → ℝ → ℝ)
+    (hA : IsIntroTraceApproximation h ρ) (n : ℕ) (z : ℂ) :
+    HasCompactSupport (fun t : ℝ => introTraceApprox (h n) (ρ n) z (Real.exp t)) := by
+  obtain ⟨hh, -, -, -⟩ := hA
+  obtain ⟨-, hhc, htsub, -⟩ := hh n
+  have hK : IsCompact (Real.log '' tsupport (h n)) :=
+    hhc.isCompact.image_of_continuousOn
+      (Real.continuousOn_log.mono fun x hx => ne_of_gt (lt_trans one_pos (htsub hx)))
+  refine HasCompactSupport.of_support_subset_isCompact hK ?_
+  intro t ht
+  refine ⟨Real.exp t, subset_tsupport _ ?_, Real.log_exp t⟩
+  intro h0
+  exact ht (by simp [introTraceApprox, h0])
+
+/-! ## Bruhat test from a character times a radial profile -/
+
+private theorem introTrace_compact_le_ker {G : Type*} [CommGroup G]
+    [TopologicalSpace G] (L : G →* Multiplicative ℝ) (hL : Continuous L)
+    {k : Subgroup G} (hk : IsCompact (k : Set G)) : k ≤ L.ker := by
+  obtain ⟨C, hC⟩ := isBounded_iff_forall_norm_le.mp ((hk.image
+    ((show Continuous (Multiplicative.toAdd : Multiplicative ℝ → ℝ) from continuous_id).comp
+      hL)).isBounded)
+  intro x hx
+  rw [MonoidHom.mem_ker]
+  by_contra h
+  have hne : (L x).toAdd ≠ 0 := h
+  have hxpos : 0 < |(L x).toAdd| := abs_pos.mpr hne
+  obtain ⟨n, hn⟩ := exists_nat_gt (C / |(L x).toAdd|)
+  have hbound := hC (L (x ^ n)).toAdd ⟨x ^ n, k.pow_mem hx n, rfl⟩
+  rw [map_pow, toAdd_pow, nsmul_eq_mul, Real.norm_eq_abs, abs_mul,
+    abs_of_nonneg (Nat.cast_nonneg n)] at hbound
+  exact (not_lt_of_ge hbound) ((div_lt_iff₀ hxpos).mp hn)
+
+open scoped ContDiff in
+private theorem introTrace_contDiff_elementary {m n r : ℕ} {F : Type*}
+    [AddCommGroup F] [TopologicalSpace F] [DiscreteTopology F]
+    (ψ : Multiplicative (ElementaryLieGroup m n r F) →* Multiplicative ℝ) (hψ : Continuous ψ)
+    {H : ℝ → ℂ} (hH : ContDiff ℝ (∞) H) (z : Fin r → ℤ) (b : F) {p : ℕ∞} :
+    ContDiff ℝ p (fun u ↦ H (ψ (Multiplicative.ofAdd (elementaryCover u z b))).toAdd) := by
+  let c : EuclideanSpace ℝ (Fin m) × EuclideanSpace ℝ (Fin n) →+ ElementaryLieGroup m n r F :=
+    { toFun := fun xt ↦ elementaryCover xt 0 0
+      map_zero' := Prod.ext rfl (Prod.ext (funext fun _ ↦ AddCircle.coe_zero (1 : ℝ)) rfl)
+      map_add' := fun x y ↦ Prod.ext rfl
+        (Prod.ext (funext fun i ↦ AddCircle.coe_add (1 : ℝ) (x.2 i) (y.2 i)) (zero_add _).symm) }
+  have hc : Continuous c :=
+    continuous_fst.prodMk
+      ((continuous_pi fun i ↦ (AddCircle.continuous_mk' (1 : ℝ)).comp
+        ((PiLp.continuous_apply 2 _ i).comp continuous_snd)).prodMk continuous_const)
+  let ℓ : EuclideanSpace ℝ (Fin m) × EuclideanSpace ℝ (Fin n) →+ ℝ :=
+    (MonoidHom.toAdditive ψ).comp c
+  have hℓ : Continuous ℓ := hψ.comp hc
+  have hshift u : c u + elementaryCover 0 z b = elementaryCover u z b := by
+    change elementaryCover u 0 0 + elementaryCover 0 z b = elementaryCover u z b
+    refine Prod.ext (add_zero _) (Prod.ext (funext fun i ↦ ?_) (Prod.ext (zero_add _) (zero_add _)))
+    change ((u.2 i : ℝ) : AddCircle (1 : ℝ)) + (((0 : EuclideanSpace ℝ (Fin n)) i : ℝ) :
+      AddCircle (1 : ℝ)) = ((u.2 i : ℝ) : AddCircle (1 : ℝ))
+    rw [show ((0 : EuclideanSpace ℝ (Fin n)) i : ℝ) = 0 from rfl, AddCircle.coe_zero, add_zero]
+  have heq u : (ψ (Multiplicative.ofAdd (elementaryCover u z b))).toAdd =
+      ℓ u + (ψ (Multiplicative.ofAdd (elementaryCover 0 z b))).toAdd := by
+    rw [← hshift u, ofAdd_add, map_mul, toAdd_mul]
+    rfl
+  rw [show (fun u ↦ H (ψ (Multiplicative.ofAdd (elementaryCover u z b))).toAdd) =
+      fun u ↦ H (ℓ u + (ψ (Multiplicative.ofAdd (elementaryCover 0 z b))).toAdd) from
+    funext fun u ↦ by rw [heq u]]
+  have : ContinuousSMul ℝ (EuclideanSpace ℝ (Fin m) × EuclideanSpace ℝ (Fin n)) :=
+    Prod.continuousSMul
+  have hlin : ContDiff ℝ p (fun u ↦ ℓ u) := (ℓ.toRealLinearMap hℓ).contDiff
+  exact (hH.of_le (by exact_mod_cast le_top)).comp (hlin.add contDiff_const)
+
+open scoped ContDiff in
+private theorem introTrace_isBruhatContDiff_mul {G : Type*} [CommGroup G]
+    [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G] [LocallyCompactSpace G]
+    {p : ℕ} {f : G → ℂ} (hf : IsBruhatContDiff p f)
+    (L : G →* Multiplicative ℝ) (hL : Continuous L) {H : ℝ → ℂ} (hH : ContDiff ℝ (∞) H) :
+    IsBruhatContDiff p (fun g ↦ f g * H (L g).toAdd) := by
+  obtain ⟨k, hk, hinv, hdesc⟩ := hf
+  have hker : k ≤ L.ker := introTrace_compact_le_ker L hL hk.isCompact
+  refine ⟨k, hk, fun h x ↦ ?_, fun a ha ↦ ?_⟩
+  · show f (h.val * x) * H (L (h.val * x)).toAdd = f x * H (L x).toAdd
+    rw [hinv h x, map_mul, MonoidHom.mem_ker.mp (hker h.property), one_mul]
+  · obtain ⟨f₀, hf₀, hcd⟩ := hdesc a ha
+    let N := (OrderDual.ofDual a.val.2).comap a.val.1.subtype
+    let q : a.quotient →* Multiplicative ℝ :=
+      QuotientGroup.lift N (L.comp a.val.1.subtype) (fun x hx ↦ hker (ha ▸ hx))
+    have hq : Continuous q := (QuotientGroup.isQuotientMap_mk N).continuous_iff.mpr
+      (hL.comp continuous_subtype_val)
+    refine ⟨fun x ↦ f₀ x * H (q x).toAdd, fun x ↦ ?_, fun e z b ↦ ?_⟩
+    · show f₀ (QuotientGroup.mk x) * H (q (QuotientGroup.mk x)).toAdd = f x.val * H (L x.val).toAdd
+      rw [hf₀ x]
+      rfl
+    · exact (hcd e z b).mul (introTrace_contDiff_elementary
+        (q.comp e.equiv.symm.toMulEquiv.toMonoidHom)
+        (hq.comp e.equiv.symm.continuous) hH z b)
+
+open scoped ContDiff in
+private theorem introTrace_isBruhatSmooth_mul {G : Type*} [CommGroup G]
+    [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G] [LocallyCompactSpace G]
+    {f : G → ℂ} (hf : IsBruhatSmooth f)
+    (L : G →* Multiplicative ℝ) (hL : Continuous L) {H : ℝ → ℂ} (hH : ContDiff ℝ (∞) H) :
+    IsBruhatSmooth (fun g ↦ f g * H (L g).toAdd) :=
+  fun p => introTrace_isBruhatContDiff_mul (hf p) L hL hH
+
+open scoped ContDiff in
+private theorem introTrace_characterNormTest (ψ : U𝔽) (H : ℝ → ℂ)
+    (hH : ContDiff ℝ (∞) H) (hHc : HasCompactSupport H) :
+    ∃ φ : D𝔽, ∀ x, φ.val x = (ψ x : ℂ) * H (Real.log (N(x))) := by
+  have hpos (x : C𝔽) : (0 : ℝ) < ((ideleClassNorm F x : NNReal) : ℝ) :=
+    NNReal.coe_pos.mpr (Units.zero_lt _)
+  let L : C𝔽 →* Multiplicative ℝ :=
+    { toFun := fun x ↦ Multiplicative.ofAdd (Real.log ((ideleClassNorm F x : NNReal) : ℝ))
+      map_one' := by simp
+      map_mul' := fun x y ↦ by
+        rw [map_mul, Units.val_mul, NNReal.coe_mul,
+          Real.log_mul (hpos x).ne' (hpos y).ne', ofAdd_add] }
+  have hL : Continuous L := continuous_ofAdd.comp
+    ((NNReal.continuous_coe.comp (Units.continuous_val.comp
+      (isProperMap_ideleClassNorm F).continuous)).log fun x ↦ (hpos x).ne')
+  have hψ : (fun x : C𝔽 => (ψ x : ℂ)) ∈ bruhatSmoothSubmodule :=
+    pontryaginDual_mem_bruhatSmooth (G := C𝔽) ψ
+  have hψ' : IsBruhatSmooth (fun x : C𝔽 => (ψ x : ℂ)) :=
+    (mem_bruhatSmoothSubmodule_iff (fun x : C𝔽 => (ψ x : ℂ))).mp hψ
+  have hs : IsBruhatSmooth (fun x ↦ (ψ x : ℂ) * H (L x).toAdd) :=
+    introTrace_isBruhatSmooth_mul hψ' L hL hH
+  have hcs0 : HasCompactSupport (fun x : C𝔽 ↦ H (L x).toAdd) := by
+    let E : ℝ → NNRealˣ := fun t ↦
+      Units.mk0 (Real.exp t).toNNReal (Real.toNNReal_pos.mpr (Real.exp_pos t)).ne'
+    have hE : Continuous E := Units.continuous_iff.mpr
+      ⟨continuous_real_toNNReal.comp Real.continuous_exp,
+        (continuous_real_toNNReal.comp Real.continuous_exp).inv₀ fun t ↦
+          (Real.toNNReal_pos.mpr (Real.exp_pos t)).ne'⟩
+    have hK : IsCompact (E '' tsupport H) := hHc.isCompact.image hE
+    refine HasCompactSupport.intro ((isProperMap_ideleClassNorm F).isCompact_preimage hK)
+      fun x hx ↦ image_eq_zero_of_notMem_tsupport fun hmem ↦ hx ⟨_, hmem, ?_⟩
+    apply Units.ext
+    change (Real.exp (Real.log _)).toNNReal = _
+    rw [Real.exp_log (hpos x), Real.toNNReal_coe]
+  exact ⟨(⟨_, (mem_bruhatSmoothSubmodule_iff _).mpr hs, hcs0.mul_left⟩ :
+    bruhatCompactSupportSubmodule C𝔽), fun _ ↦ rfl⟩
+
 /-- Paper: §1.4.2, pp. 28–29. After twisting by the conjugate character
 the approximant is a compactly supported Bruhat test on the idele classes. -/
 theorem introTraceApprox_exists_bruhat (χ : U𝔽) (h ρ : ℕ → ℝ → ℝ)
     (_hA : IsIntroTraceApproximation h ρ) (n : ℕ) (z : ℂ) :
-    ∃ φ : D𝔽, ∀ g, φ.val g = introTraceTest χ (introTraceApprox (h n) (ρ n) z) g := by sorry
+    ∃ φ : D𝔽, ∀ g, φ.val g = introTraceTest χ (introTraceApprox (h n) (ρ n) z) g := by
+  obtain ⟨φ, hφ⟩ := introTrace_characterNormTest (F := F) (χ⁻¹)
+    (fun t : ℝ => introTraceApprox (h n) (ρ n) z (Real.exp t))
+    (introTrace_contDiff_approx_exp h ρ _hA n z)
+    (introTrace_hasCompactSupport_approx_exp h ρ _hA n z)
+  refine ⟨φ, fun g => ?_⟩
+  rw [hφ g, Real.exp_log (NNReal.coe_pos.mpr (Units.zero_lt _)), introTraceTest]
+  congr 1
+  show (((χ⁻¹) g : Circle) : ℂ) = star ((χ g : Circle) : ℂ)
+  rw [show (χ⁻¹) g = (χ g)⁻¹ from rfl, Circle.coe_inv, Complex.star_def,
+    Complex.inv_eq_conj (Circle.norm_coe (χ g))]
+
 
 /-- Paper: §1.4.2, pp. 28–29. The twisted approximant satisfies the second
 standing hypothesis of the trace identity, vanishing at every norm-one class. -/
