@@ -1008,24 +1008,113 @@ private theorem sLocalThetaPrincipalValue_thetaKernel_le_range {S S₀ : Finset 
     (h₀ : S₀ ⊆ S) :
     Kₛ(S) ≤ (sAdelePrincipalValue F h₀).range := by sorry
 
+/-- Descent of a closed topological embedding to the quotient by a subspace that the operator
+maps into itself. With `hcomap` and `hrange` as hypotheses, the descended operator has closed
+range and is a closed embedding; the proof is the neighbourhood computation
+`(descent)⁻¹ (q '' V) = q '' U` described at `sLocalThetaPrincipalValue_isClosedEmbedding_descent`,
+and it uses no completeness of the quotient. -/
+private theorem principalValue_isClosedEmbedding_mapQ {X : Type*} [AddCommGroup X] [Module ℂ X]
+    [TopologicalSpace X] [IsTopologicalAddGroup X] (K : Submodule ℂ X) (p : X →ₗ[ℂ] X)
+    (hp : IsClosedEmbedding (p : X → X)) (hle : K ≤ K.comap p)
+    (hcomap : K.comap p ≤ K) (hrange : K ≤ p.range) :
+    IsClosedEmbedding (K.mapQ K p hle) := by
+  classical
+  set g : X ⧸ K →ₗ[ℂ] X ⧸ K := K.mapQ K p hle
+  have hq : IsQuotientMap (K.mkQ) := Submodule.isQuotientMap_mkQ K
+  have hgapp : ∀ x : X, g (K.mkQ x) = K.mkQ (p x) := fun x ↦
+    Submodule.mapQ_apply (p := K) (q := K) (f := p) (h := hle) x
+  have hcont : Continuous g := by
+    rw [hq.continuous_iff]
+    exact Continuous.congr (hq.continuous.comp hp.continuous) fun x ↦ (hgapp x).symm
+  have hinj : Function.Injective g := by
+    intro a b hab
+    obtain ⟨x, rfl⟩ := K.mkQ_surjective a
+    obtain ⟨y, rfl⟩ := K.mkQ_surjective b
+    rw [hgapp, hgapp] at hab
+    refine (Submodule.Quotient.eq K).mpr (hcomap ?_)
+    show p (x - y) ∈ K
+    rw [map_sub]
+    exact (Submodule.Quotient.eq K).mp hab
+  have hclosed : IsClosed (Set.range g) := by
+    have hrangeq : g.range = p.range.map (K.mkQ) :=
+      Submodule.range_mapQ (p := K) (q := K) (f := p) hle
+    have hsup : K ⊔ p.range = p.range := sup_eq_right.mpr hrange
+    have hpre_sub : Submodule.comap (K.mkQ) g.range = p.range := by
+      rw [hrangeq, Submodule.comap_map_mkQ, hsup]
+    have hpre : K.mkQ ⁻¹' ((g.range : Submodule ℂ (X ⧸ K)) : Set (X ⧸ K))
+        = (p.range : Submodule ℂ X) := by
+      rw [← hpre_sub]
+      rfl
+    rw [show Set.range g = (g.range : Set (X ⧸ K)) from rfl, ← hq.isClosed_preimage, hpre]
+    have hcr : IsClosed (p.range : Set X) := by
+      rw [LinearMap.coe_range]
+      exact hp.isClosed_range
+    exact hcr
+  refine ⟨⟨?_, hinj⟩, hclosed⟩
+  rw [IsTopologicalAddGroup.isInducing_iff_nhds_zero (f := g)]
+  refine le_antisymm ?_ ?_
+  · simpa using map_le_iff_le_comap.mp (hcont.tendsto 0)
+  · intro U hU
+    rw [Filter.mem_comap]
+    obtain ⟨W, hWU, hWopen, h0W⟩ := mem_nhds_iff.mp hU
+    set U₁ := K.mkQ ⁻¹' W with hU₁def
+    have hU₁open : IsOpen U₁ := hq.isOpen_preimage.mpr hWopen
+    have h0U₁ : (0 : X) ∈ U₁ := by
+      show K.mkQ 0 ∈ W
+      simpa using h0W
+    obtain ⟨Vx, hVopen, hpV⟩ := hp.isEmbedding.isInducing.isOpen_iff.mp hU₁open
+    have h0Vx : (0 : X) ∈ Vx := by
+      have h : (0 : X) ∈ p ⁻¹' Vx := by rw [hpV]; exact h0U₁
+      simpa using h
+    refine ⟨K.mkQ '' Vx, ?_, ?_⟩
+    · refine IsOpen.mem_nhds ((Submodule.isOpenMap_mkQ K) Vx hVopen) ⟨0, h0Vx, ?_⟩
+      exact map_zero _
+    · rintro a ha
+      obtain ⟨x, rfl⟩ := K.mkQ_surjective a
+      simp only [Set.mem_preimage] at ha
+      rw [hgapp] at ha
+      obtain ⟨v, hvV, hvx⟩ := ha
+      have hk : p x - v ∈ K := by
+        have h := (Submodule.Quotient.eq K).mp hvx.symm
+        simpa using h
+      obtain ⟨z, hz⟩ := LinearMap.mem_range.mp (hrange hk)
+      have hzK : z ∈ K := hcomap (by show p z ∈ K; rw [hz]; exact hk)
+      have hpxz : p (x - z) ∈ Vx := by
+        have h1 : p (x - z) = v := by
+          have h2 : p (x - z)
+              = p x - p z := map_sub _ _ _
+          have hz' : p z = p x - v := hz
+          rw [h2, hz']
+          abel
+        rw [h1]
+        exact hvV
+      have hxz : x - z ∈ U₁ := by rw [← hpV]; exact hpxz
+      have hqxz : K.mkQ (x - z) ∈ W := hxz
+      have hq0 : K.mkQ z = 0 := by
+        rw [Submodule.mkQ_apply, Submodule.Quotient.mk_eq_zero]
+        exact hzK
+      have hEq : K.mkQ x = K.mkQ (x - z) := by
+        rw [map_sub, hq0, sub_zero]
+      rw [hEq]
+      exact hWU hqxz
+
 /-- Paper: Lemma 5.3.1.5, p. 242.
 Descent of a closed embedding to the quotient by a subspace that the operator maps into itself.
 
-Given `sLocalThetaPrincipalValue_thetaKernel_comap` (injectivity of the descent) and
-`sLocalThetaPrincipalValue_thetaKernel_le_range` (closedness of its range), the argument is
-this. Closedness of the range: `Submodule.range_mapQ` writes the range of the descent as the
-image of `range PV` under the quotient map, whose preimage is `range PV + K = range PV` by the
-second hypothesis, and the image of a saturated closed set under a quotient map is closed. The
-embedding: the neighbourhoods of `0` agree, since for a saturated open `U ∋ 0` and an open `V`
-with `PV ⁻¹' V = U` (a closed embedding is open onto its range) one has
-`(descent)⁻¹ (q '' V) = q '' U`, using the first hypothesis to write each `k ∈ K` as `PV z` with
-`z ∈ K`, and the saturation of `U`. No completeness of the quotient is needed. -/
+This is the pure topology that Lemma 5.3.1.5 needs, proved by `principalValue_isClosedEmbedding_mapQ`
+from `sLocalThetaPrincipalValue_thetaKernel_comap` (injectivity of the descent) and
+`sLocalThetaPrincipalValue_thetaKernel_le_range` (closedness of its range): closedness of the
+range comes from `Submodule.range_mapQ`, and the embedding from the neighbourhood computation
+`(descent)⁻¹ (q '' V) = q '' U` in the abstract lemma. No completeness of the quotient is
+needed, so the only inputs left are the two analytic facts above. -/
 private theorem sLocalThetaPrincipalValue_isClosedEmbedding_descent {S S₀ : Finset V}
     (h₀ : S₀ ⊆ S)
     (hPV : IsClosedEmbedding (sAdelePrincipalValue F h₀))
     (hcomap : (Kₛ(S)).comap (sAdelePrincipalValue F h₀) = Kₛ(S))
     (hrange : Kₛ(S) ≤ (sAdelePrincipalValue F h₀).range) :
-    IsClosedEmbedding (sLocalThetaPrincipalValue F h₀) := by sorry
+    IsClosedEmbedding (sLocalThetaPrincipalValue F h₀) :=
+  principalValue_isClosedEmbedding_mapQ (Kₛ(S)) (sAdelePrincipalValue F h₀) hPV
+    (sAdelePrincipalValue_preserves_thetaKernel h₀) (le_of_eq hcomap) hrange
 
 /-- Paper: Lemma 5.3.1.5, p. 242.
 The S-local principal value on theta classes is a closed topological embedding. -/
