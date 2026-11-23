@@ -1044,8 +1044,51 @@ For ℚ and the trivial character, take the jet at −2 of order zero. Tensor
 exp(−πx²) − 3 exp(−4πx²) + 2 exp(−16πx²) with the finite integral indicator.
 The coefficients make the two polar moments vanish. The x² coefficient is
 −21π, so the simple archimedean Mellin pole at −2 cancels the simple zeta zero
-with nonzero result. The missing factor therefore changes the value. -/
-theorem Printed.archNuclearityJet_apply_false : ¬ Printed.archNuclearityJet_apply := by sorry
+with nonzero result. The missing factor therefore changes the value.
+
+The Lean proof uses instead the character `|·|^i` and the nonzero flat
+zero-moment test of `archNuclearityJet_span_false_key`. Its zeta value at the
+printed index `(−i, 0)` is nonzero, and `schwartzBergman_jet_eq_mellinInv_moment`
+computes that jet as the unnormalized logarithmic moment itself, so the printed
+factor `2πi` would force the nonzero value to vanish. -/
+theorem Printed.archNuclearityJet_apply_false : ¬ Printed.archNuclearityJet_apply := by
+  intro h
+  obtain ⟨χ, hχ⟩ := archNuclearityJet_span_false_char
+  let τ : ℝ≥0ˣ →ₜ* I[ℚ] := ⟨ratIdeleNormSection, ratIdeleNormSection_continuous⟩
+  have hτ : RightInverse τ (ideleNorm ℚ) := ratIdeleNormSection_rightInverse
+  obtain ⟨f, -, hne⟩ := archNuclearityJet_span_false_key
+  let v : B := Z(χ, τ, hτ) (Submodule.Quotient.mk f : Θ₀[ℚ, χ])
+  have hz : (v.val : ℂ → ℂ) = fun s ↦
+      globalIdelicZFunction f.val (ideleClassNormTwist χ s) :=
+    funext fun s ↦ ((exists_globalPolarThetaMellin χ τ hτ).choose_spec f s).2
+  have hmom := (schwartzBergman_jet_eq_mellinInv_moment v (-Complex.I) 0).2.2
+  have heq := h ℚ χ τ hτ
+    ⟨(-Complex.I, 0), archNuclearityJet_span_false_mult χ hχ τ hτ⟩ f
+  simp only [iteratedDeriv_zero, pow_zero, one_mul] at hmom heq
+  rw [← hz] at heq
+  have hzpt : globalIdelicZFunction f.val (ideleClassNormTwist χ (-Complex.I)) =
+      v.val (-Complex.I) := by
+    simpa using (congrFun hz (-Complex.I)).symm
+  rw [hzpt, hmom] at heq
+  have h2 : (1 - 2 * (Real.pi : ℂ) * Complex.I) *
+      mellin (fun t : ℝ ↦ mellinInv 0 v.val t) (-Complex.I) = 0 := by
+    rw [sub_mul, one_mul]
+    exact sub_eq_zero.mpr heq
+  have hc : (1 - 2 * (Real.pi : ℂ) * Complex.I) ≠ 0 := by
+    intro h0
+    have hre := congrArg Complex.re h0
+    simp at hre
+  have hz0 : mellin (fun t : ℝ ↦ mellinInv 0 v.val t) (-Complex.I) = 0 :=
+    (mul_eq_zero.mp h2).resolve_left hc
+  have hu0 : v.val (-Complex.I) = 0 := by
+    rw [hmom]
+    exact hz0
+  apply hne
+  have htw : ideleClassNormTwist χ (-Complex.I) = ideleClassNormTwist (1 : U[ℚ]) 0 := by
+    have := ideleClassNormTwist_add_of_eq hχ (-Complex.I)
+    simpa using this
+  rw [← htw]
+  simpa [hz] using hu0
 
 /-- Paper: Equation (7.4.3.14), p. 373. The printed gamma-pole sum with its
 norm-character correction. -/
