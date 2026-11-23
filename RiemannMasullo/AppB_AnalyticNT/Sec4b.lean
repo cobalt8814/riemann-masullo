@@ -4001,6 +4001,21 @@ local notation "differentExp(" v ")" =>
   multiplicity (HeightOneSpectrum.asIdeal v) (differentIdeal ℤ (𝓞 F))
 
 
+/-- Paper: Lemma B.4.4.5, p. 622, in the one remaining case `f = 1_{O_v^×}`.
+The rescaled principal value of the integer-unit indicator is minus the local
+different contribution. The two integrals of the unit-subtracted finite part
+vanish on this test, so this is exactly the constant by which
+`finiteConnesWeilPrincipalValue_eq_finitePart` fails for a general test.
+It is the calculation of pp. 622--623: the Fourier transform of the indicator
+of `-1 + O_v^×` against the normalized logarithm, whose printed form carries the
+footnote "the right side should be double-checked"; see the `TODO(paper-gap)`
+note directly above. -/
+theorem finiteConnesWeilPrincipalValue_unitsIndicator (v : Primes(F)) :
+    ∃ b : 𝒟((v.adicCompletion F)ˣ),
+      b.val = indicator ((O(v)).units : Set (v.adicCompletion F)ˣ) (fun _ ↦ 1) ∧
+      finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 b =
+        -(((differentExp(v) : ℝ) * Real.log q(v) : ℝ) : ℂ) := by sorry
+
 /-- Paper: Lemma B.4.4.5, p. 622. The rescaled finite principal value is
 the unit-subtracted finite part with the different correction. -/
 theorem finiteConnesWeilPrincipalValue_eq_finitePart (v : Primes(F))
@@ -4012,8 +4027,76 @@ theorem finiteConnesWeilPrincipalValue_eq_finitePart (v : Primes(F))
       finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 f =
         finiteWeilScale(v) * ((∫ u in unitsᶜ, outside u ∂μ𝔭(v)) +
           (∫ u in units, inside u ∂μ𝔭(v))) -
-        ((differentExp(v) : ℝ) * Real.log q(v) : ℝ) * f.val 1 :=
-  by sorry
+        ((differentExp(v) : ℝ) * Real.log q(v) : ℝ) * f.val 1 := by
+  obtain ⟨b, hbval, hbscale⟩ := finiteConnesWeilPrincipalValue_unitsIndicator v
+  let : BorelSpace (v.adicCompletion F)ˣ := ⟨rfl⟩
+  have hU : IsOpen ((O(v)).units : Set (v.adicCompletion F)ˣ) :=
+    Submonoid.isOpen_units (Valued.isOpen_valuationSubring _)
+  have hUmeas : MeasurableSet ((O(v)).units : Set (v.adicCompletion F)ˣ) := hU.measurableSet
+  have hb1 : b.val 1 = 1 := by
+    rw [hbval]
+    exact Set.indicator_of_mem (Subgroup.one_mem _) _
+  set c : ℂ := f.val 1 with hc
+  set g : 𝒟((v.adicCompletion F)ˣ) := f - c • b with hg
+  have hgval (u : (v.adicCompletion F)ˣ) : g.val u = f.val u - c * b.val u := by
+    rw [hg]
+    rfl
+  have hg1 : g.val 1 = 0 := by
+    rw [hgval, hb1, hc]
+    ring
+  -- The test `g` vanishes at one, so the ordinary integral computes its principal value.
+  obtain ⟨hintg, hPg0⟩ := finiteConnesWeilPrincipalValue_of_apply_one_zero v g hg1
+  have hPg : finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 g =
+      finiteWeilScale(v) * ∫ u, finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v) := by rw [hPg0]
+  -- The principal value is linear, so the correction is the one of the indicator.
+  have hfe : f = g + c • b := by
+    rw [hg]
+    abel
+  have hP : finiteConnesWeilPrincipalValue v 1 f =
+      finiteConnesWeilPrincipalValue v 1 g + c * finiteConnesWeilPrincipalValue v 1 b := by
+    rw [hfe, map_add, map_smul, smul_eq_mul]
+  -- Off the integer units the subtracted test agrees with the original one,
+  -- and on them the unit-subtracted integrands agree.
+  have hout (u : (v.adicCompletion F)ˣ) (hu : u ∉ (O(v)).units) :
+      finiteWeilIntegrand(v, f.val) u = finiteWeilIntegrand(v, g.val) u := by
+    have hbu : b.val u = 0 := by
+      rw [hbval]
+      exact Set.indicator_of_notMem hu _
+    have hgu : g.val u = f.val u := by rw [hgval, hbu, mul_zero, sub_zero]
+    exact (congrArg (fun t : ℂ ↦ t * (Real.sqrt ‖u.val‖ : ℂ) /
+      ((‖1 - u.val‖ : ℝ) : ℂ)) hgu).symm
+  have hin (u : (v.adicCompletion F)ˣ) (hu : u ∈ (O(v)).units) :
+      finiteWeilIntegrand(v, (fun u ↦ f.val u - f.val 1)) u =
+        finiteWeilIntegrand(v, g.val) u := by
+    have hbu : b.val u = 1 := by
+      rw [hbval]
+      exact Set.indicator_of_mem hu _
+    have hgu : g.val u = f.val u - f.val 1 := by rw [hgval, hbu, mul_one]
+    exact (congrArg (fun t : ℂ ↦ t * (Real.sqrt ‖u.val‖ : ℂ) /
+      ((‖1 - u.val‖ : ℝ) : ℂ)) hgu).symm
+  have houtI : (∫ u in ((O(v)).units)ᶜ, finiteWeilIntegrand(v, f.val) u ∂μ𝔭(v)) =
+      ∫ u in ((O(v)).units)ᶜ, finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v) :=
+    setIntegral_congr_fun hUmeas.compl (fun u hu ↦ hout u hu)
+  have hinI :
+      (∫ u in ((O(v)).units), finiteWeilIntegrand(v, (fun u ↦ f.val u - f.val 1)) u ∂μ𝔭(v)) =
+        ∫ u in ((O(v)).units), finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v) :=
+    setIntegral_congr_fun hUmeas (fun u hu ↦ hin u hu)
+  have hsum : (∫ u in ((O(v)).units)ᶜ, finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v)) +
+      (∫ u in ((O(v)).units), finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v)) =
+      ∫ u, finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v) := by
+    rw [add_comm]
+    exact integral_add_compl hUmeas hintg
+  have hkey : finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 f =
+      finiteWeilScale(v) * (∫ u, finiteWeilIntegrand(v, g.val) u ∂μ𝔭(v)) +
+        c * (-(((differentExp(v) : ℝ) * Real.log q(v) : ℝ) : ℂ)) := by
+    have e1 : finiteWeilScale(v) * (c * finiteConnesWeilPrincipalValue v 1 b) =
+        c * (finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 b) := by ring
+    rw [hP, mul_add, hPg, e1, hbscale]
+  refine ⟨hintg.integrableOn.congr_fun (fun u hu ↦ (hout u hu).symm) hUmeas.compl,
+    hintg.integrableOn.congr_fun (fun u hu ↦ (hin u hu).symm) hUmeas, ?_⟩
+  dsimp only
+  rw [houtI, hinI, hsum, hkey]
+  ring
 
 /-- Evaluating the finite part on a compact open subgroup indicator gives the correction term. -/
 private theorem finiteConnesWeilPrincipalValue_integerUnits_test
