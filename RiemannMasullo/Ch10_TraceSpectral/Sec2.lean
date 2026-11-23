@@ -686,13 +686,97 @@ local notation "lineHs(" hs ")" => le_of_lt (zero_lt_one.trans hs)
 local notation "lineU(" χ ", " hs ")" =>
   (fun j ↦ (spectralLineJet_memLp χ hs j).toLp (lineJet(χ, j)))
 
+/-- Paper: Theorem 10.2.1.1, pp. 440 and 442–443. A single polar-free theta
+class, weighted at the base point `a`, pairs to zero with every admitted
+`a`-line jet. This is the Mellin-side input of the common-kernel statement: the
+Mellin transform of the weighted theta class is the completed Hecke
+L-function of the jet's base character times an entire factor, so at the jet's
+ordinate it vanishes to an order strictly larger than the admitted jet order.
+Intermediate lemma for `spectralLineJet_commonKernel`. -/
+private theorem spectralLineJet_commonKernel_generator
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) {a s : ℝ} (hs : 1 < s)
+    (v : GlobalPolarFreeThetaSpace F) (j : SpectralLineJetIndex χ a s) :
+    spectralSobolevPairing (F := F)
+      ((existsUnique_globalThetaSobolevEmbedding (F := F) a (0 : ℝ) (0 : ℝ) s le_rfl
+        (lineHs(hs))).exists.choose v)
+      (lineU(χ, hs) j) = 0 := by
+  sorry
+
+/-- Paper: Theorem 10.2.1.1, pp. 440–443. The weighted theta closure is
+contained in the common kernel of the admitted line jets. This is the easy
+direction of `spectralLineJet_commonKernel`: the admitted jets are continuous
+functionals, the common kernel is therefore closed, and by
+`spectralLineJet_commonKernel_generator` it contains the dense theta range.
+Intermediate lemma for `spectralLineJet_commonKernel`. -/
+private theorem spectralLineJet_commonKernel_theta_mem
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) {a s : ℝ} (hs : 1 < s)
+    (f : W(0, 0, s)) (hf : f ∈ Θ(a, le_rfl (a := (0 : ℝ)), lineHs(hs)))
+    (j : SpectralLineJetIndex χ a s) :
+    spectralSobolevPairing (F := F) f (lineU(χ, hs) j) = 0 := by
+  have hs0 : (0 : ℝ) ≤ s := lineHs(hs)
+  let Td := (modulatedIntervalSobolev_dual m𝔽 hm𝔽 μ𝔽 0 0 s le_rfl hs0).exists.choose
+  let E := (existsUnique_globalThetaSobolevEmbedding (F := F) a (0 : ℝ) (0 : ℝ) s
+    le_rfl hs0).exists.choose
+  have hpair : ∀ (u : W'(0, 0, s)) (g : W(0, 0, s)),
+      (Td.symm u) g = spectralSobolevPairing (F := F) g u := by
+    intro u g
+    have h := ((modulatedIntervalSobolev_dual m𝔽 hm𝔽 μ𝔽 0 0 s le_rfl hs0).exists.choose_spec
+      (Td.symm u) g).2
+    rw [h, Td.apply_symm_apply u]
+    rfl
+  have hsubset : (E.toLinearMap.range : Set W(0, 0, s)) ⊆
+      {g : W(0, 0, s) | ∀ k : SpectralLineJetIndex χ a s,
+        spectralSobolevPairing (F := F) g (lineU(χ, hs) k) = 0} := by
+    rintro g ⟨v, rfl⟩ k
+    exact spectralLineJet_commonKernel_generator χ hs v k
+  have hclosed : IsClosed {g : W(0, 0, s) | ∀ k : SpectralLineJetIndex χ a s,
+      spectralSobolevPairing (F := F) g (lineU(χ, hs) k) = 0} := by
+    have hcoe : {g : W(0, 0, s) | ∀ k : SpectralLineJetIndex χ a s,
+        spectralSobolevPairing (F := F) g (lineU(χ, hs) k) = 0} =
+        ⋂ k : SpectralLineJetIndex χ a s,
+          {g : W(0, 0, s) | ⇑(Td.symm (lineU(χ, hs) k)) g = 0} := by
+      ext g
+      simp only [Set.mem_ofPred_eq, Set.mem_iInter]
+      constructor
+      · intro h k
+        exact (hpair (lineU(χ, hs) k) g).trans (h k)
+      · intro h k
+        exact (hpair (lineU(χ, hs) k) g).symm.trans (h k)
+    rw [hcoe]
+    exact isClosed_iInter fun k ↦
+      isClosed_eq (Td.symm (lineU(χ, hs) k)).continuous continuous_const
+  have hf' : f ∈ closure (E.toLinearMap.range : Set W(0, 0, s)) := by
+    rw [← Submodule.topologicalClosure_coe]
+    exact hf
+  exact closure_minimal hsubset hclosed hf' j
+
+/-- Paper: Theorem 10.2.1.1, pp. 440–443. Any Sobolev vector annihilated by all
+the admitted `a`-line jets lies in the weighted theta closure. This is the
+direction that the printed argument on p. 443 leaves open: it is equivalent to
+the density of the admitted jets in the annihilator of the theta closure.
+Intermediate lemma for `spectralLineJet_commonKernel`. -/
+private theorem spectralLineJet_commonKernel_le_theta
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) {a s : ℝ} (hs : 1 < s)
+    (f : W(0, 0, s))
+    (hf : ∀ j : SpectralLineJetIndex χ a s,
+      spectralSobolevPairing (F := F) f (lineU(χ, hs) j) = 0) :
+    f ∈ Θ(a, le_rfl (a := (0 : ℝ)), lineHs(hs)) := by
+  sorry
+
 /-- Paper: Theorem 10.2.1.1, pp. 440–443. The weighted theta closure is
 the common kernel of the admitted line jets.
-Gap: The proof on p. 443 does not identify this closure in the line norm. -/
+Gap: The proof on p. 443 does not identify this closure in the line norm.
+Reduced here to the two directions: the Mellin-side vanishing
+(`spectralLineJet_commonKernel_generator`) gives the inclusion of the theta
+closure, and `spectralLineJet_commonKernel_le_theta` is the remaining gap. -/
 theorem spectralLineJet_commonKernel (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
     (_hχ : IsSpectralBasepointChoice χ) {a s : ℝ} (hs : 1 < s) :
     let u : SpectralLineJetIndex χ a s → W'(0, 0, s) := lineU(χ, hs)
-    JetKernel(a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by sorry
+    JetKernel(a, le_rfl (a := (0 : ℝ)), lineHs(hs), u) := by
+  dsimp only
+  intro f
+  exact ⟨spectralLineJet_commonKernel_theta_mem χ hs f,
+    spectralLineJet_commonKernel_le_theta χ hs f⟩
 
 /-- Paper: Theorem 10.2.1.1, pp. 440–443. Single-jet interpolants have
 representatives whose images span a dense subspace of the line quotient.
