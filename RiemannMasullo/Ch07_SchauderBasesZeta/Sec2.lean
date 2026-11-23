@@ -17,6 +17,8 @@ import all RiemannMasullo.Ch05_ThetaZSpaces.Sec5
 import all RiemannMasullo.Ch05_ThetaZSpaces.Sec3b
 import all RiemannMasullo.Ch03_IdelicZeta.Sec3b
 import all RiemannMasullo.Ch07_SchauderBasesZeta.Sec1a
+import all RiemannMasullo.ForMathlib.NumberTheory.NumberField.Completion.FinitePlace
+import all RiemannMasullo.AppA_AlgebraicNT.Sec3
 
 /-!
 # §7.2 Poles of the S-idelic zeta functions
@@ -2397,7 +2399,60 @@ local notation "polarValuesₛ" =>
 
 /-- Paper: Equation (7.2.2.3), p. 340.
 Evaluation at zero before and after S-adelic Fourier transform is complex linear. -/
-theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by sorry
+theorem sAdelePolarValues_isLinear : IsLinearMap ℂ polarValuesₛ := by
+  letI : MeasurableSpace Aₛ := instMeasurableSpaceSAdeleRing F S
+  have hint : ∀ f : ℬₛ, MeasureTheory.Integrable (fun x : Aₛ ↦ f (Multiplicative.ofAdd x))
+      (sAdditiveTamagawaMeasure F S) := by
+    intro f
+    let G := Multiplicative Aₛ
+    let μ : MeasureTheory.Measure G := sAdditiveTamagawaMeasure F S
+    letI (v : S) : ProperSpace (v.val.adicCompletion F) := properSpace_adicCompletion v.val
+    letI (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+      (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+    letI (w : InfinitePlace F) : MeasurableSpace w.Completion := borel _
+    letI (w : InfinitePlace F) : BorelSpace w.Completion := ⟨rfl⟩
+    letI (v : S) : MeasurableSpace (v.val.adicCompletion F) := borel _
+    letI (v : S) : BorelSpace (v.val.adicCompletion F) := ⟨rfl⟩
+    letI : MeasurableSpace (InfiniteAdeleRing F) :=
+      inferInstanceAs (MeasurableSpace ((w : InfinitePlace F) → w.Completion))
+    letI : BorelSpace (InfiniteAdeleRing F) :=
+      inferInstanceAs (BorelSpace ((w : InfinitePlace F) → w.Completion))
+    letI : MeasurableSpace Aₛ := instMeasurableSpaceSAdeleRing F S
+    letI : BorelSpace Aₛ := inferInstanceAs (BorelSpace
+      (InfiniteAdeleRing F × ((v : S) → v.val.adicCompletion F)))
+    letI : T2Space Aₛ := inferInstanceAs (T2Space
+      (((w : InfinitePlace F) → w.Completion) × ((v : S) → v.val.adicCompletion F)))
+    letI : LocallyCompactSpace Aₛ := inferInstanceAs (LocallyCompactSpace
+      (((w : InfinitePlace F) → w.Completion) × ((v : S) → v.val.adicCompletion F)))
+    letI : T2Space G := ‹T2Space Aₛ›
+    letI : LocallyCompactSpace G := ‹LocallyCompactSpace Aₛ›
+    letI : BorelSpace G := ‹BorelSpace Aₛ›
+    letI : MeasurableSpace G := instMeasurableSpaceSAdeleRing F S
+    letI (w : InfinitePlace F) : (infiniteLocalAdditiveTamagawaMeasure F w).IsAddHaarMeasure :=
+      infiniteLocalAdditiveTamagawaMeasure_haar F w
+    letI (v : S) : (finiteLocalAdditiveTamagawaMeasure F v.val).IsAddHaarMeasure :=
+      finiteLocalAdditiveTamagawaMeasure_isAddHaar F v.val
+    letI : (MeasureTheory.Measure.pi (infiniteLocalAdditiveTamagawaMeasure F)).IsAddHaarMeasure :=
+      MeasureTheory.Measure.pi.isAddHaarMeasure _
+    letI : (MeasureTheory.Measure.pi (fun v : S ↦ finiteLocalAdditiveTamagawaMeasure F v.val)).IsAddHaarMeasure :=
+      MeasureTheory.Measure.pi.isAddHaarMeasure _
+    let hμ : (sAdditiveTamagawaMeasure F S).IsAddHaarMeasure :=
+      MeasureTheory.Measure.prod.instIsAddHaarMeasure _ _
+    letI : μ.IsHaarMeasure :=
+      { toIsFiniteMeasureOnCompacts := hμ.toIsFiniteMeasureOnCompacts
+        toIsOpenPosMeasure := hμ.toIsOpenPosMeasure
+        map_mul_left_eq_self := fun x ↦ hμ.map_add_left_eq_self x.toAdd }
+    exact SchwartzBruhat.integrable μ f
+  constructor
+  · intro f g
+    refine Prod.ext rfl ?_
+    rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero,
+      sAdeleSchwartzFourier_apply_zero]
+    exact MeasureTheory.integral_add (hint f) (hint g)
+  · intro c f
+    refine Prod.ext rfl ?_
+    rw [sAdeleSchwartzFourier_apply_zero, sAdeleSchwartzFourier_apply_zero]
+    exact MeasureTheory.integral_smul c (fun x ↦ f (Multiplicative.ofAdd x))
 
 variable (F S) in
 /-- Paper: Equation (7.2.2.3), p. 340.
