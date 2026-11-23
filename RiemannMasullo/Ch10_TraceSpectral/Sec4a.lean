@@ -12,7 +12,7 @@ public import Mathlib.Topology.Compactness.Compact
 import all RiemannMasullo.AppA_AlgebraicNT.Sec3
 import Mathlib.Analysis.Normed.Operator.Extend
 import Mathlib.Analysis.SpecificLimits.Basic
-import all RiemannMasullo.Ch10_TraceSpectral.Sec1
+import RiemannMasullo.Ch10_TraceSpectral.Sec1
 import all RiemannMasullo.Ch10_TraceSpectral.Sec3
 import all RiemannMasullo.AppC_LCTVS.Sec3a
 import all RiemannMasullo.AppC_LCTVS.Sec3a_part2
