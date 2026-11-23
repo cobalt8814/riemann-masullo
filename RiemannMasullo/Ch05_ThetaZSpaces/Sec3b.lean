@@ -2210,6 +2210,43 @@ theorem sLocalIdelicZFunction_entire_iff_eq_polarFree (r : RealModels) (c : Comp
       ∃ f₀ : sAdelePolarFree S r c, ∀ s : ℂ,
         sLocalIdelicZFunction f (chartₛ(χ) s) = sLocalIdelicZFunction f₀.val (chartₛ(χ) s) := by sorry
 
+/-- Paper: Proposition 5.3.4.4(1) ⇒ (3), p. 264.
+If the zeta transform of `f` is entire on the component of `χ`, then the twisted homogeneous
+theta function has exponential decay at every real exponent. This is the first paragraph of
+the printed proof: the local functional equation (3.3.1.2) and the polynomial growth of
+`ρ_S` (Theorem 3.3.1.5) give, through the Asymptotic Residue Theorem (Theorem B.3.2.1),
+Schwartz bounds uniform over the vertical strips of the component, which Proposition D.3.2.5
+and Theorem D.3.3.7(3) turn into all-exponent decay. -/
+theorem sLocalIdelicZFunction_theta_exponentialDecay_of_entire
+    (χ : PontryaginDual Jₛ) (f : ℬₛ)
+    (_h : AnalyticOnNhd ℂ (fun s ↦ sLocalIdelicZFunction f (chartₛ(χ) s)) univ) :
+    (⇑(thetaAt(χ₁(χ)) f) : Jₛ → ℂ) ∈ modulatedExponentialDecaySubmodule
+      ⟨mₛ, (isProperMap_sIdeleQuotientNorm F S).continuous⟩ univ := by sorry
+
+/-- Paper: Proposition 5.3.4.4(3) ⇒ (2), p. 264.
+If the twisted homogeneous theta function has exponential decay at every real exponent, then on
+the component of `χ` the zeta transform of `f` agrees with the zeta transform of a polar-free
+test, for one (equivalently, by Lemma 5.3.4.2(1), any) choice of archimedean field
+identifications. This is the second paragraph of the printed proof: the decay space element is
+pulled back along a continuous homomorphic section of the S-idelic norm, Lemma 5.3.4.3 lifts
+it for the trivial character, and the quasi-character action of Lemma 5.3.4.2(3) moves the lift
+to the isotype of `χ`. -/
+theorem sLocalIdelicZFunction_polarFree_of_theta_exponentialDecay
+    (χ : PontryaginDual Jₛ) (f : ℬₛ)
+    (_h : (⇑(thetaAt(χ₁(χ)) f) : Jₛ → ℂ) ∈ modulatedExponentialDecaySubmodule
+      ⟨mₛ, (isProperMap_sIdeleQuotientNorm F S).continuous⟩ univ) :
+    ∃ (r : RealModels) (c : ComplexModels) (f₀ : sAdelePolarFree S r c), ∀ s : ℂ,
+      sLocalIdelicZFunction f (chartₛ(χ) s) = sLocalIdelicZFunction f₀.val (chartₛ(χ) s) := by
+  sorry
+
+/-- A function on `ℂ` that agrees pointwise with an everywhere analytic function is entire.
+Used to pass from the polar-free representative to `f` in the proof of
+`sLocalIdelicZFunction_entire_iff_theta_exponentialDecay`. -/
+private theorem sLocalIdelicZFunction_entire_iff_theta_exponentialDecay_of_pointwise_eq
+    {g h : ℂ → ℂ} (hg : AnalyticOnNhd ℂ g univ) (heq : ∀ s, g s = h s) :
+    AnalyticOnNhd ℂ h univ :=
+  hg.congr' (Filter.Eventually.of_forall heq)
+
 /-- Paper: Proposition 5.3.4.4(1) and (3), p. 264.
 On the component of χ, a zeta transform is entire exactly when the homogeneous theta
 function has exponential decay at every real exponent. Its covariance is the
@@ -2217,7 +2254,13 @@ norm-one isotype property already supplied by §2.3. -/
 theorem sLocalIdelicZFunction_entire_iff_theta_exponentialDecay (χ : PontryaginDual Jₛ) (f : ℬₛ) :
     AnalyticOnNhd ℂ (fun s ↦ sLocalIdelicZFunction f (chartₛ(χ) s)) univ ↔
       (⇑(thetaAt(χ₁(χ)) f) : Jₛ → ℂ) ∈ modulatedExponentialDecaySubmodule
-        ⟨mₛ, (isProperMap_sIdeleQuotientNorm F S).continuous⟩ univ := by sorry
+        ⟨mₛ, (isProperMap_sIdeleQuotientNorm F S).continuous⟩ univ := by
+  constructor
+  · exact sLocalIdelicZFunction_theta_exponentialDecay_of_entire χ f
+  · intro hθ
+    obtain ⟨r, c, f₀, hf₀⟩ := sLocalIdelicZFunction_polarFree_of_theta_exponentialDecay χ f hθ
+    exact sLocalIdelicZFunction_entire_iff_theta_exponentialDecay_of_pointwise_eq
+      (sLocalIdelicZFunction_entire_of_polarFree r c f₀.val f₀.2 χ) fun s ↦ (hf₀ s).symm
 
 /-- Paper: Proposition 5.3.4.5(1), p. 264.
 Applying the principal value at selected finite places divides the zeta function
