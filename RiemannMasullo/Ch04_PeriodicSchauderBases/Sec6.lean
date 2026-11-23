@@ -1324,16 +1324,31 @@ private theorem modulatedQuotientLogMoment_bases_biorthogonal :
     ∃ ψ : J → U, (∀ j, D j (ψ j) = 1) ∧ ∀ j k, j ≠ k → D j (ψ k) = 0 := by
   sorry
 
+include hγs in
+/-- Paper: Theorem 4.1.2.6(2), p. 161, applied to Theorem 4.6.1.5, p. 212. The difference quotient
+is a separable nuclear Frechet space (by `modulatedIsotypicDifferenceProduct_quotient`), and every
+Schauder basis of a nuclear Frechet space is absolute. -/
+private theorem modulatedQuotientLogMoment_bases_absolute (σ : ℕ ≃ J) (ψ : J → U)
+    (hb : IsSchauderBasis (ψ ∘ σ) (D ∘ σ)) :
+    SchauderBasis.IsAbsolute (ψ ∘ σ) (D ∘ σ) := by
+  have hS₀ : ∀ g ∈ List.ofFn γs, 1 < (m g).val := by
+    intro g hg
+    obtain ⟨k, rfl⟩ := List.mem_ofFn.mp hg
+    exact hγs k
+  obtain ⟨-, hN, hF⟩ := modulatedIsotypicDifferenceProduct_quotient (m := m) (hm := hm)
+    (hms := hms) (ω := ω) (List.ofFn γs) hS₀
+  exact SchauderBasis.isAbsolute_of_nuclear_frechet.{_, 0} hN hF hb
+
 include hcomm in
 /-- Paper: Theorem 4.6.1.5 and Equation (4.6.1.15), p. 212. Under every enumeration of the
-moment family, the biorthogonal vectors are an absolute Schauder basis of the difference
-quotient with the descended log-moments as coefficient functionals. This is the expansion
-step: the coordinate series of a quotient representative converges to it because the
-coefficients decay faster than any power of the lattice frequency. -/
+moment family, the biorthogonal vectors are a Schauder basis of the difference quotient with
+the descended log-moments as coefficient functionals. This is the expansion step: the coordinate
+series of a quotient representative converges to it because the coefficients decay faster than
+any power of the lattice frequency. Absoluteness is
+`modulatedQuotientLogMoment_bases_absolute`. -/
 private theorem modulatedQuotientLogMoment_bases_quotient (σ : ℕ ≃ J) (ψ : J → U)
     (hbi : (∀ j, D j (ψ j) = 1) ∧ ∀ j k, j ≠ k → D j (ψ k) = 0) :
-    let e := ψ ∘ σ
-    IsSchauderBasis e (D ∘ σ) ∧ SchauderBasis.IsAbsolute e (D ∘ σ) := by
+    IsSchauderBasis (ψ ∘ σ) (D ∘ σ) := by
   sorry
 
 include hcomm in
@@ -1366,8 +1381,10 @@ theorem modulatedQuotientLogMoment_bases (σ : ℕ ≃ J) :
         IsSchauderBasis d ev ∧ SchauderBasis.IsUnconditional d ev := by
   obtain ⟨ψ, hbi⟩ := modulatedQuotientLogMoment_bases_biorthogonal (m := m) (hm := hm)
     (hms := hms) (ω := ω) (γs := γs) (hγs := hγs) (μ := μ) (hcomm := hcomm)
-  obtain ⟨hb, ha⟩ := modulatedQuotientLogMoment_bases_quotient (m := m) (hm := hm)
+  obtain hb := modulatedQuotientLogMoment_bases_quotient (m := m) (hm := hm)
     (hms := hms) (ω := ω) (γs := γs) (hγs := hγs) (μ := μ) (hcomm := hcomm) σ ψ hbi
+  have ha := modulatedQuotientLogMoment_bases_absolute (m := m) (hm := hm) (hms := hms)
+    (ω := ω) (γs := γs) (hγs := hγs) (μ := μ) σ ψ hb
   exact ⟨ψ, hb, ha, modulatedQuotientLogMoment_bases_dual (m := m) (hm := hm)
     (hms := hms) (ω := ω) (γs := γs) (hγs := hγs) (μ := μ) (hcomm := hcomm) σ ψ hb ha⟩
 
