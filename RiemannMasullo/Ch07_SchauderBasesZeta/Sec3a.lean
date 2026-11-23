@@ -1220,6 +1220,52 @@ local notation "restrict₁(" χ ")" => ((χ : PontryaginDual Jₛ).comp
 section LatticeEstimates
 
 open Classical in
+/-- The Fourier jets separate the primary orbital quotient: a class on which every Fourier jet
+vanishes is zero. This is the half of Theorem 7.3.1.6(2) that makes the biorthogonal family
+in `sLocalFourierOrbital_biorthogonal_growth` unique, so that the estimate below for one
+family gives it for every family.
+
+It should follow from `sLocalFourierOrbital_bases`: if a class is killed by every Fourier
+jet, its expansion in that Schauder basis of the strong dual is the zero series, hence it is
+zero. What is missing for that argument is only that the primary orbital quotient is
+separated: the file has no `T2Space` instance for it, because the homogeneous theta space
+takes its topology from the nuclear structure of the Schwartz space (`sAdeleSchwartz_montel`)
+and the primary principal-value image is closed (`sLocalOrbitalPrincipalValue_isClosed`), and
+the quotient topology over a `def`-synonym of a quotient is not searched through. -/
+private theorem sLocalFourierOrbital_biorthogonal_growth_separates
+    (p : Vℚ) (ω : PontryaginDual J₁) :
+    ∀ y : Q(p, ω), (∀ (j : Idx(p, ω)) (x : Θₛ(ω)), π(p, ω) x = y →
+      sLocalOrbitalFourierJet (F := F) (S := S) (T := Sₚ(p)) (ω := ω) j x = 0) → y = 0 := by
+  sorry
+
+open Classical in
+/-- Paper: Theorem 7.3.1.6(4), pp. 345-347.
+The biorthogonal family of the primary Fourier jets can be chosen so that every continuous
+seminorm of its vectors grows at most polynomially along a local pole lattice. This is the
+analytic content of the proof on pp. 346-347: the family is the image, under the isomorphism
+(7.3.1.19), of the biorthogonal family of the corresponding periodic system of Chapter 4, and
+the estimate is (4.6.1.17) of Theorem 4.6.1.5 transported back through the inverse
+isomorphism, which is where the seminorm is replaced by its composition with that inverse.
+
+The statement below drops the quantifier over the biorthogonal family that
+`sLocalFourierOrbital_biorthogonal_growth` carries; the separation lemma above supplies it. -/
+private theorem sLocalFourierOrbital_biorthogonal_growth_family
+    (p : Vℚ) (χ : PontryaginDual Jₛ) (ω : PontryaginDual J₁)
+    (v : S) (u : (v.val.adicCompletion F)ˣ) (t : ℝ)
+    (_hS : IsSaturatedPlaceSet S) (_hp : (Sₚ(p)).Nonempty) (_hPic : PicTrivial)
+    (_hω : ω = restrict₁(χ))
+    (_hv : v.val ∈ Sₚ(p)) (_hu : uniformizerNorm(v, u)) (_ht : phase(χ, v, u, t))
+    (q : Seminorm ℂ Q(p, ω)) (_hq : Continuous q) :
+    ∃ ψ : Idx(p, ω) → Q(p, ω),
+      (∀ (i j : Idx(p, ω)) (x : Θₛ(ω)), π(p, ω) x = ψ j →
+        sLocalOrbitalFourierJet (F := F) (S := S) (T := Sₚ(p)) (ω := ω) i x =
+          if i = j then 1 else 0) ∧
+      ∃ d : ℕ, ∃ C : ℝ, 0 < C ∧
+        ∀ (n : ℤ) (j : Idx(p, ω)), j.val.1 = lattice(χ, v, t, n) →
+          v ∈ sLocalFinitePolePlaces (F := F) (S := S) j.val.1 →
+            q (ψ j) ≤ C * (1 + |(n : ℝ)|) ^ d := by sorry
+
+open Classical in
 /-- Paper: Theorem 7.3.1.6(4), p. 345.
 The seminorm of a biorthogonal Fourier vector grows at most polynomially along a
 local pole lattice, uniformly over the derivative orders at each pole.
@@ -1237,7 +1283,33 @@ theorem sLocalFourierOrbital_biorthogonal_growth
     (q : Seminorm ℂ Q(p, ω)) (_hq : Continuous q) :
     ∃ d : ℕ, ∃ C : ℝ, 0 < C ∧
       ∀ (n : ℤ) (j : Idx(p, ω)), j.val.1 = lattice(χ, v, t, n) →
-        v ∈ sLocalFinitePolePlaces (F := F) (S := S) j.val.1 → q (ψ j) ≤ C * (1 + |(n : ℝ)|) ^ d := by sorry
+        v ∈ sLocalFinitePolePlaces (F := F) (S := S) j.val.1 → q (ψ j) ≤ C * (1 + |(n : ℝ)|) ^ d := by
+  classical
+  obtain ⟨ψ₀, hψ₀, d, C, hC, hbnd⟩ :=
+    sLocalFourierOrbital_biorthogonal_growth_family (F := F) (S := S) p χ ω v u t
+      _hS _hp _hPic _hω _hv _hu _ht q _hq
+  refine ⟨d, C, hC, fun n j hn hv ↦ ?_⟩
+  have heq : ψ j = ψ₀ j := by
+    refine sub_eq_zero.mp
+      (sLocalFourierOrbital_biorthogonal_growth_separates p ω (ψ j - ψ₀ j) ?_)
+    intro i x hx
+    obtain ⟨x₁, hx₁⟩ := Submodule.mkQ_surjective (Rₚ(p, ω)) (ψ j)
+    obtain ⟨x₂, hx₂⟩ := Submodule.mkQ_surjective (Rₚ(p, ω)) (ψ₀ j)
+    have hdiff : (Rₚ(p, ω)).mkQ (x - (x₁ - x₂)) = 0 := by
+      rw [map_sub, map_sub, hx, hx₁, hx₂]
+      exact sub_self _
+    have hR : x - (x₁ - x₂) ∈ Rₚ(p, ω) := (Submodule.Quotient.mk_eq_zero _).mp hdiff
+    have hjetR : sLocalOrbitalFourierJet (F := F) (S := S) (T := Sₚ(p)) (ω := ω) i
+        (x - (x₁ - x₂)) = 0 :=
+      sLocalOrbitalFourierJet_range_le_ker p ω i hR
+    have hxw : sLocalOrbitalFourierJet (F := F) (S := S) (T := Sₚ(p)) (ω := ω) i x =
+        sLocalOrbitalFourierJet (F := F) (S := S) (T := Sₚ(p)) (ω := ω) i (x₁ - x₂) := by
+      rw [show x = (x₁ - x₂) + (x - (x₁ - x₂)) from by abel, map_add, hjetR, add_zero]
+    refine hxw.trans ?_
+    rw [map_sub, _hψ i j x₁ hx₁, hψ₀ i j x₂ hx₂]
+    exact sub_self _
+  rw [heq]
+  exact hbnd n j hn hv
 
 open Classical in
 /-- Paper: Theorem 7.3.1.6(5), p. 345.
