@@ -851,11 +851,75 @@ def Printed.sLocalZLaurentCoeff_any_contour : Prop :=
         HasPettisIntegral (PettisMeasure.complex γ.measure) integrand
           (2 * (Real.pi : ℂ) * Complex.I * sLocalZLaurentCoeff f (chart a) ((k : ℤ) - 1))
 
+/-- The two instances the counterexample of `Printed.sLocalZLaurentCoeff_any_contour` needs on
+`ULift ℚ`, which is the copy of `ℚ` in the arbitrary universe of the statement. -/
+private instance sLocalZLaurentCoeff_any_contour_false_charZero : CharZero (ULift ℚ) :=
+  ⟨fun a b hab ↦ by simpa using congrArg ULift.down hab⟩
+
+/-- See `sLocalZLaurentCoeff_any_contour_false_charZero`. -/
+private instance sLocalZLaurentCoeff_any_contour_false_numberField : NumberField (ULift ℚ) := ⟨⟩
+
+/-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
+At index `0` the local coefficient is the value of the zeta function itself: the coefficient is
+the residue at the centre of `z ↦ A z / z ^ (m + 1)` with `A z = Z (twist c z)`, and at `m = 0`
+the residue of `A z / z` is `A 0` once `A` is analytic at the centre. -/
+private theorem sLocalZLaurentCoeff_any_contour_false_index_zero
+    {F : Type u} [Field F] [NumberField F] {S : Finset Places(F)}
+    (c : QuasiCharacter Jₛ(F, S)) (f : Tests(F, S))
+    (hana : AnalyticAt ℂ (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) 0) :
+    sLocalZLaurentCoeff f c 0 = sLocalIdelicZFunction f (twistₛ(F, S) c 0) := by
+  have h := complexResidue_div_sub
+    (g := fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) (ρ := 0) hana
+  have h' : sLocalZLaurentCoeff f c 0
+      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0 := by
+    show complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / z ^ ((0 : ℤ) + 1)) 0
+      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0
+    simp
+  rw [h', h]
+
+/-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
+There are data with a nonzero local coefficient: over `ℚ` with only its real place, the trivial
+character and the Gaussian `exp (-π x ^ 2)` in the real coordinate, the S-local zeta function is
+analytic near the centre `s = 2` and nonzero there, where it is `Γℝ 2 = π⁻¹`. Hence the
+coefficient of index `0` at that centre does not vanish. -/
+private theorem sLocalZLaurentCoeff_any_contour_false_data :
+    ∃ (S : Finset (Places(ULift ℚ))) (χ : PontryaginDual Jₛ(ULift ℚ, S))
+      (f : Tests(ULift ℚ, S)) (a : ℂ),
+      let c := twistₛ(ULift ℚ, S) ((circleToComplex).comp χ) a
+      AnalyticAt ℂ (fun z ↦ sLocalIdelicZFunction f (twistₛ(ULift ℚ, S) c z)) 0 ∧
+        sLocalIdelicZFunction f (twistₛ(ULift ℚ, S) c 0) ≠ 0 := by
+  sorry
+
+/-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
+The printed formula is asserted for every contour of nonzero index, not only for a
+counterclockwise simple contour about the centre. A circle about `a` traversed in the two
+opposite directions gives one contour of index `1` and one of index `-1`, hence the same
+right-hand side `2πi` times the local coefficient, while the two Pettis integrals are
+negatives of each other. The printed formula therefore forces every local coefficient to
+vanish. -/
+private theorem sLocalZLaurentCoeff_any_contour_false_coeff_zero
+    (h : Printed.sLocalZLaurentCoeff_any_contour.{u}) :
+    ∀ (F : Type u) [Field F] [NumberField F] (S : Finset Places(F))
+      (χ : PontryaginDual Jₛ(F, S)) (f : Tests(F, S)) (a : ℂ) (k : ℕ), 1 ≤ k →
+      sLocalZLaurentCoeff f (twistₛ(F, S) ((circleToComplex).comp χ) a) ((k : ℤ) - 1) = 0 := by
+  sorry
+
 /-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
 For ℚ with only its real place take the Gaussian, the trivial character,
 a = 0 and k = 1. The counterclockwise circle of radius 3 centered at zero also
-encloses −2. The residue of Γℝ(s)/s at −2 adds π to the local coefficient. -/
+encloses −2. The residue of Γℝ(s)/s at −2 adds π to the local coefficient.
+Split into `sLocalZLaurentCoeff_any_contour_false_index_zero` (index `0` is the value),
+`sLocalZLaurentCoeff_any_contour_false_data` (the value at the Gaussian centre is nonzero) and
+`sLocalZLaurentCoeff_any_contour_false_coeff_zero` (the printed formula forces every coefficient
+to vanish, by traversing a circle in both directions). -/
 theorem Printed.sLocalZLaurentCoeff_any_contour_false :
-    ¬ Printed.sLocalZLaurentCoeff_any_contour := by sorry
+    ¬ Printed.sLocalZLaurentCoeff_any_contour := by
+  intro h
+  obtain ⟨S, χ, f, a, hana, hne⟩ := sLocalZLaurentCoeff_any_contour_false_data
+  have hz := sLocalZLaurentCoeff_any_contour_false_coeff_zero h (ULift ℚ) S χ f a 1 le_rfl
+  simp only [Nat.cast_one, Int.reduceSub] at hz
+  exact hne
+    ((sLocalZLaurentCoeff_any_contour_false_index_zero (F := ULift ℚ) (S := S) _ f hana).symm.trans
+      hz)
 
 end RiemannMasullo
