@@ -78,8 +78,9 @@ private theorem norm_integralKernelOperator_le (k : Lp ℂ 2 (μ.prod μ)) :
   rw [← Real.sqrt_eq_rpow, ← Real.sqrt_sq (norm_nonneg A.val)]
   exact Real.sqrt_le_sqrt hbound
 
-/-- The integral operator of an outer-product kernel is the corresponding rank-one map. -/
-private theorem integralKernelOperator_outerProduct {K : Lp ℂ 2 (μ.prod μ)}
+/-- The integral operator of an outer-product kernel is the corresponding rank-one map.
+Public so that rank-one kernels can be assembled into nuclear operators outside this file. -/
+theorem integralKernelOperator_outerProduct {K : Lp ℂ 2 (μ.prod μ)}
     {u v : Lp ℂ 2 μ} (hK : (K : X × X → ℂ) =ᵐ[μ.prod μ]
       fun p ↦ ⟪v p.2, u p.1⟫_ℂ) :
     (integralKernelOperator μ K).val = (innerSL ℂ v).smulRight u := by
@@ -95,6 +96,16 @@ private theorem integralKernelOperator_outerProduct {K : Lp ℂ 2 (μ.prod μ)}
   rw [hx.2, integral_congr_ae h, integral_const_mul, hsmul]
   change u x * (∫ y, ⟪v y, f y⟫_ℂ ∂μ) = ⟪v, f⟫_ℂ * u x
   rw [L2.inner_def, mul_comm]
+
+/-- The integral operator of an outer-product kernel is nuclear: by
+`integralKernelOperator_outerProduct` it is the rank-one map `f ↦ ⟪v, f⟫_ℂ • u`,
+which is nuclear by `isNuclearOperator_smulRight`. -/
+theorem isNuclearOperator_integralKernelOperator_outerProduct {K : Lp ℂ 2 (μ.prod μ)}
+    {u v : Lp ℂ 2 μ} (hK : (K : X × X → ℂ) =ᵐ[μ.prod μ]
+      fun p ↦ ⟪v p.2, u p.1⟫_ℂ) :
+    IsNuclearOperator (integralKernelOperator μ K).val := by
+  rw [integralKernelOperator_outerProduct μ hK]
+  exact isNuclearOperator_smulRight _ _
 
 /-- Divide the summable coefficients of a nuclear presentation between its vectors and
 Riesz representatives, giving two square-summable families. -/
