@@ -702,6 +702,159 @@ theorem spectralNuclearityDenominator_isotypeModel (a : ℝ) :
     rw [hf]
     rfl
 
+/-- Multiplication by an entire function bounded on every vertical strip is a
+continuous linear endomorphism of the Schwartz–Bergman space. -/
+private theorem spectralNuclearity_mul_entire_clm (m : ℂ → ℂ) (hm : Differentiable ℂ m)
+    (hb : ∀ a b : ℝ, a ≤ b → ∃ C : ℝ, 0 ≤ C ∧ ∀ z : ℂ, z.re ∈ Set.Icc a b → ‖m z‖ ≤ C) :
+    ∃ A : B →L[ℂ] B, ∀ (f : B) (z : ℂ), (A f).val z = m z * f.val z := by
+  classical
+  have hmem (f : schwartzBergmanSubmodule (univ : Set ℝ)) :
+      (fun z : ℂ ↦ m z * f.val z) ∈ schwartzBergmanSubmodule (univ : Set ℝ) := by
+    refine ⟨fun z hz ↦ absurd (Set.mem_univ z) hz, hm.differentiableOn.mul f.property.2.1, ?_⟩
+    intro a b hab _ N
+    obtain ⟨C, hC0, hC⟩ := hb a b hab
+    obtain ⟨D, hD⟩ := f.property.2.2 a b hab (Set.subset_univ _) N
+    refine ⟨C * D, ?_⟩
+    rintro _ ⟨z, hz, rfl⟩
+    show ‖z ^ N * (m z * f.val z)‖ ≤ C * D
+    rw [mul_left_comm, norm_mul]
+    exact mul_le_mul (hC z hz) (hD ⟨z, hz, rfl⟩) (norm_nonneg _) hC0
+  let A : B →ₗ[ℂ] B :=
+    { toFun := fun f ↦ ⟨fun z ↦ m z * f.val z, hmem f⟩
+      map_add' := fun f g ↦ Subtype.ext (funext fun z ↦ by
+        change m z * (f.val z + g.val z) = m z * f.val z + m z * g.val z
+        ring)
+      map_smul' := fun c f ↦ Subtype.ext (funext fun z ↦ by
+        change m z * (c * f.val z) = c * (m z * f.val z)
+        ring) }
+  let Pm : ↥(univ : Set ℝ) × ℕ → Seminorm ℂ (SchwartzBergman (univ : Set ℝ)) := fun i ↦
+    Seminorm.of (fun f : schwartzBergmanSubmodule (univ : Set ℝ) ↦
+      (eLpNorm (weightedVerticalTrace i.1 i.2 f.val) 2 volume).toReal)
+      (schwartzBergman_l2_seminorm univ i).1 (schwartzBergman_l2_seminorm univ i).2
+  have hP : WithSeminorms Pm :=
+    withGeneratingSeminorms_spec (schwartzBergmanSubmodule (univ : Set ℝ)) Pm
+  refine ⟨⟨A, ?_⟩, fun f z ↦ rfl⟩
+  apply hP.continuous_of_continuous_comp A
+  rintro ⟨a, N⟩
+  obtain ⟨C, hC0, hC⟩ := hb (a : ℝ) (a : ℝ) le_rfl
+  let qq : Seminorm ℂ (SchwartzBergman (univ : Set ℝ)) :=
+    Seminorm.of (fun f ↦ C * (Pm ⟨a, N⟩) f)
+      (fun f g ↦ by
+        calc C * (Pm ⟨a, N⟩) (f + g)
+            ≤ C * ((Pm ⟨a, N⟩) f + (Pm ⟨a, N⟩) g) :=
+              mul_le_mul_of_nonneg_left (map_add_le_add (Pm ⟨a, N⟩) f g) hC0
+          _ = C * (Pm ⟨a, N⟩) f + C * (Pm ⟨a, N⟩) g := by ring)
+      (fun r f ↦ by
+        rw [map_smul_eq_mul (Pm ⟨a, N⟩) r f]
+        ring)
+  have hqcont : Continuous qq := (hP.continuous_seminorm ⟨a, N⟩).const_mul C
+  apply Seminorm.continuous_of_le (q := qq) hqcont
+  intro f
+  have hu : MemLp (weightedVerticalTrace (a : ℝ) N (A f).val) 2 volume :=
+    schwartzBergman_trace_memLp univ a 2 (by norm_num) (by norm_num) N (A f)
+  have hv : MemLp (weightedVerticalTrace (a : ℝ) N f.val) 2 volume :=
+    schwartzBergman_trace_memLp univ a 2 (by norm_num) (by norm_num) N f
+  have hle (t : ℝ) : ‖weightedVerticalTrace (a : ℝ) N (A f).val t‖ ≤
+      ‖((C : ℝ) • weightedVerticalTrace (a : ℝ) N f.val) t‖ := by
+    let z : ℂ := ((a : ℝ) : ℂ) + (t : ℂ) * Complex.I
+    have hz : z.re ∈ Set.Icc (a : ℝ) (a : ℝ) := by simp [z]
+    show ‖z ^ N * (m z * f.val z)‖ ≤ ‖(C : ℝ) • (z ^ N * f.val z)‖
+    calc ‖z ^ N * (m z * f.val z)‖ = ‖m z‖ * ‖z ^ N * f.val z‖ := by
+          rw [mul_left_comm, norm_mul]
+      _ ≤ C * ‖z ^ N * f.val z‖ := mul_le_mul_of_nonneg_right (hC z hz) (norm_nonneg _)
+      _ = ‖(C : ℝ) • (z ^ N * f.val z)‖ := by
+          rw [norm_smul, Real.norm_of_nonneg hC0]
+  have h1 : lpNorm (weightedVerticalTrace (a : ℝ) N (A f).val) 2 volume ≤
+      lpNorm ((C : ℝ) • weightedVerticalTrace (a : ℝ) N f.val) 2 volume := by
+    rw [lpNorm, lpNorm]
+    exact ENNReal.toReal_mono (hv.const_smul _).eLpNorm_ne_top
+      (eLpNorm_mono hu.aestronglyMeasurable hle)
+  have h2 : lpNorm ((C : ℝ) • weightedVerticalTrace (a : ℝ) N f.val) 2 volume =
+      C * lpNorm (weightedVerticalTrace (a : ℝ) N f.val) 2 volume := by
+    rw [lpNorm_const_smul]
+    simp [Real.norm_of_nonneg hC0]
+  exact h1.trans h2.le
+
+/-- A compactly supported Bruhat test has Mellin transform bounded on every vertical
+strip: on its support the idèle norm stays in an interval of positive reals. -/
+private theorem nuclearityTestMellin_strip_bound (φ : 𝒟) :
+    ∀ a b : ℝ, a ≤ b → ∃ C : ℝ, 0 ≤ C ∧
+      ∀ z : ℂ, z.re ∈ Set.Icc a b → ‖nuclearityTestMellin χ φ z‖ ≤ C := by
+  intro a b hab
+  let n : C𝔽 → ℝ := fun g ↦ ((ideleClassNorm F g).val : ℝ)
+  have hn : Continuous n := NNReal.continuous_coe.comp
+    (Units.continuous_val.comp (isProperMap_ideleClassNorm F).continuous)
+  have hpos (g : C𝔽) : 0 < n g := NNReal.coe_pos.mpr (Units.zero_lt _)
+  have hcomp : IsCompact (tsupport φ.val) := φ.property.2
+  obtain ⟨c, R, hc0, hcR, hle⟩ : ∃ c R : ℝ, 0 < c ∧ c ≤ R ∧
+      ∀ g ∈ tsupport φ.val, c ≤ n g ∧ n g ≤ R := by
+    rcases (tsupport φ.val).eq_empty_or_nonempty with he | hne
+    · exact ⟨1, 1, one_pos, le_rfl, fun g hg ↦ by simp [he] at hg⟩
+    · obtain ⟨p, hp, hpmin⟩ := hcomp.exists_isMinOn hne hn.continuousOn
+      obtain ⟨q, hq, hqmax⟩ := hcomp.exists_isMaxOn hne hn.continuousOn
+      exact ⟨n p, n q, hpos p, isMinOn_iff.mp hpmin q hq, fun g hg ↦
+        ⟨isMinOn_iff.mp hpmin g hg, isMaxOn_iff.mp hqmax g hg⟩⟩
+  have hR0 : 0 < R := lt_of_lt_of_le hc0 hcR
+  set M : ℝ := (c ^ a + R ^ a) + (c ^ b + R ^ b) with hMdef
+  have hM0 : 0 ≤ M := by
+    have h1 := (Real.rpow_pos_of_pos hc0 a).le
+    have h2 := (Real.rpow_pos_of_pos hR0 a).le
+    have h3 := (Real.rpow_pos_of_pos hc0 b).le
+    have h4 := (Real.rpow_pos_of_pos hR0 b).le
+    rw [hMdef]; linarith
+  refine ⟨(∫ g, ‖φ.val g‖ ∂μ𝔽) * M,
+    mul_nonneg (integral_nonneg fun _ ↦ norm_nonneg _) hM0, fun z hz ↦ ?_⟩
+  have htw (g : C𝔽) : ‖ideleClassNormTwist χ z g‖ = n g ^ z.re := by
+    change ‖(χ g : ℂ) * ((n g : ℝ) : ℂ) ^ z‖ = _
+    rw [norm_mul, Circle.norm_coe, one_mul,
+      Complex.norm_cpow_eq_rpow_re_of_pos (hpos g)]
+  have hpt (g : C𝔽) : ‖φ.val g * ideleClassNormTwist χ z g‖ ≤ ‖φ.val g‖ * M := by
+    rcases em (g ∈ tsupport φ.val) with hg | hg
+    · obtain ⟨hc1, hc2⟩ := hle g hg
+      have h1 : n g ^ z.re ≤ n g ^ a + n g ^ b := by
+        rcases le_or_gt 1 (n g) with hone | hone
+        · have h := Real.rpow_le_rpow_of_exponent_le hone hz.2
+          have h0 := (Real.rpow_pos_of_pos (hpos g) a).le
+          linarith
+        · have h := Real.rpow_le_rpow_of_exponent_ge (hpos g) hone.le hz.1
+          have h0 := (Real.rpow_pos_of_pos (hpos g) b).le
+          linarith
+      have h3 : n g ^ a ≤ c ^ a + R ^ a := by
+        have h0 := (Real.rpow_pos_of_pos hc0 a).le
+        have h1 := (Real.rpow_pos_of_pos hR0 a).le
+        rcases le_or_gt 0 a with ha | ha
+        · have h := Real.rpow_le_rpow (le_trans hc0.le hc1) hc2 ha
+          linarith
+        · have h := Real.rpow_le_rpow_of_nonpos hc0 hc1 ha.le
+          linarith
+      have h4 : n g ^ b ≤ c ^ b + R ^ b := by
+        have h0 := (Real.rpow_pos_of_pos hc0 b).le
+        have h1 := (Real.rpow_pos_of_pos hR0 b).le
+        rcases le_or_gt 0 b with hb | hb
+        · have h := Real.rpow_le_rpow (le_trans hc0.le hc1) hc2 hb
+          linarith
+        · have h := Real.rpow_le_rpow_of_nonpos hc0 hc1 hb.le
+          linarith
+      rw [norm_mul, htw]
+      exact mul_le_mul_of_nonneg_left (le_trans h1 (by rw [hMdef]; linarith)) (norm_nonneg _)
+    · have hzero : φ.val g = 0 := image_eq_zero_of_notMem_tsupport hg
+      rw [hzero, norm_zero]
+      simp
+  have htw0 (g : C𝔽) : ‖ideleClassNormTwist χ 0 g‖ = 1 := by
+    change ‖(χ g : ℂ) * ((n g : ℝ) : ℂ) ^ (0 : ℂ)‖ = 1
+    rw [Complex.cpow_zero, mul_one, Circle.norm_coe]
+  have hint : Integrable (fun g ↦ ‖φ.val g‖) μ𝔽 := by
+    refine ((nuclearityTestMellin_integrable χ φ).1 0).norm.congr (ae_of_all _ fun g ↦ ?_)
+    change ‖φ.val g * ideleClassNormTwist χ 0 g‖ = ‖φ.val g‖
+    rw [norm_mul, htw0, mul_one]
+  calc ‖nuclearityTestMellin χ φ z‖
+      = ‖∫ g, φ.val g * ideleClassNormTwist χ z g ∂μ𝔽‖ := rfl
+    _ ≤ ∫ g, ‖φ.val g * ideleClassNormTwist χ z g‖ ∂μ𝔽 := norm_integral_le_integral_norm _
+    _ ≤ ∫ g, ‖φ.val g‖ * M ∂μ𝔽 :=
+        integral_mono ((nuclearityTestMellin_integrable χ φ).1 z).norm
+          (hint.mul_const M) hpt
+    _ = (∫ g, ‖φ.val g‖ ∂μ𝔽) * M := integral_mul_const _ _
+
 /-- Paper: Theorem 7.4.1.1(1), p. 366.
 The twisted theta image is closed. Compactly supported Bruhat tests act by continuous
 Mellin multiplication, which preserves that image. -/
@@ -710,7 +863,19 @@ theorem spectralNuclearityDenominator_closed_invariant (a : ℝ) (φ : 𝒟) :
     IsClosed (D : Set B) ∧
       ∃ A : B →L[ℂ] B,
         (∀ f s, (A f).val s = nuclearityTestMellin χ φ s * f.val s) ∧
-        Set.MapsTo A (D : Set B) D := by sorry
+        Set.MapsTo A (D : Set B) D := by
+  obtain ⟨A, hA⟩ := spectralNuclearity_mul_entire_clm (nuclearityTestMellin χ φ)
+    (archNuclearityDenominator_closed_invariant_multiplier χ φ)
+    (nuclearityTestMellin_strip_bound χ φ)
+  refine ⟨?_, A, hA, fun f hf ↦ ?_⟩
+  · exact schwartzBergmanDivisible_isClosed _
+  · have hf' : f ∈ spectralNuclearityDenominator χ τ hτ a := hf
+    obtain ⟨u, hu, hfu⟩ := (specDenom_mem_D χ τ hτ a f).mp hf'
+    refine (specDenom_mem_D χ τ hτ a (A f)).mpr
+      ⟨fun s ↦ nuclearityTestMellin χ φ s * u s,
+        (archNuclearityDenominator_closed_invariant_multiplier χ φ).mul hu, fun s ↦ ?_⟩
+    rw [hA f s, hfu s]
+    ring
 
 local notation "zeros(" χ ", " τ ", " hτ ")" =>
   {z : ℂ // 0 < analyticOrderAt ((Λ(χ, τ, hτ)).val : ℂ → ℂ) z}
