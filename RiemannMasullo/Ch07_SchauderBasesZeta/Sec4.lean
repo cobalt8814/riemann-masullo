@@ -573,6 +573,48 @@ theorem finiteNuclearityDenominator_closed_invariant (p : HeightOneSpectrum (�
 -- own topology for the functionals and the biorthogonal vectors.
 
 /-- Paper: Theorem 7.4.2.1(2), p. 367.
+The regularized test action descends to a strongly nuclear operator on the finite orbital
+quotient: the finite-place denominator is invariant under that action, and the induced
+operator inherits the order-zero nuclear presentation of the ambient one. -/
+private theorem finiteNuclearity_trace_exists_operator (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let D := finiteNuclearityDenominator χ p
+    let Q := Θ₀(χ) ⧸ D
+    letI instFiniteUniformSec4 : UniformSpace Q := IsTopologicalAddGroup.rightUniformSpace Q
+    ∃ T : Q →L[ℂ] Q,
+      (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) ∧ IsStronglyNuclearOperator T := by
+  sorry
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367.
+The trace weights of the finite orbital quotient are absolutely summable: the reciprocal
+partial Euler product is entire of finite order, its zero counting function grows like
+`log`, and the test Mellin transform decays rapidly on vertical strips. -/
+private theorem finiteNuclearity_trace_summable (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let R := reciprocalPartialHeckeEulerProduct χ (Sₚ(p))
+    let zeros := {z : ℂ // 0 < analyticOrderAt R z}
+    let term := fun z : zeros ↦
+      ((analyticOrderAt R z.val).toNat : ℂ) * nuclearityTestMellin χ φ z.val
+    Summable (fun z : zeros ↦ ‖term z‖) := by
+  sorry
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367, equation (7.4.1.1) in the finite-place chart.
+The matrix trace of any nuclear presentation of the descended operator is the sum of the
+test Mellin transform over the zeros of the reciprocal partial Euler product, weighted by
+their order: an order-zero nuclear operator has a trace in every nuclear presentation and
+the trace does not depend on the presentation. -/
+private theorem finiteNuclearity_trace_hasSum (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
+    let D := finiteNuclearityDenominator χ p
+    let Q := Θ₀(χ) ⧸ D
+    letI instFiniteUniformSec4 : UniformSpace Q := IsTopologicalAddGroup.rightUniformSpace Q
+    let R := reciprocalPartialHeckeEulerProduct χ (Sₚ(p))
+    let zeros := {z : ℂ // 0 < analyticOrderAt R z}
+    let term := fun z : zeros ↦
+      ((analyticOrderAt R z.val).toNat : ℂ) * nuclearityTestMellin χ φ z.val
+    ∀ (T : Q →L[ℂ] Q), (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) →
+      ∀ r : NuclearPresentation T,
+        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by
+  sorry
+
+/-- Paper: Theorem 7.4.2.1(2), p. 367.
 The operator induced on the finite orbital quotient is of order zero. Its trace sums
 the test Mellin transform over the zeros of the reciprocal partial Euler product,
 counting collisions with their full order. -/
@@ -588,7 +630,12 @@ theorem finiteNuclearity_trace (p : HeightOneSpectrum (𝓞 ℚ)) (φ : 𝒟) :
       (∀ f : Θ₀(χ), T (D.mkQ f) = D.mkQ (Aθ(φ) f)) ∧
       IsStronglyNuclearOperator T ∧ Summable (fun z ↦ ‖term z‖) ∧
       ∀ r : NuclearPresentation T,
-        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by sorry
+        HasSum (fun n ↦ r.coeff n * r.functional n (r.vector n).val) (∑' z, term z) := by
+  obtain ⟨T, hT, hnuc⟩ :=
+    finiteNuclearity_trace_exists_operator (χ := χ) (τ := τ) (hτ := hτ) p φ
+  refine ⟨T, hT, hnuc, ?_, ?_⟩
+  · exact finiteNuclearity_trace_summable (χ := χ) p φ
+  · exact finiteNuclearity_trace_hasSum (χ := χ) (τ := τ) (hτ := hτ) p φ T hT
 
 end Orbital
 
@@ -686,11 +733,47 @@ def archNuclearityDenominator : Submodule ℂ (Θ₀(χ)) :=
     f.val ∈ globalArchimedeanFlatTests F (ω(χ) = 1) ∧ x = Submodule.Quotient.mk f}
 
 /-- Paper: Equations (7.4.3.1) and (7.4.3.12), pp. 368 and 371.
+Any theta class carried by an archimedean-flat test, with no moment condition imposed
+on its archimedean factor, already lies in the archimedean denominator. This is the
+content of the prose after (7.4.3.1), p. 368: the factorwise moment restriction is
+invisible in the span, because a tensor whose archimedean factor has nonzero integral
+can be corrected by a difference of dilates of that factor. -/
+private theorem mem_archNuclearityDenominator_iff_flatPolarImage_flat (f : P)
+    (hf : f.val ∈ globalArchimedeanFlatTests F) :
+    mkΘ(χ, f) ∈ archNuclearityDenominator χ := by
+  sorry
+
+/-- Paper: Equations (7.4.3.1) and (7.4.3.12), pp. 368 and 371.
+An element of the archimedean denominator is the theta class of a single
+archimedean-flat zero-moment test: the class map is linear, so a finite linear
+combination of such classes is the class of the corresponding combination of tests. -/
+private theorem mem_archNuclearityDenominator_iff_flatPolarImage_exists {x : Θ₀(χ)}
+    (hx : x ∈ archNuclearityDenominator χ) :
+    ∃ f : P, f.val ∈ globalArchimedeanFlatTests F ∧ x = mkΘ(χ, f) := by
+  have hmono : globalArchimedeanFlatTests F (ω(χ) = 1) ≤ globalArchimedeanFlatTests F := by
+    refine Submodule.span_le.mpr ?_
+    rintro _ ⟨a, b, h, hd, _, rfl⟩
+    exact Submodule.subset_span ⟨a, b, h, hd, fun hc ↦ hc.elim, rfl⟩
+  let A : Submodule ℂ P := (globalArchimedeanFlatTests F).comap (P).subtype
+  let q : P →ₗ[ℂ] Θ₀(χ) := (Π(χ)).mkQ
+  have hle : archNuclearityDenominator χ ≤ A.map q := by
+    refine Submodule.span_le.mpr ?_
+    rintro _ ⟨g, hg, rfl⟩
+    exact Submodule.mem_map_of_mem
+      (Submodule.mem_comap.mpr (show (↑g : ℬ(𝔸[F])) ∈ globalArchimedeanFlatTests F from hmono hg))
+  obtain ⟨g, hg, hgx⟩ := hle hx
+  exact ⟨g, by simpa using (Submodule.mem_comap.mp hg), hgx.symm⟩
+
+/-- Paper: Equations (7.4.3.1) and (7.4.3.12), pp. 368 and 371.
 In the homogeneous theta image the factorwise moment condition agrees with
 imposing the two global polar conditions on the unrestricted flat tensors. -/
 theorem mem_archNuclearityDenominator_iff_flatPolarImage (x : Θ₀(χ)) :
     x ∈ archNuclearityDenominator χ ↔
-      ∃ f : P, f.val ∈ globalArchimedeanFlatTests F ∧ x = mkΘ(χ, f) := by sorry
+      ∃ f : P, f.val ∈ globalArchimedeanFlatTests F ∧ x = mkΘ(χ, f) :=
+  ⟨mem_archNuclearityDenominator_iff_flatPolarImage_exists (χ := χ) (x := x),
+    fun ⟨f, hf, hx⟩ ↦ by
+      rw [hx]
+      exact mem_archNuclearityDenominator_iff_flatPolarImage_flat (χ := χ) f hf⟩
 
 /-- Paper: Equation (7.4.3.13), p. 372.
 The archimedean orbital quotient divides the zero-moment theta space by its flat image.
@@ -742,12 +825,31 @@ theorem archNuclearityQuotient_mk_eq_zero (f : P) :
 -- difference of dilates to give zero additive integral.
 
 /-- Paper: Theorem 7.4.3.1(1), p. 368.
+The zero-moment archimedean-flat theta image is nonzero: over a nonzero flat archimedean
+factor corrected to zero additive moment, the tensor with the indicator of the integral
+finite ideles has a theta class whose regularized Mellin transform is not identically
+zero, so its denominator class does not vanish. -/
+private theorem archNuclearityDenominator_nonzero_closed_ne_bot :
+    archNuclearityDenominator χ ≠ ⊥ := by
+  sorry
+
+/-- Paper: Theorem 7.4.3.1(1), p. 368.
+The archimedean-flat theta image is closed in `Θ₀(χ)`: the flat zero-moment tests form a
+closed subspace of the polar space, and the theta class map restricted to a closed
+subspace on which the regularized Mellin transform is injective has closed image. -/
+private theorem archNuclearityDenominator_nonzero_closed_isClosed :
+    IsClosed (archNuclearityDenominator χ : Set (Θ₀(χ))) := by
+  sorry
+
+/-- Paper: Theorem 7.4.3.1(1), p. 368.
 The zero-moment archimedean-flat theta image is nonzero and closed.
 Deviation: Uses the Fourier-moment correction from the prose after (7.4.3.1).
 Without it the printed image need not be contained in the zero-moment theta space. -/
 theorem archNuclearityDenominator_nonzero_closed :
     archNuclearityDenominator χ ≠ ⊥ ∧
-      IsClosed (archNuclearityDenominator χ : Set (Θ₀(χ))) := by sorry
+      IsClosed (archNuclearityDenominator χ : Set (Θ₀(χ))) :=
+  ⟨archNuclearityDenominator_nonzero_closed_ne_bot (χ := χ),
+    archNuclearityDenominator_nonzero_closed_isClosed (χ := χ)⟩
 
 local notation "gammaOrder(" χ ", " s ")" =>
   (analyticOrderAt (fun z ↦ (heckeGammaFactor χ z)⁻¹) s).toNat
