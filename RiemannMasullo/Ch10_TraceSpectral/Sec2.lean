@@ -1776,14 +1776,19 @@ theorem spectralStripJet_lowerBound (χ : PontryaginDual C₁ → PontryaginDual
 
 /-- Paper: Proposition 10.2.2.2, pp. 446–447, and (10.2.2.5). The first of the two
 arithmetic inputs to the uniform strip estimate: one integer bounds the
-vanishing order of the completed Hecke L-functions at every point whose real
-part lies in the closed strip, uniformly over the base character and the
-height. For F = Q this already asks for a height-independent bound on the
-multiplicities of the nontrivial zeta zeros. -/
+vanishing order of the completed Hecke L-functions at every point of the open
+strip, uniformly over the base character and the height. For F = Q this already
+asks for a height-independent bound on the multiplicities of the nontrivial zeta
+zeros. The two edge lines are not asked about here: `spectralBoundaryMultiplicity`
+and `lt_spectralBoundaryMultiplicity` already bound the admitted order there by
+the fixed cutoff from `s`.
+Gap: No bound on the multiplicities of the zeros of the completed Hecke
+L-functions in the strip, uniform in the character and the height, is known or
+supplied on pp. 446–447. -/
 private theorem spectralStripJet_order_and_margin_orderBound
     (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
     {a α : ℝ} (_hα : 0 ≤ α) :
-    ∃ K : ℕ, ∀ (ω : PontryaginDual C₁) (b t : ℝ), b ∈ Icc (-α) α →
+    ∃ K : ℕ, ∀ (ω : PontryaginDual C₁) (b t : ℝ), b ∈ Ioo (-α) α →
       multiplicity(χ ω, shift(a + b, t)) ≤ K := by sorry
 
 /-- Paper: Proposition 10.2.2.2, pp. 446–447, and (10.2.2.5). The second
@@ -1791,7 +1796,9 @@ arithmetic input: the zeros of high multiplicity do not approach the two edges
 of the strip, so a single positive margin separates their real part from the
 boundary. The interior branch of (10.2.2.5) keeps every order, and the admitted
 orders of a zero of that multiplicity then stay below the reciprocal-weight
-integrability threshold. -/
+integrability threshold.
+Gap: No separation of the zeros of high multiplicity of the Hecke L-functions
+from the two edges of the strip is known or supplied on pp. 446–447. -/
 private theorem spectralStripJet_order_and_margin_margin
     (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
     {a α s : ℝ} (_hα : 0 ≤ α) (_hs : 1 < s) :
@@ -1814,14 +1821,12 @@ theorem spectralStripJet_order_and_margin (χ : PontryaginDual C₁ → Pontryag
       j.val.2.2.2 ≤ K ∧ ((s - 1) / 2 ≤ (j.val.2.2.2 : ℝ) → |j.val.2.1| ≤ α - δ) := by
   obtain ⟨K, hK⟩ := spectralStripJet_order_and_margin_orderBound χ _hχ _hα
   obtain ⟨δ, hδ, hmargin⟩ := spectralStripJet_order_and_margin_margin χ _hχ _hα _hs
-  refine ⟨K, δ, hδ, fun j ↦ ⟨?_, ?_⟩⟩
-  · have hb : j.val.2.1 ∈ Icc (-α) α := (SpectralStripJetIndex.mem_strip_order_pos _hα j).1
-    have hj := j.property
+  refine ⟨max K (Nat.ceil ((s - 1) / 2)), δ, hδ, fun j ↦ ⟨?_, ?_⟩⟩
+  · have hj := j.property
     unfold spectralStripMultiplicity at hj
     split_ifs at hj with h1 h2
-    · exact le_of_lt (lt_of_lt_of_le hj (hK _ _ _ hb))
-    · exact le_of_lt (lt_of_lt_of_le ((lt_spectralBoundaryMultiplicity s _ _).mp hj).1
-        (hK _ _ _ hb))
+    · exact (le_of_lt (lt_of_lt_of_le hj (hK _ _ _ h1))).trans (le_max_left _ _)
+    · exact (le_of_lt (lt_of_lt_of_le hj (min_le_right _ _))).trans (le_max_right _ _)
     · exact absurd hj (Nat.not_lt_zero _)
   · intro ho
     have hj := j.property
