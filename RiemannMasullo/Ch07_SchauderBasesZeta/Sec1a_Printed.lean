@@ -802,13 +802,71 @@ def Printed.sLocalZLaurentCoeff_finitePlace_support : Prop :=
         {x : Multiplicative (SAdeleRing F S) | x.toAdd.2 v = 0} →
       sLocalZLaurentCoeff f (chart ((((m : ℝ) * period(v.val) - t : ℝ) : ℂ) * Complex.I)) m = 0
 
+/-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
+At index `0` the local coefficient is the value of the zeta function itself: the coefficient is
+the residue at the centre of `z ↦ A z / z ^ (m + 1)` with `A z = Z (twist c z)`, and at `m = 0`
+the residue of `A z / z` is `A 0` once `A` is analytic at the centre. -/
+private theorem sLocalZLaurentCoeff_zero_index_eq_value
+    {F : Type u} [Field F] [NumberField F] {S : Finset Places(F)}
+    (c : QuasiCharacter Jₛ(F, S)) (f : Tests(F, S))
+    (hana : AnalyticAt ℂ (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) 0) :
+    sLocalZLaurentCoeff f c 0 = sLocalIdelicZFunction f (twistₛ(F, S) c 0) := by
+  have h := complexResidue_div_sub
+    (g := fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) (ρ := 0) hana
+  have h' : sLocalZLaurentCoeff f c 0
+      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0 := by
+    show complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / z ^ ((0 : ℤ) + 1)) 0
+      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0
+    simp
+  rw [h', h]
+
+/-- The copy of `ℚ` in the arbitrary universe of the printed statements is a number field;
+the two instances below supply what the counterexamples need on it. -/
+private instance sLocalZLaurentCoeff_uliftRatCharZero : CharZero (ULift ℚ) :=
+  ⟨fun a b hab ↦ by simpa using congrArg ULift.down hab⟩
+
+/-- The number field structure on the copy of `ℚ` in the arbitrary universe of the printed
+statements; see `sLocalZLaurentCoeff_uliftRatCharZero`. -/
+private instance sLocalZLaurentCoeff_uliftRatNumberField : NumberField (ULift ℚ) := ⟨⟩
+
+/-- Paper: Discussion of Theorem 7.1.2.3, p. 321.
+There are data with a nonzero constant coefficient whose support misses the inverse image of the
+zero locus of the finite coordinate: over `ℚ` with the real place and the place `v` above `2`,
+the trivial character, `t = m = 0`, and a test whose real factor is a smooth bump supported in
+`(1, 2)` and whose finite factor is supported in the units `ℤ₂ˣ`. Then `v` has positive period,
+the finite restriction of the trivial chart is constant, the support misses the zero of the finite
+coordinate, and the S-local zeta function is analytic at the centre `0`, where its value is the
+nonzero integral of the test. -/
+private theorem sLocalZLaurentCoeff_finitePlace_support_false_data :
+    ∃ (S : Finset (Places(ULift ℚ))) (v : S) (χ : PontryaginDual Jₛ(ULift ℚ, S))
+      (f : Tests(ULift ℚ, S)),
+      let c := twistₛ(ULift ℚ, S) ((circleToComplex).comp χ) 0
+      (0 : ℝ) ∈ Ico 0 (period(v.val)) ∧
+      (∀ x : (v.val.adicCompletion (ULift ℚ))ˣ, sLocalFiniteRestriction v c x =
+        (‖(x : v.val.adicCompletion (ULift ℚ))‖ : ℂ) ^ ((0 : ℂ) * Complex.I)) ∧
+      Disjoint (tsupport (fun x ↦ f x))
+        {x : Multiplicative (SAdeleRing (ULift ℚ) S) | x.toAdd.2 v = 0} ∧
+      AnalyticAt ℂ (fun z ↦ sLocalIdelicZFunction f (twistₛ(ULift ℚ, S) c z)) 0 ∧
+      sLocalIdelicZFunction f (twistₛ(ULift ℚ, S) c 0) ≠ 0 := by
+  sorry
+
 /-- Paper: Discussion of Theorem 7.1.2.3, p. 321.
 Take ℚ with the real place and the place above 2, the trivial character and m = 0.
 Use a nonzero nonnegative smooth bump supported in (1,2) times the indicator of
 ℤ₂ˣ. The support avoids the zero at the finite coordinate, but the zeta integral
-is holomorphic at zero and its constant term is strictly positive. -/
+is holomorphic at zero and its constant term is strictly positive.
+Split into `sLocalZLaurentCoeff_finitePlace_support_false_data` (counterexample data with a
+nonzero zeta value at the centre) and `sLocalZLaurentCoeff_zero_index_eq_value` (the coefficient
+of index `0` is that value), while the printed claim says the coefficient vanishes. -/
 theorem Printed.sLocalZLaurentCoeff_finitePlace_support_false :
-    ¬ Printed.sLocalZLaurentCoeff_finitePlace_support := by sorry
+    ¬ Printed.sLocalZLaurentCoeff_finitePlace_support := by
+  intro h
+  obtain ⟨S, v, χ, f, hmem, hfin, hdisj, hana, hne⟩ :=
+    sLocalZLaurentCoeff_finitePlace_support_false_data
+  have hz := h (ULift ℚ) S χ v 0 0 f hmem hfin hdisj
+  simp only [Int.cast_zero, zero_mul, sub_zero, Complex.ofReal_zero] at hz
+  exact hne ((sLocalZLaurentCoeff_zero_index_eq_value (F := ULift ℚ) (S := S) _ f hana).symm.trans
+    hz)
 
 /-- Paper: Proof of Theorem 7.1.2.3, p. 321.
 As printed: For every test the trivial-character zeta function has pole order equal
@@ -850,32 +908,6 @@ def Printed.sLocalZLaurentCoeff_any_contour : Prop :=
         let integrand := fun s ↦ sLocalIdelicZFunction f (chart s) / (s - a) ^ k
         HasPettisIntegral (PettisMeasure.complex γ.measure) integrand
           (2 * (Real.pi : ℂ) * Complex.I * sLocalZLaurentCoeff f (chart a) ((k : ℤ) - 1))
-
-/-- The two instances the counterexample of `Printed.sLocalZLaurentCoeff_any_contour` needs on
-`ULift ℚ`, which is the copy of `ℚ` in the arbitrary universe of the statement. -/
-private instance sLocalZLaurentCoeff_any_contour_false_charZero : CharZero (ULift ℚ) :=
-  ⟨fun a b hab ↦ by simpa using congrArg ULift.down hab⟩
-
-/-- See `sLocalZLaurentCoeff_any_contour_false_charZero`. -/
-private instance sLocalZLaurentCoeff_any_contour_false_numberField : NumberField (ULift ℚ) := ⟨⟩
-
-/-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
-At index `0` the local coefficient is the value of the zeta function itself: the coefficient is
-the residue at the centre of `z ↦ A z / z ^ (m + 1)` with `A z = Z (twist c z)`, and at `m = 0`
-the residue of `A z / z` is `A 0` once `A` is analytic at the centre. -/
-private theorem sLocalZLaurentCoeff_any_contour_false_index_zero
-    {F : Type u} [Field F] [NumberField F] {S : Finset Places(F)}
-    (c : QuasiCharacter Jₛ(F, S)) (f : Tests(F, S))
-    (hana : AnalyticAt ℂ (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) 0) :
-    sLocalZLaurentCoeff f c 0 = sLocalIdelicZFunction f (twistₛ(F, S) c 0) := by
-  have h := complexResidue_div_sub
-    (g := fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z)) (ρ := 0) hana
-  have h' : sLocalZLaurentCoeff f c 0
-      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0 := by
-    show complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / z ^ ((0 : ℤ) + 1)) 0
-      = complexResidue (fun z ↦ sLocalIdelicZFunction f (twistₛ(F, S) c z) / (z - 0)) 0
-    simp
-  rw [h', h]
 
 /-- Paper: Coefficient formula after Theorem 7.1.2.3, p. 323.
 There are data with a nonzero local coefficient: over `ℚ` with only its real place, the trivial
@@ -919,7 +951,6 @@ theorem Printed.sLocalZLaurentCoeff_any_contour_false :
   have hz := sLocalZLaurentCoeff_any_contour_false_coeff_zero h (ULift ℚ) S χ f a 1 le_rfl
   simp only [Nat.cast_one, Int.reduceSub] at hz
   exact hne
-    ((sLocalZLaurentCoeff_any_contour_false_index_zero (F := ULift ℚ) (S := S) _ f hana).symm.trans
-      hz)
+    ((sLocalZLaurentCoeff_zero_index_eq_value (F := ULift ℚ) (S := S) _ f hana).symm.trans hz)
 
 end RiemannMasullo
