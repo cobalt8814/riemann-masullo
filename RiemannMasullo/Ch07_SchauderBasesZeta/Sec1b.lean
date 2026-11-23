@@ -1161,6 +1161,139 @@ local instance instHaarSLocalNormOneSec1b :
     (sLocalNormOneQuotientMeasure F S).IsHaarMeasure :=
   (sLocalNormOneQuotientMeasure_normProduct (F := F) (S := S)).1
 
+/-- The pole order of a meromorphic germ is bounded by `K` as soon as the germ's order is at
+least `-K`. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_poleOrder_le_aux {o : WithTop ℤ} {K : ℕ}
+    (h : ((-(K : ℤ) : ℤ) : WithTop ℤ) ≤ o) : (-(o.untop₀)).toNat ≤ K := by
+  induction o using WithTop.recTopCoe with
+  | top => rw [WithTop.untop₀_top]; simp
+  | coe n =>
+    rw [WithTop.untop₀_coe, ← Int.toNat_natCast K]
+    have h' : -(K : ℤ) ≤ n := by exact_mod_cast h
+    exact Int.toNat_le_toNat (by omega)
+
+/-- Paper: Corollary 7.1.3.3, p. 325 and Theorem 7.1.3.2(3), p. 324.
+On a unitary norm-twist chart the pole order of the continued zeta transform is at most
+the number of places whose local Tate factor has a pole at the abscissa, hence at most
+the number of infinite places plus the number of places of `S`. This is the bound that
+makes the set of pole orders in the corollary finite. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_poleOrder_le
+    (ψ : PontryaginDual Jₛ) (f : SchwartzBruhat (Multiplicative (SAdeleRing F S))) (s : ℂ) :
+    sLocalPolarMultiplicity f
+      (twistₛ ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp ψ) s) ≤
+      archCount + S.card := by
+  classical
+  set χ₀ : QuasiCharacter Jₛ :=
+    (⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp ψ with hχ₀
+  have hgerm : meromorphicOrderAt (fun z ↦ sLocalIdelicZFunction f (twistₛ (twistₛ χ₀ s) z)) 0
+      = meromorphicOrderAt (fun z ↦ sLocalIdelicZFunction f (twistₛ χ₀ z)) s := by
+    have hf : (fun z ↦ sLocalIdelicZFunction f (twistₛ (twistₛ χ₀ s) z))
+        = (fun z ↦ sLocalIdelicZFunction f (twistₛ χ₀ z)) ∘ (· + s) := by
+      funext z
+      simp only [Function.comp_apply, excess_center]
+    rw [hf, meromorphicOrderAt_comp_add_const_eq_meromorphicOrderAt, zero_add]
+  have hρ : (-( (archCount + S.card : ℕ) : ℤ) : WithTop ℤ) ≤
+      meromorphicOrderAt (fun z ↦ sLocalRhoFactor (twistₛ χ₀ z)) s := by
+    by_cases hlt : meromorphicOrderAt (fun z ↦ sLocalRhoFactor (twistₛ χ₀ z)) s < 0
+    · have hval := sLocalRhoFactor_orderAt_pole (F := F) (S := S) ψ s hlt
+      rw [hval]
+      have ha : (Finset.univ.filter (fun w : InfinitePlace F ↦ meromorphicOrderAt (fun z ↦
+          infiniteLocalTateFactor w (sLocalInfiniteRestriction w (twistₛ χ₀ z))) s < 0)).card
+          ≤ archCount := by
+        simpa using Finset.card_le_univ (s := Finset.univ.filter (fun w : InfinitePlace F ↦
+          meromorphicOrderAt (fun z ↦ infiniteLocalTateFactor w
+            (sLocalInfiniteRestriction w (twistₛ χ₀ z))) s < 0))
+      have hf : (Finset.univ.filter (fun v : S ↦ meromorphicOrderAt (fun z ↦
+          finiteLocalTateFactor v.val (sLocalFiniteRestriction v (twistₛ χ₀ z))) s < 0)).card
+          ≤ S.card := by
+        simpa using Finset.card_le_univ (s := Finset.univ.filter (fun v : S ↦
+          meromorphicOrderAt (fun z ↦ finiteLocalTateFactor v.val
+            (sLocalFiniteRestriction v (twistₛ χ₀ z))) s < 0))
+      exact_mod_cast (show -((archCount + S.card : ℕ) : ℤ) ≤
+        -((((Finset.univ.filter (fun w : InfinitePlace F ↦ meromorphicOrderAt (fun z ↦
+            infiniteLocalTateFactor w (sLocalInfiniteRestriction w (twistₛ χ₀ z))) s < 0)).card
+          + (Finset.univ.filter (fun v : S ↦ meromorphicOrderAt (fun z ↦
+              finiteLocalTateFactor v.val
+                (sLocalFiniteRestriction v (twistₛ χ₀ z))) s < 0)).card : ℕ)) : ℤ) by
+        omega)
+    · exact le_trans (by exact_mod_cast (show
+        -((archCount + S.card : ℕ) : ℤ) ≤ 0 by omega)) (le_of_not_gt hlt)
+  have hmin : (-( (archCount + S.card : ℕ) : ℤ) : WithTop ℤ) ≤
+      min 0 (meromorphicOrderAt (fun z ↦ sLocalRhoFactor (twistₛ χ₀ z)) s) :=
+    le_min (by exact_mod_cast (show -((archCount + S.card : ℕ) : ℤ) ≤ 0 by omega)) hρ
+  have horder : (-( (archCount + S.card : ℕ) : ℤ) : WithTop ℤ) ≤
+      meromorphicOrderAt (fun z ↦ sLocalIdelicZFunction f (twistₛ χ₀ z)) s := by
+    have hpoles := sLocalIdelicZFunction_poles (F := F) (S := S) f ψ s
+    exact hmin.trans (by simpa only [← hχ₀] using hpoles)
+  have hfin := sLocalHomogeneousAdelicTheta_log_bound_poleOrder_le_aux
+    (K := archCount + S.card) horder
+  unfold sLocalPolarMultiplicity
+  rw [hgerm]
+  exact hfin
+
+/-- Paper: Corollary 7.1.3.3, p. 325.
+A pole order that is bounded has a greatest value. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_isGreatest (poleOrder : ℂ → ℕ) (N : ℕ)
+    (hN : ∀ s, poleOrder s ≤ N) : ∃ M : ℕ, IsGreatest (range poleOrder) M := by
+  classical
+  obtain ⟨M, hMS, hmax⟩ := Finset.exists_max_image
+    ((Finset.range (N + 1)).filter (fun k ↦ ∃ s, poleOrder s = k)) id
+    ⟨poleOrder 0, by
+      simp only [Finset.mem_filter, Finset.mem_range]
+      exact ⟨Nat.lt_succ_of_le (hN 0), 0, rfl⟩⟩
+  refine ⟨M, ?_, ?_⟩
+  · obtain ⟨-, s, hs⟩ := Finset.mem_filter.mp hMS
+    exact hs ▸ mem_range_self s
+  · intro b hb
+    obtain ⟨s, hs⟩ := hb
+    rw [← hs]
+    exact hmax _ (Finset.mem_filter.mpr
+      ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le (hN s)), s, rfl⟩)
+
+/-- Paper: Corollary 7.1.3.3, p. 325.
+The pole orders strictly below the greatest one have a smallest upper bound. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_isLeast (poleOrder : ℂ → ℕ) (M : ℕ) :
+    ∃ m : ℕ, IsLeast {k : ℕ | ∀ s, poleOrder s < M → poleOrder s ≤ k} m := by
+  classical
+  have hex : ∃ k : ℕ, ∀ s, poleOrder s < M → poleOrder s ≤ k := ⟨M, fun s hs ↦ hs.le⟩
+  exact ⟨Nat.find hex, Nat.find_spec hex, fun k hk ↦ Nat.find_min' hex hk⟩
+
+/-- Paper: Corollary 7.1.3.3, p. 325 and the proof on p. 326.
+The smallest upper bound for the pole orders below the greatest one is strictly less
+than the number of places, so the remainder exponent `m - 1` in (7.1.3.2) is below the
+leading exponent `archCount + S.card - 1`. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_second_lt (poleOrder : ℂ → ℕ)
+    (N M m : ℕ) (hN0 : 0 < N) (hN : ∀ s, poleOrder s ≤ N)
+    (hM : IsGreatest (range poleOrder) M)
+    (hm : IsLeast {k : ℕ | ∀ s, poleOrder s < M → poleOrder s ≤ k} m) : m < N := by
+  obtain ⟨s₀, hs₀⟩ := hM.1
+  have hMN : M ≤ N := hs₀ ▸ hN s₀
+  have hm_min : ∀ k : ℕ, (∀ s, poleOrder s < M → poleOrder s ≤ k) → m ≤ k :=
+    fun k hk ↦ hm.2 hk
+  by_cases hex : ∃ s, poleOrder s < M
+  · have hle : m ≤ M - 1 := hm_min (M - 1) (fun s hs ↦ by omega)
+    omega
+  · have hle : m ≤ 0 := hm_min 0 (fun s hs ↦ absurd ⟨s, hs⟩ hex)
+    omega
+
+/-- Paper: Corollary 7.1.3.3, p. 325, estimate (7.1.3.2), and its proof on p. 326.
+The logarithmic bound near norm zero for the remainder exponent `m` coming from the
+largest smaller pole order. -/
+private theorem sLocalHomogeneousAdelicTheta_log_bound_estimate
+    (harch : archCount = 1) (ψ : PontryaginDual Jₛ)
+    (f : SchwartzBruhat (Multiplicative (SAdeleRing F S))) (m : ℕ) :
+    let ω := ψ.comp
+      (⟨Subgroup.subtype (MonoidHom.ker mₛ), continuous_subtype_val⟩ :
+        MonoidHom.ker mₛ →ₜ* Jₛ)
+    let normℝ (g : Jₛ) := ((mₛ g : ℝ≥0) : ℝ)
+    ∃ (C D : ℝ), 0 < C ∧ 0 ≤ D ∧
+      ∀ᶠ g in comap normℝ (𝓝[>] 0),
+        ‖sLocalHomogeneousAdelicTheta F S (sLocalNormOneQuotientMeasure F S) ω f g‖ ≤
+          C * |Real.log (normℝ g)| ^ (archCount + S.card - 1) +
+            D * |Real.log (normℝ g)| ^ ((m : ℤ) - 1) := by
+  intro ω normℝ
+  sorry
+
 /-- Paper: Corollary 7.1.3.3, p. 325.
 With a unique infinite place, the homogeneous theta function has the stated logarithmic
 upper bound near norm zero. The remainder exponent comes from the largest smaller order.
@@ -1180,7 +1313,16 @@ theorem sLocalHomogeneousAdelicTheta_log_bound (harch : archCount = 1) (ψ : Pon
       ∀ᶠ g in comap normℝ (𝓝[>] 0),
         ‖sLocalHomogeneousAdelicTheta F S (sLocalNormOneQuotientMeasure F S) ω f g‖ ≤
           C * |Real.log (normℝ g)| ^ (archCount + S.card - 1) +
-            D * |Real.log (normℝ g)| ^ ((m : ℤ) - 1) := by sorry
+            D * |Real.log (normℝ g)| ^ ((m : ℤ) - 1) := by
+  classical
+  intro ω normℝ poleOrder
+  obtain ⟨M, hM⟩ := sLocalHomogeneousAdelicTheta_log_bound_isGreatest poleOrder
+    (archCount + S.card) (fun s ↦ sLocalHomogeneousAdelicTheta_log_bound_poleOrder_le ψ f s)
+  obtain ⟨m, hm⟩ := sLocalHomogeneousAdelicTheta_log_bound_isLeast poleOrder M
+  have hlt := sLocalHomogeneousAdelicTheta_log_bound_second_lt poleOrder (archCount + S.card) M m
+    (by omega) (fun s ↦ sLocalHomogeneousAdelicTheta_log_bound_poleOrder_le ψ f s) hM hm
+  obtain ⟨C, D, hC, hD, hbound⟩ := sLocalHomogeneousAdelicTheta_log_bound_estimate harch ψ f m
+  exact ⟨M, m, C, D, hM, hm, hlt, hC, hD, hbound⟩
 
 end Polar
 
