@@ -653,12 +653,80 @@ theorem sLocalRhoPoleOrder_le_card (s : ℂ) :
     exact_mod_cast hb
   omega
 
+open Classical in
+/-- Paper: Theorem 7.1.3.2(2), p. 324. No finite place of `S` contributes a pole to the
+correcting factor at an abscissa in the open left half-plane: the restricted finite Tate
+factor at a place of `S` is holomorphic there, so the finite-place count in
+`sLocalRhoFactor_orderAt_pole` vanishes. -/
+private theorem sLocalRhoPoleOrder_le_archimedean_of_re_neg_finite
+    (c : QuasiCharacter Jₛ) (_hc : ∀ x : Jₛ, ‖c x‖ = 1) {s : ℂ} (_hs : s.re < 0) :
+    (Finset.univ.filter (fun v : S ↦ meromorphicOrderAt (fun z ↦ finiteLocalTateFactor v.val
+      (sLocalFiniteRestriction v (twistₛ c z))) s < 0)).card
+      = 0 := by sorry
+
 /-- Paper: Theorem 7.1.3.2(2), p. 324.
 In the open left half-plane the pole order is bounded by the number of infinite places.
 Deviation: Includes all negative abscissae, as in the local-factor argument, and implies
 the stated bounds for negative even abscissae and by the degree. -/
 theorem sLocalRhoPoleOrder_le_archimedean_of_re_neg {s : ℂ} (hs : s.re < 0) :
-    sLocalRhoPoleOrder (chartₛ(χ, hχ) s) ≤ archCount := by sorry
+    sLocalRhoPoleOrder (chartₛ(χ, hχ) s) ≤ archCount := by
+  classical
+  let c := sIdeleRestriction F S ⟨ideleClassNormTwist χ 0, hχ⟩
+  have hc (x : Jₛ) : ‖c x‖ = 1 := by
+    obtain ⟨g, rfl⟩ := QuotientGroup.mk_surjective x
+    rw [show c (QuotientGroup.mk g) = ideleClassNormTwist χ 0
+      (QuotientGroup.mk (sIdeleInsertion F S g)) from sIdeleRestriction_mk F S _ g]
+    change ‖(χ _ : ℂ) * _ ^ (0 : ℂ)‖ = 1
+    simp
+  let ψ : PontryaginDual Jₛ :=
+    { toFun := fun x ↦ ⟨c x, mem_sphere_zero_iff_norm.mpr (hc x)⟩
+      map_one' := Subtype.ext (map_one c)
+      map_mul' := fun x y ↦ Subtype.ext (map_mul c x y)
+      continuous_toFun := c.continuous.subtype_mk _ }
+  have hψ : (⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp ψ = c := by
+    ext x
+    rfl
+  have hcomp : (fun z ↦ sLocalRhoFactor (F := F) (S := S)
+        (twistₛ (chartₛ(χ, hχ) s) z)) = rhoChart(χ, hχ) ∘ (· + s) := by
+    funext z
+    simp only [Function.comp]
+    congr 1
+    ext1 g
+    simp only [quasiCharacterNormTwist]
+    have hn : (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ≠ 0 := by simp
+    change ((_ : ℂ) * _) * _ = (_ : ℂ) * _
+    rw [mul_assoc]
+    congr 1
+    change (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ^ s * (((mₛ g : ℝ≥0ˣ) : ℝ≥0) : ℂ) ^ z = _
+    rw [← Complex.cpow_add _ _ hn, add_comm]
+    rfl
+  have key : sLocalIdelicOrderBound (chartₛ(χ, hχ) s) =
+      min 0 (meromorphicOrderAt rhoChart(χ, hχ) s) := by
+    unfold sLocalIdelicOrderBound
+    rw [hcomp, meromorphicOrderAt_comp_add_const_eq_meromorphicOrderAt, zero_add]
+  have hord := sLocalRhoFactor_orderAt_pole (F := F) (S := S) ψ s
+  dsimp only at hord
+  rw [hψ] at hord
+  change meromorphicOrderAt rhoChart(χ, hχ) s < 0 → _ at hord
+  have hbound : (-((archCount : ℕ) : ℤ) : WithTop ℤ) ≤
+      meromorphicOrderAt rhoChart(χ, hχ) s := by
+    by_cases h : meromorphicOrderAt rhoChart(χ, hχ) s < 0
+    · rw [hord h,
+        sLocalRhoPoleOrder_le_archimedean_of_re_neg_finite (F := F) (S := S) c hc hs, Nat.add_zero]
+      have ha : (Finset.univ.filter (fun w : InfinitePlace F ↦ meromorphicOrderAt (fun z ↦
+          infiniteLocalTateFactor w (sLocalInfiniteRestriction w (twistₛ c z))) s < 0)).card
+          ≤ archCount := Finset.card_le_univ _
+      exact_mod_cast (show -((archCount : ℕ) : ℤ) ≤ -((_ : ℕ) : ℤ) by omega)
+    · exact le_trans (by exact_mod_cast (show -((archCount : ℕ) : ℤ) ≤ 0 by omega))
+        (le_of_not_gt h)
+  have hb : (-((archCount : ℕ) : ℤ) : WithTop ℤ) ≤
+      sLocalIdelicOrderBound (chartₛ(χ, hχ) s) := by
+    rw [key]
+    exact le_min (by exact_mod_cast (show -((archCount : ℕ) : ℤ) ≤ 0 by omega)) hbound
+  rw [sLocalIdelicOrderBound_eq_neg_poleOrder] at hb
+  have : -((archCount : ℕ) : ℤ) ≤ -(sLocalRhoPoleOrder (chartₛ(χ, hχ) s) : ℤ) := by
+    exact_mod_cast hb
+  omega
 
 -- TODO(paper-gap): The bound by r₂ at negative odd abscissae in Theorem 7.1.3.2(2)
 -- omits real sign factors. The odd Dirichlet character modulo 4 gives a pole at -1
