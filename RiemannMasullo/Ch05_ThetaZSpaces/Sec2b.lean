@@ -1305,7 +1305,115 @@ theorem sLocalHomogeneousThetaTransition_equivariant
 Insertion of test functions into the adeles preserves the homogeneous theta kernels. -/
 theorem sLocalHomogeneousThetaToGlobal_preserves_kernel
     (hω : NormOneCharacterUnramifiedOutside (F := F) ω S) :
-    Kₛω(S, ωₛ(S, hω)) ≤ (K𝔽ω(ω)).comap (sAdeleSchwartzToGlobal F S) := by sorry
+    Kₛω(S, ωₛ(S, hω)) ≤ (K𝔽ω(ω)).comap (sAdeleSchwartzToGlobal F S) := by
+  let ρS := (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose
+  let relS (p : J₁(S) × Θₛ(S)) := p.2 - star (ωₛ(S, hω) p.1 : ℂ) • ρS p.1.val p.2
+  let DS := (Submodule.span ℂ (Set.range relS)).topologicalClosure
+  let ρF := (existsUnique_globalThetaAction (F := F)).exists.choose
+  let relF (p : C₁ × Θ𝔽) := p.2 - star (ω p.1 : ℂ) • ρF p.1.val p.2
+  let DF := (Submodule.span ℂ (Set.range relF)).topologicalClosure
+  have hmemS (f : ℬₛ(S)) : f ∈ Kₛω(S, ωₛ(S, hω)) ↔ (Kₛ(S)).mkQ f ∈ DS := by
+    have h : ∃ e : Θₛω(S, ωₛ(S, hω)) ≃L[ℂ] (Θₛ(S) ⧸ DS),
+        ∀ k : ℬₛ(S), e (Submodule.Quotient.mk k) = DS.mkQ ((Kₛ(S)).mkQ k) := by
+      unfold DS relS ρS
+      with_reducible exact sLocalHomogeneousThetaSpace_equiv_coinvariants (F := F) (S := S) (ωₛ(S, hω))
+    refine h.elim fun e he ↦ ?_
+    have he' := congrArg (fun z : Θₛ(S) ⧸ DS ↦ z = 0) (he f)
+    have hz := ContinuousLinearEquiv.map_eq_zero_iff e (x := Submodule.Quotient.mk f)
+    exact (Submodule.Quotient.mk_eq_zero (Kₛω(S, ωₛ(S, hω)))).symm.trans
+      (hz.symm.trans (he'.to_iff.trans (Submodule.Quotient.mk_eq_zero DS)))
+  have hmemF (f : ℬ𝔽) : f ∈ K𝔽ω(ω) ↔ (K𝔽).mkQ f ∈ DF := by
+    have h : ∃ e : Θ𝔽ω(ω) ≃L[ℂ] (Θ𝔽 ⧸ DF),
+        ∀ k : ℬ𝔽, e (Submodule.Quotient.mk k) = DF.mkQ ((K𝔽).mkQ k) := by
+      unfold DF relF ρF
+      with_reducible exact globalHomogeneousThetaSpace_equiv_coinvariants (F := F) ω
+    refine h.elim fun e he ↦ ?_
+    have he' := congrArg (fun z : Θ𝔽 ⧸ DF ↦ z = 0) (he f)
+    have hz := ContinuousLinearEquiv.map_eq_zero_iff e (x := Submodule.Quotient.mk f)
+    exact (Submodule.Quotient.mk_eq_zero (K𝔽ω(ω))).symm.trans
+      (hz.symm.trans (he'.to_iff.trans (Submodule.Quotient.mk_eq_zero DF)))
+  let π := sLocalThetaToGlobal F S
+  have hmap : DS ≤ DF.comap π := by
+    apply Submodule.topologicalClosure_minimal
+    · apply Submodule.span_le.mpr
+      rintro _ ⟨⟨a, y⟩, rfl⟩
+      refine (Submodule.Quotient.mk_surjective (Kₛ(S)) y).elim fun f hy ↦ ?_
+      rw [← hy]
+      obtain ⟨g, hg⟩ := QuotientGroup.mk_surjective a.val
+      let j := sIdeleInsertion F S g
+      have hS : Units.map (adeleProjection F S).toMonoidHom j = g :=
+        Units.ext (Prod.ext (sIdeleInsertion_apply F S g).1
+          (funext (sIdeleInsertion_apply F S g).2.1))
+      have hn : ideleNorm F j = 1 := by
+        rw [ideleNorm_sIdeleInsertion, ← sIdeleQuotientNorm_mk, hg]
+        exact a.property
+      let x : C₁ := ⟨QuotientGroup.mk j, hn⟩
+      have hj : j ∈ Set.range (integralIdeleInsertion F S) := by
+        apply (mem_range_integralIdeleInsertion F S j).2
+        intro v hv
+        have hi : j⁻¹.val.2 v = 1 := by
+          change ((sIdeleInsertion F S g)⁻¹).val.2 v = 1
+          rw [← map_inv]
+          exact (sIdeleInsertion_apply F S g⁻¹).2.2 v hv
+        exact ⟨(sIdeleInsertion_apply F S g).2.2 v hv ▸ (v.adicCompletionIntegers F).one_mem,
+          hi ▸ (v.adicCompletionIntegers F).one_mem⟩
+      obtain ⟨u, hu⟩ := hj
+      have ha : a.val = QuotientGroup.mk (Units.map (adeleProjection F S).toMonoidHom
+          (integralIdeleInsertion F S u)) := by
+        rw [hu, hS]
+        exact hg.symm
+      have hx : x.val = QuotientGroup.mk (integralIdeleInsertion F S u) := by
+        change QuotientGroup.mk j = _
+        rw [hu]
+      have hχ : ωₛ(S, hω) a = ω x :=
+        sLocalNormOneCharacter_apply ω hω u x a hx ha
+      let gS := Units.map (adeleProjection F S).toMonoidHom (integralIdeleInsertion F S u)
+      let fF := sAdeleSchwartzToGlobal F S f
+      let yS : Θₛ(S) := Submodule.Quotient.mk f
+      have hρS : ρS a.val yS =
+          Submodule.Quotient.mk (schwartzBruhatUnitTranslate gS f) := by
+        have : a.val = QuotientGroup.mk gS := ha
+        rw [this]
+        change ρS (QuotientGroup.mk gS) (Submodule.Quotient.mk f) = _
+        exact (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose_spec.2 gS f
+      have hρF : ρF x.val (Submodule.Quotient.mk fF) =
+          Submodule.Quotient.mk
+            (schwartzBruhatUnitTranslate (integralIdeleInsertion F S u) fF) := by
+        have : x.val = QuotientGroup.mk (integralIdeleInsertion F S u) := hx
+        rw [this]
+        exact (existsUnique_globalThetaAction (F := F)).exists.choose_spec.2
+          (integralIdeleInsertion F S u) fF
+      have hπ : π yS = Submodule.Quotient.mk fF := by
+        unfold π yS fF sLocalThetaToGlobal
+        exact Submodule.mapQ_apply _ _ _ f
+      have heq : π (ρS a.val yS) = ρF x.val (π yS) :=
+        calc
+          π (ρS a.val yS) = π (Submodule.Quotient.mk (schwartzBruhatUnitTranslate gS f)) := by
+            rw [hρS]
+          _ = Submodule.Quotient.mk
+              (schwartzBruhatUnitTranslate (integralIdeleInsertion F S u) fF) :=
+            sLocalThetaToGlobal_equivariant u f
+          _ = ρF x.val (Submodule.Quotient.mk fF) := hρF.symm
+          _ = ρF x.val (π yS) := by rw [hπ]
+      have hχ' : star (ωₛ(S, hω) a : ℂ) = star (ω x : ℂ) :=
+        congrArg (fun z : Circle ↦ star (z : ℂ)) hχ
+      have hrel : π (relS (a, yS)) = relF (x, π yS) := by
+        unfold relS relF
+        rw [map_sub, map_smul, hχ', heq]
+      apply Submodule.mem_comap.mpr
+      rw [hrel]
+      exact Submodule.le_topologicalClosure _ (Submodule.subset_span (Set.mem_range_self (x, π yS)))
+    · have hc : IsClosed (DF : Set Θ𝔽) :=
+        (Submodule.span ℂ (Set.range relF)).isClosed_topologicalClosure
+      exact hc.preimage sLocalThetaToGlobal_continuous
+  intro f hf
+  have h2 : π ((Kₛ(S)).mkQ f) ∈ DF := hmap ((hmemS f).mp hf)
+  have h3 : (K𝔽).mkQ (sAdeleSchwartzToGlobal F S f) ∈ DF := by
+    have hπf : π ((Kₛ(S)).mkQ f) = (K𝔽).mkQ (sAdeleSchwartzToGlobal F S f) := by
+      unfold π sLocalThetaToGlobal
+      exact Submodule.mapQ_apply _ _ _ f
+    exact hπf ▸ h2
+  exact (hmemF _).mpr h3
 
 /-- Paper: (5.2.3.2), p. 233.
 The stage insertion into the global homogeneous quotient is induced by extension
