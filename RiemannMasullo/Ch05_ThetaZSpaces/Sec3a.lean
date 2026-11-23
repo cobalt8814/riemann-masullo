@@ -1009,16 +1009,17 @@ private theorem sLocalThetaPrincipalValue_thetaKernel_le_range {S S₀ : Finset 
     Kₛ(S) ≤ (sAdelePrincipalValue F h₀).range := by sorry
 
 /-- Paper: Lemma 5.3.1.5, p. 242.
-Descent of a closed embedding to the quotient by a kernel of which it is a self-map.
+Descent of a closed embedding to the quotient by a subspace that the operator maps into itself.
 
 Given `sLocalThetaPrincipalValue_thetaKernel_comap` (injectivity of the descent) and
-`sLocalThetaPrincipalValue_thetaKernel_le_range` (closedness of its range), the range is closed from `Submodule.range_mapQ`, which writes the range of the descent as
-the image of `range PV` under the quotient map: its preimage is `range PV + K = range PV` by
-the second hypothesis, and the image of a saturated closed set under a quotient map is closed.
-For the embedding one proves that the neighbourhoods of `0` agree: given a saturated open
-`U ∋ 0` take an open `V` with `range PV ∩ V = PV '' U` (a closed embedding is open onto its
-range); then `(descent)⁻¹ (q '' V) = q '' U`, using the first hypothesis to write a `k ∈ K`
-as `PV z` with `z ∈ K` and the saturation of `U`. No completeness of the quotient is needed. -/
+`sLocalThetaPrincipalValue_thetaKernel_le_range` (closedness of its range), the argument is
+this. Closedness of the range: `Submodule.range_mapQ` writes the range of the descent as the
+image of `range PV` under the quotient map, whose preimage is `range PV + K = range PV` by the
+second hypothesis, and the image of a saturated closed set under a quotient map is closed. The
+embedding: the neighbourhoods of `0` agree, since for a saturated open `U ∋ 0` and an open `V`
+with `PV ⁻¹' V = U` (a closed embedding is open onto its range) one has
+`(descent)⁻¹ (q '' V) = q '' U`, using the first hypothesis to write each `k ∈ K` as `PV z` with
+`z ∈ K`, and the saturation of `U`. No completeness of the quotient is needed. -/
 private theorem sLocalThetaPrincipalValue_isClosedEmbedding_descent {S S₀ : Finset V}
     (h₀ : S₀ ⊆ S)
     (hPV : IsClosedEmbedding (sAdelePrincipalValue F h₀))
