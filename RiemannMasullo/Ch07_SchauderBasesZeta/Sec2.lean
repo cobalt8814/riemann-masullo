@@ -2420,6 +2420,164 @@ that define the polar subspaces. -/
 theorem sAdeleSchwartzToGlobal_mem_polarSubspace (f : sAdelePolarSubspace F S) :
     sAdeleSchwartzToGlobal F S f.val ∈ adelePolarSubspace F := by sorry
 
+/-- Paper: Equations (7.2.2.1)–(7.2.2.2), p. 339.
+At the trivial quasi-character the selected multiplicity `S₀.card` does not exceed the
+pole order `#archimedean + S.card`, because every place of `S` is a pole place there. -/
+private theorem sLocalPolarPrincipalValue_tfae_trivial_multiplicity_le {S₀ : Finset Places}
+    (h₀ : S₀ ⊆ S) :
+    sLocalFinitePoleMultiplicity S₀ (1 : Xₛ) ≤ sLocalRhoPoleOrder (1 : Xₛ) := by
+  rw [sLocalFinitePoleMultiplicity_one S₀ h₀, sLocalRhoPoleOrder_eq_card_polePlaces,
+    (sLocalPolePlaces_one (F := F) (S := S)).1, (sLocalPolePlaces_one (F := F) (S := S)).2]
+  calc S₀.card ≤ S.card := Finset.card_le_card h₀
+    _ = (Finset.univ : Finset S).card := by simp
+    _ ≤ (Finset.univ : Finset (InfinitePlace F)).card + (Finset.univ : Finset S).card :=
+        Nat.le_add_left _ _
+
+/-- Paper: Corollary 7.2.2.2, p. 340.
+At the trivial quasi-character the top principal-part coefficient of a test in the polar
+subspace vanishes: the leading functional there is a multiple of the value of the Fourier
+transform at the origin, which the polar conditions annihilate. -/
+private theorem sLocalPolarPrincipalValue_tfae_top_coeff {S₀ : Finset Places} (h₀ : S₀ ⊆ S)
+    (χ : PontryaginDual C𝔽) (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀)
+    (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let ω := globalNormOne(χ)
+    let hω : NormOneCharacterUnramifiedOutside ω S := ⟨⟨globalUnitary(χ), hS⟩, fun _ ↦ rfl⟩
+    let ωₛ := sLocalNormOneCharacter S ω hω
+    ∀ (c : Xₛ), c = 1 → onComponent(c, ωₛ) →
+      0 < sLocalFinitePoleMultiplicity S₀ c →
+      sLocalPrincipalPartCoeff c (sLocalRhoPoleOrder c) f.val = 0 := by
+  intro hS ω hω ωₛ c hc hcomp hn
+  sorry
+
+/-- Paper: Corollary 7.2.2.2, p. 340.
+At the trivial quasi-character the lowest coefficient of the shifted window of
+Corollary 7.2.2.2 vanishes on the polar subspace: the polar conditions take away one
+further order of pole there, below the principal-value bound `m - n`. -/
+private theorem sLocalPolarPrincipalValue_tfae_bottom_coeff {S₀ : Finset Places} (h₀ : S₀ ⊆ S)
+    (χ : PontryaginDual C𝔽) (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀)
+    (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let ω := globalNormOne(χ)
+    let hω : NormOneCharacterUnramifiedOutside ω S := ⟨⟨globalUnitary(χ), hS⟩, fun _ ↦ rfl⟩
+    let ωₛ := sLocalNormOneCharacter S ω hω
+    ∀ (c : Xₛ), c = 1 → onComponent(c, ωₛ) →
+      0 < sLocalFinitePoleMultiplicity S₀ c →
+      sLocalFinitePoleMultiplicity S₀ c ≤ sLocalRhoPoleOrder c →
+      sLocalPrincipalPartCoeff c
+        (sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c) f.val = 0 := by
+  intro hS ω hω ωₛ c hc hcomp hn hnm
+  sorry
+
+open Classical in
+/-- Paper: Corollary 7.2.2.2, p. 340.
+On the polar subspace the local coefficient condition of Corollary 7.2.2.2 (window
+`m - n ≤ k ≤ m - 1` at the trivial character) is equivalent to the local coefficient
+condition of Proposition 7.2.2.1 (window `m - n < k ≤ m` there). The two windows differ by
+the top coefficient `k = m` and the bottom coefficient `k = m - n` only. -/
+private theorem sLocalPolarPrincipalValue_tfae_local_iff {S₀ : Finset Places} (h₀ : S₀ ⊆ S)
+    (χ : PontryaginDual C𝔽) (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀)
+    (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let ω := globalNormOne(χ)
+    let hω : NormOneCharacterUnramifiedOutside ω S := ⟨⟨globalUnitary(χ), hS⟩, fun _ ↦ rfl⟩
+    let ωₛ := sLocalNormOneCharacter S ω hω
+    ((∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, (if c = 1 then
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c ≤ k ∧
+              k ≤ sLocalRhoPoleOrder c - 1
+          else
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k ∧
+              k ≤ sLocalRhoPoleOrder c) →
+          sLocalPrincipalPartCoeff c k f.val = 0) ↔
+      (∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k →
+          k ≤ sLocalRhoPoleOrder c → sLocalPrincipalPartCoeff c k f.val = 0)) := by
+  intro hS ω hω ωₛ
+  have htop := sLocalPolarPrincipalValue_tfae_top_coeff (F := F) (S := S) (S₀ := S₀)
+    h₀ χ hχ f
+  have hbot := sLocalPolarPrincipalValue_tfae_bottom_coeff (F := F) (S := S) (S₀ := S₀)
+    h₀ χ hχ f
+  have hle := sLocalPolarPrincipalValue_tfae_trivial_multiplicity_le (F := F) (S := S)
+    (S₀ := S₀) h₀
+  constructor
+  · intro hA c hcomp hn k hk1 hk2
+    by_cases hc : c = 1
+    · by_cases hk : k ≤ sLocalRhoPoleOrder c - 1
+      · exact hA c hcomp hn k (by rw [ite_eq_left hc]; exact ⟨le_of_lt hk1, hk⟩)
+      · have hkm : k = sLocalRhoPoleOrder c := by omega
+        subst hkm
+        exact htop c hc hcomp hn
+    · exact hA c hcomp hn k (by rw [ite_eq_right hc]; exact ⟨hk1, hk2⟩)
+  · intro hA' c hcomp hn k hk
+    by_cases hc : c = 1
+    · rw [ite_eq_left hc] at hk
+      obtain ⟨h1, h2⟩ := hk
+      by_cases hlt : sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k
+      · exact hA' c hcomp hn k hlt (le_trans h2 (Nat.sub_le _ _))
+      · have hkeq : k = sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c := by
+          omega
+        subst hkeq
+        exact hbot c hc hcomp hn (by rw [hc]; exact hle)
+    · rw [ite_eq_right hc] at hk
+      exact hA' c hcomp hn k hk.1 hk.2
+
+/-- Paper: Corollary 7.2.2.2, p. 340.
+A polar test whose homogeneous theta class lies in the principal-value image of the
+ambient space has a polar preimage in that image: the polar conditions are free on
+the kernel of the theta map. -/
+private theorem sLocalPolarPrincipalValue_tfae_range_polar {S₀ : Finset Places} (h₀ : S₀ ⊆ S)
+    (χ : PontryaginDual C𝔽) (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀)
+    (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let ω := globalNormOne(χ)
+    let hω : NormOneCharacterUnramifiedOutside ω S := ⟨⟨globalUnitary(χ), hS⟩, fun _ ↦ rfl⟩
+    let ωₛ := sLocalNormOneCharacter S ω hω
+    (Kₛ(ωₛ)).mkQ f.val ∈ (sLocalHomogeneousThetaPrincipalValue h₀ ωₛ).range →
+      ∃ g : sAdelePolarSubspace F S,
+        (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = (Kₛ(ωₛ)).mkQ f.val := by
+  intro hS ω hω ωₛ hr
+  sorry
+
+/-- Paper: Corollary 7.2.2.2, p. 340.
+A principal-value preimage of a polar class in the global theta space can be chosen in
+the global polar subspace: insertion preserves the two zero evaluations. -/
+private theorem sLocalPolarPrincipalValue_tfae_global_polar {S₀ : Finset Places} (h₀ : S₀ ⊆ S)
+    (χ : PontryaginDual C𝔽) (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀)
+    (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let ω := globalNormOne(χ)
+    let hω : NormOneCharacterUnramifiedOutside ω S := ⟨⟨globalUnitary(χ), hS⟩, fun _ ↦ rfl⟩
+    let ωₛ := sLocalNormOneCharacter S ω hω
+    let x := (Kₛ(ωₛ)).mkQ f.val
+    let π := sLocalHomogeneousThetaToGlobal hω
+    (∃ g : ℬ𝔽, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g) = π x) →
+      ∃ g : adelePolarSubspace F,
+        (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x := by
+  intro hS ω hω ωₛ x π h
+  sorry
+
+open Classical in
+/-- Paper: Corollary 7.2.2.2, p. 340.
+At the characters whose norm twist is trivial a polar test gains one order of vanishing
+over Proposition 7.2.2.1(2): the two zero evaluations `δ₀(f) = δ̂₀(f) = 0` resolve one
+order of pole at `c = 1`, so the printed bound `n` holds there and not only `n - 1`. -/
+private theorem sLocalPolarPrincipalValue_tfae_trivial_order {S₀ : Finset Places}
+    (h₀ : S₀ ⊆ S) (χ : PontryaginDual C𝔽)
+    (hχ : globalUnitary(χ) ∈ unramifiedOutside F S₀) (f : sAdelePolarSubspace F S) :
+    let hS : globalUnitary(χ) ∈ unramifiedOutside F S := outsideS(h₀, hχ)
+    let Z := fun s ↦
+      globalIdelicZFunction (sAdeleSchwartzToGlobal F S f.val) (ideleClassNormTwist χ s)
+    ((∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        let n := sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s)
+        ((if ideleClassNormTwist χ s = 1 then n - 1 else n : ℕ) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) →
+      (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s)) := by
+  intro hS Z h
+  sorry
+
 open Classical in
 /-- Paper: Corollary 7.2.2.2, p. 340.
 On tests in the common kernel of the two zero evaluations, the global bound has
@@ -2448,7 +2606,92 @@ theorem sLocalPolarPrincipalValue_tfae {S₀ : Finset Places} (h₀ : S₀ ⊆ S
         (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤ meromorphicOrderAt Z s),
       (∃ g : sAdelePolarSubspace F S, (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = x),
       (∃ g : adelePolarSubspace F, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x)
-    ] := by sorry
+    ] := by
+  classical
+  intro hS ω hω ωₛ x π Z
+  have hprop := sLocalPrincipalValue_tfae (F := F) (S := S) (S₀ := S₀) h₀ _hn _hPic χ hχ f.val
+  have hprop' : List.TFAE [(∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k →
+          k ≤ sLocalRhoPoleOrder c → sLocalPrincipalPartCoeff c k f.val = 0), (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        let n := sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s)
+        ((if ideleClassNormTwist χ s = 1 then n - 1 else n : ℕ) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s), (x ∈ (sLocalHomogeneousThetaPrincipalValue h₀ ωₛ).range), (∃ g : ℬ𝔽, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g) = π x)] := hprop
+  have hAA' : (∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, (if c = 1 then
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c ≤ k ∧
+              k ≤ sLocalRhoPoleOrder c - 1
+          else
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k ∧
+              k ≤ sLocalRhoPoleOrder c) →
+          sLocalPrincipalPartCoeff c k f.val = 0) ↔ (∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k →
+          k ≤ sLocalRhoPoleOrder c → sLocalPrincipalPartCoeff c k f.val = 0) :=
+    sLocalPolarPrincipalValue_tfae_local_iff (F := F) (S := S) (S₀ := S₀) h₀ χ hχ f
+  have h2p2 : (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        let n := sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s)
+        ((if ideleClassNormTwist χ s = 1 then n - 1 else n : ℕ) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) → (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) :=
+    sLocalPolarPrincipalValue_tfae_trivial_order (F := F) (S := S) (S₀ := S₀) h₀ χ hχ f
+  have h22p : (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) → (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        let n := sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s)
+        ((if ideleClassNormTwist χ s = 1 then n - 1 else n : ℕ) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) := by
+    intro h s hs
+    have h' := h s hs
+    dsimp only
+    split_ifs with ht
+    · refine le_trans (WithTop.coe_le_coe.mpr ?_) h'
+      exact_mod_cast Nat.sub_le _ _
+    · exact h'
+  have h33' : (∃ g : sAdelePolarSubspace F S,
+        (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = x) → (x ∈ (sLocalHomogeneousThetaPrincipalValue h₀ ωₛ).range) := by
+    intro h
+    obtain ⟨g, hg⟩ := h
+    exact ⟨Submodule.Quotient.mk g.val,
+      by simpa only [sLocalHomogeneousThetaPrincipalValue_mk, Submodule.mkQ_apply] using hg⟩
+  have h44' : (∃ g : adelePolarSubspace F, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x) → (∃ g : ℬ𝔽, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g) = π x) := by
+    intro h
+    obtain ⟨g, hg⟩ := h
+    exact ⟨g.val, hg⟩
+  have h3'3 : (x ∈ (sLocalHomogeneousThetaPrincipalValue h₀ ωₛ).range) → (∃ g : sAdelePolarSubspace F S,
+        (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = x) :=
+    sLocalPolarPrincipalValue_tfae_range_polar (F := F) (S := S) (S₀ := S₀) h₀ χ hχ f
+  have h4'4 : (∃ g : ℬ𝔽, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g) = π x) → (∃ g : adelePolarSubspace F, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x) :=
+    sLocalPolarPrincipalValue_tfae_global_polar (F := F) (S := S) (S₀ := S₀) h₀ χ hχ f
+  have h2 : (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        let n := sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s)
+        ((if ideleClassNormTwist χ s = 1 then n - 1 else n : ℕ) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) ↔ (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) := ⟨h2p2, h22p⟩
+  have e1 : (∀ (c : Xₛ), onComponent(c, ωₛ) → 0 < sLocalFinitePoleMultiplicity S₀ c →
+        ∀ k : ℕ, (if c = 1 then
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c ≤ k ∧
+              k ≤ sLocalRhoPoleOrder c - 1
+          else
+            sLocalRhoPoleOrder c - sLocalFinitePoleMultiplicity S₀ c < k ∧
+              k ≤ sLocalRhoPoleOrder c) →
+          sLocalPrincipalPartCoeff c k f.val = 0) ↔ (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) := (hAA'.trans (hprop'.out 1 2)).trans h2
+  have e3 : (∃ g : sAdelePolarSubspace F S,
+        (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = x) ↔ (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) :=
+    (show (∃ g : sAdelePolarSubspace F S,
+        (Kₛ(ωₛ)).mkQ (sAdelePrincipalValue F h₀ g.val) = x) ↔ (x ∈ (sLocalHomogeneousThetaPrincipalValue h₀ ωₛ).range) from ⟨h33', h3'3⟩).trans ((hprop'.out 3 2).trans h2)
+  have e4 : (∃ g : adelePolarSubspace F, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x) ↔ (∀ s : ℂ, 0 < sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) →
+        (sLocalFinitePoleMultiplicity S₀ (localChart(χ, hS) s) : WithTop ℤ) ≤
+          meromorphicOrderAt Z s) :=
+    (show (∃ g : adelePolarSubspace F, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g.val) = π x) ↔ (∃ g : ℬ𝔽, (K𝔽(ω)).mkQ (adelePrincipalValue F S₀ g) = π x) from ⟨h44', h4'4⟩).trans ((hprop'.out 4 2).trans h2)
+  tfae_have 1 ↔ 2 := e1
+  tfae_have 3 ↔ 2 := e3
+  tfae_have 4 ↔ 2 := e4
+  tfae_finish
 
 end LocalPolesGlobalZeros
 
