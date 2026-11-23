@@ -1240,6 +1240,37 @@ theorem sLocalFourierOrbital_biorthogonal_growth
         v ∈ sLocalFinitePolePlaces (F := F) (S := S) j.val.1 → q (ψ j) ≤ C * (1 + |(n : ℝ)|) ^ d := by sorry
 
 open Classical in
+/-- Helper for `sLocalOrbitalFourierJet_lattice_schwartz`.
+Paper: Theorem 7.3.1.6(5), p. 345.
+Scalar form of the rapid decay: the Fourier jet value at a fixed order, along the local
+pole lattice through the chosen phase, is bounded by an arbitrary negative power of
+`1 + |n|`. The paper only alludes to this estimate, on p. 361, as following from the
+exponential decay of the Mellin transforms of the tests; it is what makes the sequence
+Schwartz.
+Deviation: The sequence is extended by zero where the place is not a pole of `c` or the
+order is outside the primary multiplicity, as in the statement. -/
+private theorem sLocalOrbitalFourierJet_lattice_schwartz_valueDecay
+    (p : Vℚ) (χ : PontryaginDual Jₛ) (v : S) (u : (v.val.adicCompletion F)ˣ) (t : ℝ)
+    (_hS : IsSaturatedPlaceSet S) (_hp : (Sₚ(p)).Nonempty) (_hPic : PicTrivial)
+    (_hv : v.val ∈ Sₚ(p)) (_hu : uniformizerNorm(v, u)) (_ht : phase(χ, v, u, t))
+    (f : ℬₛ) (k N : ℕ) :
+    ∃ C : ℝ, 0 < C ∧ ∀ n : ℤ,
+      ‖(if v ∈ sLocalFinitePolePlaces (F := F) (S := S) (lattice(χ, v, t, n)) ∧
+          k < sLocalPrimaryPoleMultiplicity (F := F) (S := S) p (lattice(χ, v, t, n)) then
+          iteratedDeriv k (fourierZeta(lattice(χ, v, t, n)) f) 0
+        else 0)‖ ≤ C / (1 + |(n : ℝ)|) ^ N := by
+  sorry
+
+/-- Helper for `sLocalOrbitalFourierJet_lattice_schwartz`.
+A complex sequence on the integer lattice that decays faster than every reciprocal power is
+the restriction of a Schwartz-Bruhat function on the integers. This carries no analytic
+input: the rapid decay of the coefficients is the whole hypothesis. -/
+private theorem sLocalOrbitalFourierJet_lattice_schwartz_bridge (g : ℤ → ℂ)
+    (hg : ∀ N : ℕ, ∃ C : ℝ, 0 < C ∧ ∀ n : ℤ, ‖g n‖ ≤ C / (1 + |(n : ℝ)|) ^ N) :
+    ∃ a : SchwartzBruhat (Multiplicative ℤ), ∀ n : ℤ, a (Multiplicative.ofAdd n) = g n := by
+  sorry
+
+open Classical in
 /-- Paper: Theorem 7.3.1.6(5), p. 345.
 The Fourier jet of each test at fixed order gives a Schwartz sequence along a local
 pole lattice.
@@ -1256,7 +1287,15 @@ theorem sLocalOrbitalFourierJet_lattice_schwartz
         if v ∈ sLocalFinitePolePlaces (F := F) (S := S) c ∧
           k < sLocalPrimaryPoleMultiplicity (F := F) (S := S) p c then
           iteratedDeriv k (fourierZeta(c) f) 0
-        else 0 := by sorry
+        else 0 := by
+  obtain ⟨a, ha⟩ := sLocalOrbitalFourierJet_lattice_schwartz_bridge
+    (fun n : ℤ ↦ if v ∈ sLocalFinitePolePlaces (F := F) (S := S) (lattice(χ, v, t, n)) ∧
+        k < sLocalPrimaryPoleMultiplicity (F := F) (S := S) p (lattice(χ, v, t, n)) then
+        iteratedDeriv k (fourierZeta(lattice(χ, v, t, n)) f) 0
+      else 0)
+    (fun N ↦ sLocalOrbitalFourierJet_lattice_schwartz_valueDecay
+      (F := F) (S := S) p χ v u t _hS _hp _hPic _hv _hu _ht f k N)
+  exact ⟨a, fun n ↦ ha n⟩
 
 end LatticeEstimates
 
