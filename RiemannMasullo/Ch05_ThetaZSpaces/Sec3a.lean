@@ -2549,12 +2549,15 @@ private theorem testFunction_inductiveTensor_equiv_sequential_dense :
         Tendsto (fun n ↦ e (s n : UniformSpace.Completion W)) atTop (𝓝 h) := by
   sorry
 
-set_option maxHeartbeats 1000000 in
 /-- Paper: Remark 5.3.2.4, p. 246.
 Products of test functions define a map from the inductive tensor product with
 sequentially dense range. The completed inductive tensor product is isomorphic
 to the test space on the product by the same pure tensor formula.
-Deviation: The isomorphism uses the completion, as required for the full test space. -/
+Deviation: The isomorphism uses the completion, as required for the full test space.
+The composite is a `sorry`: driving it through needed
+`set_option maxHeartbeats 1000000 in`, which `prompts/prover.md` forbids, and a
+raise that only gets a proof through is a symptom of the wrong method rather than
+evidence that the proof is right. The two lemmas above are the plan of attack. -/
 theorem testFunction_inductiveTensor_equiv :
     let W := InductiveTensor 𝒟(ι) 𝒟(κ)
     letI : ContinuousSMul ℂ W := WithSeminorms.continuousSMul (E := W)
@@ -2566,8 +2569,7 @@ theorem testFunction_inductiveTensor_equiv :
       ∀ h : 𝒟(ι ⊕ κ), ∃ s : ℕ → W,
         Tendsto (fun n ↦ e (s n : UniformSpace.Completion W))
           atTop (𝓝 h) := by
-  obtain ⟨e, he⟩ := testFunction_inductiveTensor_equiv_iso (ι := ι) (κ := κ)
-  exact ⟨e, he, testFunction_inductiveTensor_equiv_sequential_dense (ι := ι) (κ := κ) e he⟩
+  sorry
 
 /-- Iterated line derivatives are iterated derivatives along the line. -/
 private theorem lineDerivPow_apply_eq_iteratedDeriv {E : Type*} [NormedAddCommGroup E]
