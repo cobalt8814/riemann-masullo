@@ -829,6 +829,43 @@ local notation "pvPolar(" S ")" => (P).map (PV(S))
 local notation "removal(" χ ", " S ")" => reciprocalPartialHeckeEulerProduct χ S
 
 /-- Paper: Theorem 6.3.2.2(1), pp. 309–310, equation (6.3.2.19).
+The Mellin transform of a principal-value test depends only on its class in the
+principal-value theta image and is continuous there, giving a continuous linear map from
+that image to the Schwartz–Bergman space. This is the restriction to that submodule of the
+Mellin chart of `globalConverse_nontrivial`: no separate well-definedness statement is
+needed, because the chart is already a function on the whole homogeneous theta space. -/
+theorem globalPrincipalValueConverse_nontrivial_mellin_map (S : Finset V) (χ : U)
+    (_hχ : χ₁(χ) ≠ 1) :
+    ∃ ZB : pvTheta(S, χ₁(χ)) →L[ℂ] B,
+      ∀ (f : ℬ) s, (ZB ((pvMorphism(S, χ₁(χ))).rangeRestrict f)).val s = Z(PV(S) f, χ, s) := by
+  have h := globalConverse_nontrivial (F := F) χ _hχ
+  exact ⟨h.choose.comp (pvTheta(S, χ₁(χ))).subtypeL,
+    fun f s ↦ h.choose_spec.2.1 (PV(S) f) s⟩
+
+/-- Paper: Theorem 6.3.2.2(1), pp. 309–310, equation (6.3.2.19).
+A continuous linear Mellin chart of the principal-value theta image that computes the
+transform of the class of a test is a topological embedding with closed range: the theta
+class is recovered from its Mellin transform and the image is closed in the Bergman space. -/
+theorem globalPrincipalValueConverse_nontrivial_isClosedEmbedding (S : Finset V) (χ : U)
+    (_hχ : χ₁(χ) ≠ 1) (ZB : pvTheta(S, χ₁(χ)) →L[ℂ] B)
+    (hZB : ∀ (f : ℬ) s, (ZB ((pvMorphism(S, χ₁(χ))).rangeRestrict f)).val s = Z(PV(S) f, χ, s)) :
+    IsClosedEmbedding ZB := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(1), pp. 309–310, equation (6.3.2.19).
+The image of the principal-value theta image under its Mellin chart is exactly the
+Schwartz–Bergman functions divisible by the completed Hecke L-function times the
+reciprocals of the removed Euler factors. The hard inclusion is the division by those
+reciprocal Euler factors, which have zeros on the critical line; see the
+`TODO(paper-gap)` above and ERRATA I200. -/
+theorem globalPrincipalValueConverse_nontrivial_range (S : Finset V) (χ : U)
+    (_hχ : χ₁(χ) ≠ 1) (ZB : pvTheta(S, χ₁(χ)) →L[ℂ] B)
+    (hZB : ∀ (f : ℬ) s, (ZB ((pvMorphism(S, χ₁(χ))).rangeRestrict f)).val s = Z(PV(S) f, χ, s)) :
+    Set.range ZB =
+      bergmanIdeal(fun s ↦ removal(χ, S) s * continuedCompletedHeckeL χ s) := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(1), pp. 309–310, equation (6.3.2.19).
 On a nontrivial norm-one component, the principal-value image embeds as the
 closed Schwartz–Bergman subspace divisible by the completed Hecke L-function
 times the reciprocals of the removed Euler factors. The ramified factors are one. -/
@@ -836,7 +873,11 @@ theorem globalPrincipalValueConverse_nontrivial (S : Finset V) (χ : U) (_hχ : 
     ∃ ZB : pvTheta(S, χ₁(χ)) →L[ℂ] B, IsClosedEmbedding ZB ∧
       (∀ (f : ℬ) s, (ZB ((pvMorphism(S, χ₁(χ))).rangeRestrict f)).val s = Z(PV(S) f, χ, s)) ∧
       Set.range ZB = bergmanIdeal(fun s ↦ removal(χ, S) s * continuedCompletedHeckeL χ s) := by
-  sorry
+  have hA := globalPrincipalValueConverse_nontrivial_mellin_map S χ _hχ
+  refine ⟨hA.choose, ?_, hA.choose_spec, ?_⟩
+  · exact globalPrincipalValueConverse_nontrivial_isClosedEmbedding S χ _hχ hA.choose
+      hA.choose_spec
+  · exact globalPrincipalValueConverse_nontrivial_range S χ _hχ hA.choose hA.choose_spec
 
 -- TODO(paper-gap): Equation (6.3.2.20) uses the unshifted zeta generator and
 -- omits the Schwartz–Bergman intersection. Even for S empty and trivial χ,
@@ -902,6 +943,59 @@ theorem globalPrincipalValueConverse_mellin (S : Finset V) (χ : U) (f : ℬ) :
   sorry
 
 /-- Paper: Theorem 6.3.2.2(2), p. 310, equations (6.3.2.21)–(6.3.2.26).
+The two divided residues of a principal-value transform are well defined on the
+principal-value theta image and depend continuously on it, and there they agree
+with the two polar evaluations of the test. The analytic input is the division by
+the removed Euler factors: `removal(χ, S)` has zeros on the critical line, so
+agreement of the divided germ with the entire Mellin transform `Z(f, χ, ·)` off a
+discrete set (`globalPrincipalValueConverse_mellin`) does not by itself give the
+residues. -/
+theorem globalPrincipalValueConverse_normTwist_divided_exact_residue_map (S : Finset V)
+    (χ : U) (t : ℝ) (_hχ : χ₀(χ) = ideleClassNormTwist (1 : U) (shift(t))) :
+    let q := (pvMorphism(S, (1 : PontryaginDual C₁))).rangeRestrict
+    ∃ R : pvTheta(S, (1 : PontryaginDual C₁)) →L[ℂ] ℂ × ℂ,
+      (∀ f : ℬ,
+        let h := fun s ↦ Z(PV(S) f, χ, s) / removal(χ, S) s
+        R (q f) = (complexResidue h (-shift(t)), complexResidue h (1 - shift(t)))) ∧
+      (∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele)) := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(2), p. 310, equations (6.3.2.26).
+A continuous linear functional on the principal-value theta image that reads the two
+polar evaluations of a test vanishes exactly on the classes of the pole-free tests,
+the principal-value image of `adelePolarSubspace`. -/
+theorem globalPrincipalValueConverse_normTwist_divided_exact_ker (S : Finset V) (χ : U) (t : ℝ)
+    (_hχ : χ₀(χ) = ideleClassNormTwist (1 : U) (shift(t)))
+    (q : ℬ →ₗ[ℂ] pvTheta(S, (1 : PontryaginDual C₁)))
+    (R : pvTheta(S, (1 : PontryaginDual C₁)) →L[ℂ] ℂ × ℂ)
+    (hR : ∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele)) :
+    R.ker = (P).map q := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(2), p. 310, equations (6.3.2.21) and (6.3.2.25).
+The divided-residue functional on the principal-value theta image is onto the two
+residue coordinates: it is a continuous linear surjection of topological vector
+spaces, hence an open quotient map. -/
+theorem globalPrincipalValueConverse_normTwist_divided_exact_isOpenQuotientMap (S : Finset V)
+    (χ : U) (t : ℝ) (_hχ : χ₀(χ) = ideleClassNormTwist (1 : U) (shift(t)))
+    (q : ℬ →ₗ[ℂ] pvTheta(S, (1 : PontryaginDual C₁)))
+    (R : pvTheta(S, (1 : PontryaginDual C₁)) →L[ℂ] ℂ × ℂ)
+    (hR : ∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele)) :
+    IsOpenQuotientMap R := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(2), p. 310, equations (6.3.2.25)–(6.3.2.26).
+On the pole-free polar tests the principal-value theta class is itself an open
+quotient map onto its image: the pole-free part of the divided-residue kernel
+carries the quotient topology of the polar test space. -/
+theorem globalPrincipalValueConverse_normTwist_divided_exact_polar_isOpenQuotientMap
+    (S : Finset V) (χ : U) (t : ℝ)
+    (_hχ : χ₀(χ) = ideleClassNormTwist (1 : U) (shift(t))) :
+    let q := (pvMorphism(S, (1 : PontryaginDual C₁))).rangeRestrict
+    IsOpenQuotientMap (q.comp (P).subtype).rangeRestrict := by
+  sorry
+
+/-- Paper: Theorem 6.3.2.2(2), p. 310, equations (6.3.2.21)–(6.3.2.26).
 On the principal-value theta image the two original residue coordinates are
 recovered by dividing its Mellin transform by the known Euler multiplier.
 Their common kernel is the principal-value image of the pole-free tests.
@@ -918,7 +1012,14 @@ theorem globalPrincipalValueConverse_normTwist_divided_exact (S : Finset V) (χ 
       (∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele)) ∧
       R.ker = (P).map q ∧ IsOpenQuotientMap R ∧
       IsOpenQuotientMap (q.comp (P).subtype).rangeRestrict := by
-  sorry
+  intro q
+  have hA := globalPrincipalValueConverse_normTwist_divided_exact_residue_map S χ t _hχ
+  refine ⟨hA.choose, hA.choose_spec.1, hA.choose_spec.2, ?_, ?_, ?_⟩
+  · exact globalPrincipalValueConverse_normTwist_divided_exact_ker S χ t _hχ q hA.choose
+      hA.choose_spec.2
+  · exact globalPrincipalValueConverse_normTwist_divided_exact_isOpenQuotientMap S χ t _hχ q
+      hA.choose hA.choose_spec.2
+  · exact globalPrincipalValueConverse_normTwist_divided_exact_polar_isOpenQuotientMap S χ t _hχ
 
 end PrincipalValue
 
