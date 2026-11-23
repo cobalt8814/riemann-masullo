@@ -1351,9 +1351,30 @@ theorem archimedeanWeightedSchwartz_empty_equiv (I : Set ℝ) :
 -- family of exponents in I bracketing each exponent in I, together with zero.
 
 /-- Paper: Lemma 5.3.3.3(1), p. 252.
+Metrizability half of the lemma. A weight at an exponent between two exponents of `I`
+is bounded by the larger of the two weights, so countably many exponents in `I`
+together with zero already generate the seminorm topology. This is where the printed
+proof uses integer exponents, which need not lie in an interval `I` that misses `ℤ`. -/
+theorem archimedeanWeightedSchwartz_metrizable {I : Set ℝ} (ho : IsOpen I)
+    (hi : OrdConnected I) (hne : I.Nonempty) : MetrizableSpace 𝓦(I) := by
+  sorry
+
+/-- Paper: Lemma 5.3.3.3(1), p. 252.
+Completeness half of the lemma. The partial weight maps embed the weighted space as a
+closed submodule of a product of complete Schwartz–Bruhat spaces, so every Cauchy
+filter of twists converges to the family of its pointwise limits. -/
+theorem archimedeanWeightedSchwartz_complete {I : Set ℝ} (ho : IsOpen I)
+    (hi : OrdConnected I) (hne : I.Nonempty) : CompleteSpace 𝓦(I) := by
+  sorry
+
+/-- Paper: Lemma 5.3.3.3(1), p. 252.
 For an open nonempty interval the topology from the partial weight maps is Fréchet. -/
 theorem archimedeanWeightedSchwartz_frechet {I : Set ℝ} (_ho : IsOpen I)
-    (_hi : OrdConnected I) (_hne : I.Nonempty) : IsFrechetTVS 𝓦(I) := by sorry
+    (_hi : OrdConnected I) (_hne : I.Nonempty) : IsFrechetTVS 𝓦(I) := by
+  refine ⟨inferInstance, inferInstance,
+    archimedeanWeightedSchwartz_metrizable _ho _hi _hne, ?_⟩
+  rw [IsUniformAddGroup.rightUniformSpace_eq]
+  exact archimedeanWeightedSchwartz_complete _ho _hi _hne
 
 /-- Paper: Lemma 5.3.3.3(1), p. 252.
 For an open nonempty interval the weighted Schwartz–Bruhat space is separable. -/
