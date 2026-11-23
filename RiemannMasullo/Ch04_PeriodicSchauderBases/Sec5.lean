@@ -1962,6 +1962,39 @@ theorem modulatedCompactSupport_quotient_image_interior :
       nlinarith
   · exact QuotientGroup.mk_mul_of_mem x (Subgroup.zpow_mem_zpowers γ n)
 
+/-- Paper: Proposition 4.5.2.1(2) and Equation (4.5.2.1), p. 205. A continuous linear
+choice of a representative of the class of a k-invariant quotient test function, supported
+in the module window and fixed by k.
+
+This is the only analytic input of `modulatedCompactSupportStage_periodization_equiv`. The
+underlying map exists: take a smooth telescoping profile `ρ` of `log (m ·)` with period sum
+one and support in the window, average it over `k` (which keeps its period sum one and its
+support in `m ⁻¹' window`, because `m '' k` is a compact subgroup of `ℝ≥0ˣ` and hence
+trivial), and multiply the pullback of `g` by the result. Surjectivity is therefore not the
+problem; what is missing is the *continuity* of this map into the decay space `E`, a Leibniz
+estimate for multiplication by a fixed compactly supported Bruhat-smooth function that the
+library does not yet have. -/
+private theorem modulatedCompactSupportStage_periodization_equiv_section :
+    ∃ R : SchwartzBruhat (G ⧸ (Γ ⊔ k)) →L[ℂ] W,
+      ∀ (g : SchwartzBruhat (G ⧸ (Γ ⊔ k))) (x : G),
+        P (R g).val (q x) = g (QuotientGroup.mk x) := by
+  sorry
+
+/-- Paper: Proposition 4.5.2.1(2) and Equation (4.5.2.1), p. 205. Periodization sends the
+supported k-stage to the k-invariant quotient test functions, and this map is continuous.
+
+Well-definedness is the statement that `P f` is invariant under translation by elements of
+`k` and under `γ`, which holds because `G` is abelian and `f` is `k`-invariant; the decay and
+support of `P f` are those of `f`. This is the bookkeeping half of
+`modulatedCompactSupportStage_periodization_equiv`; it needs the identification of
+`k`-invariant Schwartz-Bruhat functions on `G ⧸ Γ` with Schwartz-Bruhat functions on
+`G ⧸ (Γ ⊔ k)`, which the tree has only as the private `fixedStage_quotient` in
+`AppD_SchwartzBruhat/Sec1d.lean`. -/
+private theorem modulatedCompactSupportStage_periodization_equiv_descent :
+    ∃ D : W →L[ℂ] SchwartzBruhat (G ⧸ (Γ ⊔ k)),
+      ∀ (f : W) (x : G), D f (QuotientGroup.mk x) = P f.val (q x) := by
+  sorry
+
 include hk hperp ha hwidth in
 /-- Paper: Proposition 4.5.2.1(2) and Equation (4.5.2.1), p. 205. On a window
 wider than one period, the supported k-stage modulo the periodization kernel
@@ -1969,7 +2002,51 @@ is identified by periodization with the quotient test space on G/(γ^ℤ k). -/
 theorem modulatedCompactSupportStage_periodization_equiv :
     let N := (P).ker.comap (W).subtype
     ∃ F : ((W) ⧸ N) ≃L[ℂ] SchwartzBruhat (G ⧸ (Γ ⊔ k)),
-      ∀ (f : W) (x : G), F (N.mkQ f) (QuotientGroup.mk x) = P f.val (q x) := by sorry
+      ∀ (f : W) (x : G), F (N.mkQ f) (QuotientGroup.mk x) = P f.val (q x) := by
+  intro N
+  obtain ⟨R, hR⟩ := modulatedCompactSupportStage_periodization_equiv_section (m := m)
+    (γ := γ) (hm := hm) (hms := hms) (hγ := hγ) (a := a) (b := b) (k := k)
+  obtain ⟨D, hD⟩ := modulatedCompactSupportStage_periodization_equiv_descent (m := m)
+    (γ := γ) (hm := hm) (hms := hms) (hγ := hγ) (a := a) (b := b) (k := k)
+  -- `N` is the kernel of the descent, not of `P`: the two spaces are different.
+  have hN : ∀ f : W, f ∈ N ↔ D f = 0 := fun f => by
+    constructor
+    · intro hf
+      have hP : P f.val = 0 := hf
+      refine SchwartzBruhat.ext fun y => ?_
+      obtain ⟨x, rfl⟩ := QuotientGroup.mk_surjective y
+      simp [hD f x, hP]
+    · intro hf
+      show P f.val = 0
+      refine SchwartzBruhat.ext fun y => ?_
+      obtain ⟨x, rfl⟩ := QuotientGroup.mk_surjective y
+      have h := congrArg (fun v : SchwartzBruhat (G ⧸ (Γ ⊔ k)) => v (QuotientGroup.mk x)) hf
+      simpa [hD f x] using h
+  have hDR : ∀ g : SchwartzBruhat (G ⧸ (Γ ⊔ k)), D (R g) = g := fun g =>
+    SchwartzBruhat.ext fun y => by
+      obtain ⟨x, rfl⟩ := QuotientGroup.mk_surjective y
+      rw [hD (R g) x, hR g x]
+  have hND : N ≤ D.ker := fun f hf => (hN f).mp hf
+  let i : (W ⧸ N) →L[ℂ] SchwartzBruhat (G ⧸ (Γ ⊔ k)) := N.liftQL D hND
+  let j : SchwartzBruhat (G ⧸ (Γ ⊔ k)) →L[ℂ] (W ⧸ N) := N.mkQL.comp R
+  have hi : ∀ f : W, i (N.mkQ f) = D f := fun f => by
+    change N.liftQL D hND (N.mkQ f) = D f
+    simp
+  refine ⟨ContinuousLinearEquiv.equivOfInverse i j ?_ ?_, ?_⟩
+  · intro z
+    obtain ⟨f, rfl⟩ := N.mkQ_surjective z
+    rw [hi f]
+    change N.mkQ (R (D f)) = N.mkQ f
+    refine (Submodule.Quotient.eq N).mpr ?_
+    refine (hN (R (D f) - f)).mpr ?_
+    rw [map_sub, hDR (D f), sub_self]
+  · intro y
+    show i (N.mkQ (R y)) = y
+    rw [hi (R y), hDR y]
+  · intro f x
+    change i (N.mkQ f) (QuotientGroup.mk x) = P f.val (q x)
+    rw [hi f]
+    exact hD f x
 
 variable [MeasurableSpace G] [BorelSpace G]
 variable (μ₁ : Measure m.toMonoidHom.ker) [μ₁.IsHaarMeasure]
