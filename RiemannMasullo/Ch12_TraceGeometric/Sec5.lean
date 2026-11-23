@@ -91,7 +91,18 @@ local notation "traceIdentity(" τ ", " φ ", " α ")" =>
 classes, the zero terms omitted by a positive-width open strip sum to zero.
 Gap: The global to S-local comparison on p. 520 must account for every omitted
 zero, including zeros on the edges. The all-zero identity of Theorem B.4.4.7
-alone gives no such cancellation. -/
+alone gives no such cancellation.
+Obstruction: for fixed `τ` and `α` the conclusion is equivalent to
+`IsEmpty exteriorZeros(τ, α)` (`isEmpty_exteriorZeros_of_hasSum` below, and
+`hasSum_exteriorZeros_iff_isEmpty` at the end of this file), so every instance
+with `α < 1 / 2` asserts that no completed Hecke L-function of a character
+trivial on the norm section has a zero off the line `Re s = 1 / 2`. The only
+statement in this development that would supply that is `heckeL_zero_re_eq_half`
+in `Ch01_Introduction/Sec4.lean`, whose proof rests on the unproved
+`introTrace_combined_limit_extension_analytic`; the comment above that theorem
+refers back to the present one for the missing orbital comparison, so the two
+are not independent. Hence this statement is not closable without GRH and no
+helper lemma in this file changes that. -/
 theorem traceFormula_exteriorZeros (τ : ℝ≥0ˣ →ₜ* C𝔽) (_hτ : RightInverse τ (ideleClassNorm F))
     (φ : BruhatCompactSupport C𝔽) (_hφ : ∀ g : C₁, φ.val g = 0) {α : ℝ} (_hα : 0 < α) :
     HasSum (fun z : exteriorZeros(τ, α) ↦ zeroTerm(φ, z)) 0 := by sorry
