@@ -3919,6 +3919,53 @@ theorem finiteConnesWeilPrincipalValue_of_apply_one_zero (v : Primes(F))
 -- TODO(paper-gap): Equation (B.4.4.6) gives the wrong sign and scale for
 -- the restriction of T, and Fourier transformation requires an additive test space.
 
+/-- Paper: Lemma B.4.4.3, pp. 620–621. A normalized translated Fourier
+distribution exists: it is the stated density on additive tests vanishing at one,
+and it vanishes on the Fourier transform of the integer-unit indicator.
+Deviation: The distribution is on the full additive test space. Its restriction away
+from one is minus the specified density divided by the mass of the integer units. -/
+theorem exists_finiteWeilFourierDistribution (v : Primes(F)) :
+    let normalized := fun T : StrongDual ℂ (𝒮ₐ(v.adicCompletion F)) ↦
+      (∀ f : 𝒮ₐ(v.adicCompletion F), addTest(f) 1 = 0 →
+        T f = -((q(v) / (q(v) - 1) / V𝔭(v) : ℝ) : ℂ) *
+          ∫ x, addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) ∧
+      (∃ g : 𝒮ₐ(v.adicCompletion F),
+        addTest(g) = tamagawaFourier ν𝔭(v) ψ𝔭(v)
+          (indicator {x : v.adicCompletion F | ‖x‖ = 1} (fun _ ↦ 1)) ∧ T g = 0)
+    ∃ T, normalized T := by sorry
+
+/-- Paper: Lemma B.4.4.3, pp. 620–621. Two normalized translated Fourier
+distributions, with the density on tests vanishing at one and the vanishing on the
+Fourier transform of the integer-unit indicator, are equal. -/
+theorem finiteWeilFourierDistribution_unique (v : Primes(F)) :
+    let normalized := fun T : StrongDual ℂ (𝒮ₐ(v.adicCompletion F)) ↦
+      (∀ f : 𝒮ₐ(v.adicCompletion F), addTest(f) 1 = 0 →
+        T f = -((q(v) / (q(v) - 1) / V𝔭(v) : ℝ) : ℂ) *
+          ∫ x, addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) ∧
+      (∃ g : 𝒮ₐ(v.adicCompletion F),
+        addTest(g) = tamagawaFourier ν𝔭(v) ψ𝔭(v)
+          (indicator {x : v.adicCompletion F | ‖x‖ = 1} (fun _ ↦ 1)) ∧ T g = 0)
+    ∀ T S : StrongDual ℂ (𝒮ₐ(v.adicCompletion F)), normalized T → normalized S → S = T := by
+  sorry
+
+/-- Paper: Lemma B.4.4.3, pp. 620–621. A normalized translated Fourier distribution
+evaluates the finite multiplicative principal value on every inverse square-root
+weighted additive test. The evaluation identity extends to all multiplicative tests
+by the weighted translation. -/
+theorem finiteWeilFourierDistribution_eval (v : Primes(F)) :
+    let normalized := fun T : StrongDual ℂ (𝒮ₐ(v.adicCompletion F)) ↦
+      (∀ f : 𝒮ₐ(v.adicCompletion F), addTest(f) 1 = 0 →
+        T f = -((q(v) / (q(v) - 1) / V𝔭(v) : ℝ) : ℂ) *
+          ∫ x, addTest(f) x / ((‖1 - x‖ : ℝ) : ℂ) ∂ν𝔭(v)) ∧
+      (∃ g : 𝒮ₐ(v.adicCompletion F),
+        addTest(g) = tamagawaFourier ν𝔭(v) ψ𝔭(v)
+          (indicator {x : v.adicCompletion F | ‖x‖ = 1} (fun _ ↦ 1)) ∧ T g = 0)
+    ∀ T : StrongDual ℂ (𝒮ₐ(v.adicCompletion F)), normalized T →
+      ∀ f : 𝒟((v.adicCompletion F)ˣ), ∃ g : 𝒮ₐ(v.adicCompletion F),
+        (∀ x, addTest(g) x = zeroExtend(f.val) x / (Real.sqrt ‖x‖ : ℂ)) ∧
+        finiteConnesWeilPrincipalValue v 1 f = -(V𝔭(v) : ℂ) * T g := by
+  sorry
+
 /-- Paper: Lemma B.4.4.3, pp. 620–621. The translated Fourier
 distribution is normalized on the Fourier transform of the integer-unit indicator.
 It evaluates the finite multiplicative principal value on inverse square-root weighted tests.
@@ -3936,7 +3983,10 @@ theorem existsUnique_finiteWeilFourierDistribution (v : Primes(F)) :
     ∃ T, normalized T ∧ (∀ S, normalized S → S = T) ∧
       (∀ f : 𝒟((v.adicCompletion F)ˣ), ∃ g : 𝒮ₐ(v.adicCompletion F),
         (∀ x, addTest(g) x = zeroExtend(f.val) x / (Real.sqrt ‖x‖ : ℂ)) ∧
-        finiteConnesWeilPrincipalValue v 1 f = -(V𝔭(v) : ℂ) * T g) := by sorry
+        finiteConnesWeilPrincipalValue v 1 f = -(V𝔭(v) : ℂ) * T g) := by
+  obtain ⟨T, hT⟩ := exists_finiteWeilFourierDistribution v
+  exact ⟨T, hT, fun S hS ↦ finiteWeilFourierDistribution_unique v T S hT hS,
+    fun f ↦ finiteWeilFourierDistribution_eval v T hT f⟩
 
 /-- Paper: Lemma B.4.4.4(1), p. 622. Changing the finite additive
 character by a multiplier adds a multiple of evaluation at zero to Connes's principal value. -/
@@ -4208,6 +4258,57 @@ local notation "infiniteClassMap(" w ")" => IdeleClassGroup.ofCompletion (𝓞 F
 -- For (B.4.4.22), compact norm support handles nonunit shells at large primes.
 -- Invariance under the local units at almost every prime makes the unit-shell test constant.
 
+/-- Paper: Theorem B.4.4.7, p. 623. The spectral side of the idelic explicit
+formula exists: one functional for each completed Hecke zero whose value is the
+zero multiplicity divided by the class volume times the Mellin integral of the test
+against the zero character at the central line. -/
+theorem exists_chartZeros_spectralDistribution (τ : ℝ≥0ˣ →ₜ* C[F])
+    (_hτ : RightInverse τ (ideleClassNorm F)) :
+    ∃ spectral : chartZeros(τ) → StrongDual ℂ (𝒟(C[F])),
+      ∀ z f, spectral z f = zeroMultiplicity(z) / (classVolume : ℂ) *
+        ∫ g, classMellinIntegrand(f, zeroCharacter(z), -1 / 2) g ∂classMeasure := by
+  sorry
+
+/-- Paper: Theorem B.4.4.7, p. 623. The pole distribution of the idelic explicit
+formula exists: it is the sum of the two integrals of the test against the weights at
+the two exponents of the completed zeta, divided by the class volume. It does not
+depend on the norm section. -/
+theorem exists_idelicPoleDistribution (τ : ℝ≥0ˣ →ₜ* C[F])
+    (_hτ : RightInverse τ (ideleClassNorm F)) :
+    ∃ poles : StrongDual ℂ (𝒟(C[F])), ∀ f, poles f =
+      ((∫ g, f.val g * classWeight(g, -1 / 2) ∂classMeasure) +
+        (∫ g, f.val g * classWeight(g, 1 / 2) ∂classMeasure)) / (classVolume : ℂ) := by
+  sorry
+
+/-- Paper: Theorem B.4.4.7, pp. 623–626. The global part of the idelic explicit
+formula: with the spectral side and the pole distribution already fixed by their
+Mellin formulas, there are an archimedean and a finite principal value distribution
+for every place, which restrict to the local tests of the class group, whose finite
+family is summable with finite support on each test, and whose total is added up by
+the spectral side. -/
+theorem idelicExplicitFormula_core (τ : ℝ≥0ˣ →ₜ* C[F])
+    (_hτ : RightInverse τ (ideleClassNorm F))
+    (spectral : chartZeros(τ) → StrongDual ℂ (𝒟(C[F])))
+    (poles : StrongDual ℂ (𝒟(C[F])))
+    (_hspectral : ∀ z f, spectral z f = zeroMultiplicity(z) / (classVolume : ℂ) *
+      ∫ g, classMellinIntegrand(f, zeroCharacter(z), -1 / 2) g ∂classMeasure)
+    (_hpoles : ∀ f, poles f =
+      ((∫ g, f.val g * classWeight(g, -1 / 2) ∂classMeasure) +
+        (∫ g, f.val g * classWeight(g, 1 / 2) ∂classMeasure)) / (classVolume : ℂ)) :
+    ∃ (arch : InfinitePlace F → StrongDual ℂ (𝒟(C[F])))
+      (finite : Primes(F) → StrongDual ℂ (𝒟(C[F]))),
+      (∀ w f, ∃ test : 𝒟(w.Completionˣ),
+        (∀ u, test.val u = f.val (infiniteClassMap(w) u)) ∧
+        arch w f = infiniteConnesWeilPrincipalValue w test) ∧
+      (∀ v f, ∃ test : 𝒟((v.adicCompletion F)ˣ),
+        (∀ u, test.val u = f.val (finiteClassMap(v) u)) ∧
+        finite v f = finiteWeilScale(v) * finiteConnesWeilPrincipalValue v 1 test) ∧
+      (∀ f, Summable (fun z ↦ ‖spectral z f‖)) ∧
+      (∀ f, (Function.support (fun v ↦ finite v f)).Finite) ∧
+      Summable finite ∧
+      HasSum spectral (poles - (∑ w, arch w) - (∑' v, finite v)) := by
+  sorry
+
 /-- Paper: Theorem B.4.4.7, pp. 623–626. The sum over completed Hecke zeros
 equals the pole distributions minus the local principal value distributions.
 The zero and finite-place series converge in the strong dual of the test space.
@@ -4233,7 +4334,13 @@ theorem idelicExplicitFormula (τ : ℝ≥0ˣ →ₜ* C[F]) (_hτ : RightInverse
       (∀ f, Summable (fun z ↦ ‖spectral z f‖)) ∧
       (∀ f, (Function.support (fun v ↦ finite v f)).Finite) ∧
       Summable finite ∧
-      HasSum spectral (poles - (∑ w, arch w) - (∑' v, finite v)) := by sorry
+      HasSum spectral (poles - (∑ w, arch w) - (∑' v, finite v)) := by
+  obtain ⟨spectral, hspectral⟩ := exists_chartZeros_spectralDistribution τ _hτ
+  obtain ⟨poles, hpoles⟩ := exists_idelicPoleDistribution τ _hτ
+  obtain ⟨arch, finite, harch, hfinite, hsummable, hsupport, hfamily, hidentity⟩ :=
+    idelicExplicitFormula_core τ _hτ spectral poles hspectral hpoles
+  exact ⟨spectral, poles, arch, finite, hspectral, hpoles, harch, hfinite, hsummable,
+    hsupport, hfamily, hidentity⟩
 
 -- TODO(paper-gap): Discreteness in each component imposes no bound on
 -- the number of points in consecutive height intervals, even for G = ℝ₊ˣ.
