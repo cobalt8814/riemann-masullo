@@ -968,7 +968,8 @@ theorem globalPrincipalValueConverse_normTwist_divided_exact_ker (S : Finset V) 
     (_hχ : χ₀(χ) = ideleClassNormTwist (1 : U) (shift(t)))
     (q : ℬ →ₗ[ℂ] pvTheta(S, (1 : PontryaginDual C₁)))
     (R : pvTheta(S, (1 : PontryaginDual C₁)) →L[ℂ] ℂ × ℂ)
-    (hR : ∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele)) :
+    (hR : ∀ f : ℬ, R (q f) = (-mass * f zeroAdele, mass * adeleSchwartzFourier f zeroAdele))
+    (hq : Function.Surjective q) :
     R.ker = (P).map q := by
   sorry
 
@@ -1016,7 +1017,7 @@ theorem globalPrincipalValueConverse_normTwist_divided_exact (S : Finset V) (χ 
   have hA := globalPrincipalValueConverse_normTwist_divided_exact_residue_map S χ t _hχ
   refine ⟨hA.choose, hA.choose_spec.1, hA.choose_spec.2, ?_, ?_, ?_⟩
   · exact globalPrincipalValueConverse_normTwist_divided_exact_ker S χ t _hχ q hA.choose
-      hA.choose_spec.2
+      hA.choose_spec.2 (LinearMap.surjective_rangeRestrict _)
   · exact globalPrincipalValueConverse_normTwist_divided_exact_isOpenQuotientMap S χ t _hχ q
       hA.choose hA.choose_spec.2
   · exact globalPrincipalValueConverse_normTwist_divided_exact_polar_isOpenQuotientMap S χ t _hχ
