@@ -6311,6 +6311,23 @@ private theorem finiteWeilFourierBump (v : Primes(F)) :
       exact h
     exact hx (by simpa [Set.indicator_of_notMem hnot] using hg x)
 
+/-- The standard character is trivial on the integer ring, hence on any `x` with
+`‖x‖ ≤ 1`, in particular on the unit sphere. -/
+private theorem finiteWeilFourierStandardCharacter_eq_one_of_norm_le_one (v : Primes(F))
+    (x : v.adicCompletion F) (hx : ‖x‖ ≤ 1) : ψ𝔭(v) x = 1 := by
+  let d := multiplicity (HeightOneSpectrum.asIdeal v) (differentIdeal ℤ (𝓞 F))
+  have hq1 : (1 : ℝ) ≤ (v.asIdeal.absNorm : ℝ) ^ d :=
+    one_le_pow₀ (by exact_mod_cast (NumberField.HeightOneSpectrum.one_lt_absNorm v).le)
+  have hone : (1 : v.adicCompletion F) ∈
+      {y : v.adicCompletion F | ‖y‖ ≤ (v.asIdeal.absNorm : ℝ) ^ d} := by
+    simpa using hq1
+  have hxO : x ∈ (O(v) : Set (v.adicCompletion F)) :=
+    (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mpr
+      (Valued.toNormedField.norm_le_one_iff.mp hx)
+  have hmem := (Set.ext_iff.mp (finiteLocalStandardCharacter_annihilator_integers F v)
+    (1 : v.adicCompletion F)).mpr hone x hxO
+  simpa using hmem
+
 -- TODO(paper-gap): Equation (B.4.4.6) gives the wrong sign and scale for
 -- the restriction of T, and Fourier transformation requires an additive test space.
 
@@ -6718,3 +6735,4 @@ theorem summable_ideleClassMellin_completedHeckeZeros (τ : ℝ≥0ˣ →ₜ* C[
 end IdelicExplicitFormula
 
 end RiemannMasullo
+
