@@ -1774,13 +1774,62 @@ theorem spectralStripJet_lowerBound (χ : PontryaginDual C₁ → PontryaginDual
     _ = ‖(spectralStripJet_memLp χ hα hs₀ j).toLp (stripJet(χ, j))‖ :=
       Real.sqrt_sq (norm_nonneg _)
 
+/-- Paper: Proposition 10.2.2.2, pp. 446–447, and (10.2.2.5). The first of the two
+arithmetic inputs to the uniform strip estimate: one integer bounds the
+vanishing order of the completed Hecke L-functions at every point whose real
+part lies in the closed strip, uniformly over the base character and the
+height. For F = Q this already asks for a height-independent bound on the
+multiplicities of the nontrivial zeta zeros. -/
+private theorem spectralStripJet_order_and_margin_orderBound
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
+    {a α : ℝ} (_hα : 0 ≤ α) :
+    ∃ K : ℕ, ∀ (ω : PontryaginDual C₁) (b t : ℝ), b ∈ Icc (-α) α →
+      multiplicity(χ ω, shift(a + b, t)) ≤ K := by sorry
+
+/-- Paper: Proposition 10.2.2.2, pp. 446–447, and (10.2.2.5). The second
+arithmetic input: the zeros of high multiplicity do not approach the two edges
+of the strip, so a single positive margin separates their real part from the
+boundary. The interior branch of (10.2.2.5) keeps every order, and the admitted
+orders of a zero of that multiplicity then stay below the reciprocal-weight
+integrability threshold. -/
+private theorem spectralStripJet_order_and_margin_margin
+    (χ : PontryaginDual C₁ → PontryaginDual C𝔽) (_hχ : IsSpectralBasepointChoice χ)
+    {a α s : ℝ} (_hα : 0 ≤ α) (_hs : 1 < s) :
+    ∃ δ : ℝ, 0 < δ ∧ ∀ (ω : PontryaginDual C₁) (b t : ℝ), b ∈ Ioo (-α) α →
+      ((s - 1) / 2 : ℝ) < (multiplicity(χ ω, shift(a + b, t)) : ℝ) → |b| ≤ α - δ := by
+  sorry
+
 /-- Paper: Proposition 10.2.2.2, pp. 446–447. A uniform strip estimate requires a
 bound on admitted jet orders and a boundary margin for the nonintegrable powers.
-Gap: The paper supplies neither estimate for the actual completed Hecke divisor. -/
+The paper supplies neither estimate for the actual completed Hecke divisor; they
+are isolated above as `spectralStripJet_order_and_margin_orderBound` and
+`spectralStripJet_order_and_margin_margin`, and the statement is proved here
+from them. On the interior branch of (10.2.2.5) the admitted order is bounded by
+the zero multiplicity itself, and the margin hypothesis only has content at a
+zero of multiplicity above (s-1)/2; at b = ±α the truncated cutoff already
+forces the admitted order below (s-1)/2, so the margin is vacuous there. -/
 theorem spectralStripJet_order_and_margin (χ : PontryaginDual C₁ → PontryaginDual C𝔽)
     (_hχ : IsSpectralBasepointChoice χ) {a α s : ℝ} (_hα : 0 ≤ α) (_hs : 1 < s) :
     ∃ (K : ℕ) (δ : ℝ), 0 < δ ∧ ∀ j : SpectralStripJetIndex χ a α s,
-      j.val.2.2.2 ≤ K ∧ ((s - 1) / 2 ≤ (j.val.2.2.2 : ℝ) → |j.val.2.1| ≤ α - δ) := by sorry
+      j.val.2.2.2 ≤ K ∧ ((s - 1) / 2 ≤ (j.val.2.2.2 : ℝ) → |j.val.2.1| ≤ α - δ) := by
+  obtain ⟨K, hK⟩ := spectralStripJet_order_and_margin_orderBound χ _hχ _hα
+  obtain ⟨δ, hδ, hmargin⟩ := spectralStripJet_order_and_margin_margin χ _hχ _hα _hs
+  refine ⟨K, δ, hδ, fun j ↦ ⟨?_, ?_⟩⟩
+  · have hb : j.val.2.1 ∈ Icc (-α) α := (SpectralStripJetIndex.mem_strip_order_pos _hα j).1
+    have hj := j.property
+    unfold spectralStripMultiplicity at hj
+    split_ifs at hj with h1 h2
+    · exact le_of_lt (lt_of_lt_of_le hj (hK _ _ _ hb))
+    · exact le_of_lt (lt_of_lt_of_le ((lt_spectralBoundaryMultiplicity s _ _).mp hj).1
+        (hK _ _ _ hb))
+    · exact absurd hj (Nat.not_lt_zero _)
+  · intro ho
+    have hj := j.property
+    unfold spectralStripMultiplicity at hj
+    split_ifs at hj with h1 h2
+    · exact hmargin _ _ _ ⟨h1.1, h1.2⟩ (lt_of_le_of_lt ho (by exact_mod_cast hj))
+    · exact absurd ho (not_le.mpr ((lt_spectralBoundaryMultiplicity s _ _).mp hj).2)
+    · exact absurd hj (Nat.not_lt_zero _)
 
 /-- Paper: Proposition 10.2.2.2, pp. 446–447. Finitely many integrable
 boundary powers and a positive exponential margin on all other powers give
