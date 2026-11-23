@@ -3679,6 +3679,113 @@ end FourierExtension
 -- Their Fourier transforms have a Gaussian peak at N, with squared weighted
 -- norm bounded below by a positive constant times (log N)^s.
 
+open scoped ENNReal in
+/-- Multiplication by the positive square root of a density is a unitary between a
+weighted L² space and unweighted L². -/
+private theorem exists_unweight_L2_ofReal {X : Type*} [MeasurableSpace X] (μ : Measure X)
+    (w : X → ℝ) (hw : Measurable w) (hp : ∀ x, 0 < w x) :
+    ∃ U : Lp ℂ 2 (μ.withDensity (fun x => ENNReal.ofReal (w x))) ≃ₗᵢ[ℂ] Lp ℂ 2 μ,
+      ∀ v, (U v : X → ℂ) =ᵐ[μ] (fun x => (Real.sqrt (w x) : ℂ) * v x) := by
+  let f : X → ENNReal := fun x => ENNReal.ofReal (w x)
+  have hf : Measurable f := hw.ennreal_ofReal
+  have hflt : ∀ᵐ x ∂μ, f x < ∞ := .of_forall fun x => ENNReal.ofReal_lt_top
+  let c (x : X) : ℂ := Real.sqrt (w x)
+  have hμ : μ ≪ μ.withDensity f :=
+    withDensity_absolutelyContinuous' hf.aemeasurable
+      (.of_forall fun x => by simp [f, hp x])
+  have hc : StronglyMeasurable c :=
+    (Complex.measurable_ofReal.comp (Real.continuous_sqrt.measurable.comp hw)).stronglyMeasurable
+  have hc0 (x : X) : c x ≠ 0 := Complex.ofReal_ne_zero.mpr (Real.sqrt_pos.mpr (hp x)).ne'
+  have hc2 (x : X) : ‖c x‖ ^ 2 = w x := by
+    simp only [c, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (Real.sqrt_nonneg _)]
+    exact Real.sq_sqrt (le_of_lt (hp x))
+  have hmem (g : X → ℂ) (hg : StronglyMeasurable g) :
+      MemLp g 2 (μ.withDensity f) ↔ MemLp (fun x => c x * g x) 2 μ := by
+    have hcg : StronglyMeasurable (fun x => c x * g x) := hc.mul hg
+    rw [memLp_two_iff_integrable_sq_norm hg.aestronglyMeasurable,
+      memLp_two_iff_integrable_sq_norm hcg.aestronglyMeasurable]
+    rw [integrable_withDensity_iff_integrable_smul' hf hflt]
+    refine integrable_congr (.of_forall fun x => ?_)
+    simp only [f, smul_eq_mul, norm_mul, mul_pow, hc2, ENNReal.toReal_ofReal (le_of_lt (hp x))]
+  let L (v : Lp ℂ 2 (μ.withDensity f)) :=
+    ((hmem v (Lp.stronglyMeasurable v)).mp (Lp.memLp v)).toLp _
+  have hL (v : Lp ℂ 2 (μ.withDensity f)) : (L v : X → ℂ) =ᵐ[μ] (fun x => c x * v x) :=
+    MemLp.coeFn_toLp _
+  let J : Lp ℂ 2 (μ.withDensity f) →ₗ[ℂ] Lp ℂ 2 μ :=
+    { toFun := L
+      map_add' := fun v u => by
+        apply Lp.ext
+        filter_upwards [hL (v + u), hL v, hL u, hμ.ae_le (Lp.coeFn_add v u),
+          Lp.coeFn_add (L v) (L u)] with x h1 h2 h3 h4 h5
+        rw [h1, h5, Pi.add_apply, h4, Pi.add_apply, h2, h3, mul_add]
+      map_smul' := fun k v => by
+        apply Lp.ext
+        filter_upwards [hL (k • v), hL v, hμ.ae_le (Lp.coeFn_smul k v), Lp.coeFn_smul k (L v)]
+          with x h1 h2 h3 h4
+        rw [h1, RingHom.id_apply, h4, Pi.smul_apply, h3, Pi.smul_apply, h2, smul_eq_mul,
+          smul_eq_mul]
+        ring }
+  have hnorm (v : Lp ℂ 2 (μ.withDensity f)) : ‖J v‖ = ‖v‖ := by
+    have hi : inner ℂ (J v) (J v) = inner ℂ v v := by
+      rw [L2.inner_def, L2.inner_def]
+      change _ = ∫ x, inner ℂ (v x) (v x) ∂μ.withDensity f
+      rw [integral_withDensity_eq_integral_toReal_smul hf hflt]
+      refine integral_congr_ae ?_
+      filter_upwards [hL v] with x hx
+      change inner ℂ (L v x) (L v x) = (f x).toReal • inner ℂ (v x) (v x)
+      rw [hx, inner_self_eq_norm_sq_to_K, inner_self_eq_norm_sq_to_K]
+      simp only [f, norm_mul, Complex.real_smul, ENNReal.toReal_ofReal (le_of_lt (hp x))]
+      have h := congrArg Complex.ofReal
+        (show (‖c x‖ * ‖v x‖) ^ 2 = w x * ‖v x‖ ^ 2 by rw [mul_pow, hc2])
+      change (Complex.ofReal (‖c x‖ * ‖v x‖)) ^ 2 =
+        Complex.ofReal (w x) * Complex.ofReal ‖v x‖ ^ 2
+      rw [Complex.ofReal_mul]
+      simpa only [Complex.ofReal_mul, Complex.ofReal_pow] using h
+    rw [inner_self_eq_norm_sq_to_K, inner_self_eq_norm_sq_to_K] at hi
+    have hsq : ‖J v‖ ^ 2 = ‖v‖ ^ 2 := by exact_mod_cast hi
+    exact (sq_eq_sq₀ (norm_nonneg _) (norm_nonneg _)).mp hsq
+  let S : Lp ℂ 2 (μ.withDensity f) →ₗᵢ[ℂ] Lp ℂ 2 μ := ⟨J, hnorm⟩
+  have hsurj : Function.Surjective S := by
+    intro v
+    let g (x : X) := v x / c x
+    have heq (x : X) : c x * g x = v x := by dsimp only [g]; field_simp [hc0 x]
+    have hg : MemLp g 2 (μ.withDensity f) :=
+      (hmem g ((Lp.stronglyMeasurable v).div hc)).mpr (funext heq ▸ Lp.memLp v)
+    refine ⟨hg.toLp g, Lp.ext ?_⟩
+    filter_upwards [hL (hg.toLp g), hμ.ae_le hg.coeFn_toLp] with x hx hy
+    change L (hg.toLp g) x = v x
+    rw [hx, hy, heq]
+  exact ⟨LinearIsometryEquiv.ofSurjective S hsurj, hL⟩
+
+/-- Multiplication by the square root of a density ratio is a unitary between the two
+weighted L² spaces. -/
+private theorem exists_L2_density_ratio {X : Type*} [MeasurableSpace X] (μ : Measure X)
+    (d₁ d₂ : X → ℝ) (hd₁ : Measurable d₁) (hd₂ : Measurable d₂)
+    (hp₁ : ∀ x, 0 < d₁ x) (hp₂ : ∀ x, 0 < d₂ x) :
+    ∃ U : Lp ℂ 2 (μ.withDensity (fun x => ENNReal.ofReal (d₁ x))) ≃ₗᵢ[ℂ]
+          Lp ℂ 2 (μ.withDensity (fun x => ENNReal.ofReal (d₂ x))),
+      ∀ v, (U v : X → ℂ) =ᵐ[μ.withDensity (fun x => ENNReal.ofReal (d₂ x))]
+        (fun x => (Real.sqrt (d₁ x / d₂ x) : ℂ) * v x) := by
+  set w : X → ℝ := fun x => d₁ x / d₂ x with hwdef
+  have hwm : Measurable w := hd₁.div hd₂
+  have hwp (x : X) : 0 < w x := div_pos (hp₁ x) (hp₂ x)
+  have hν : (μ.withDensity (fun x => ENNReal.ofReal (d₂ x))).withDensity
+      (fun x => ENNReal.ofReal (w x)) =
+      μ.withDensity (fun x => ENNReal.ofReal (d₁ x)) := by
+    rw [← withDensity_mul _ hd₂.ennreal_ofReal hwm.ennreal_ofReal]
+    congr 1
+    funext x
+    show ENNReal.ofReal (d₂ x) * ENNReal.ofReal (w x) = ENNReal.ofReal (d₁ x)
+    rw [← ENNReal.ofReal_mul (le_of_lt (hp₂ x)),
+      show d₂ x * w x = d₁ x by
+        show d₂ x * (d₁ x / d₂ x) = d₁ x
+        rw [mul_comm]
+        exact div_mul_cancel₀ _ (hp₂ x).ne']
+  obtain ⟨U, hU⟩ := exists_unweight_L2_ofReal
+    (μ := μ.withDensity (fun x => ENNReal.ofReal (d₂ x))) (w := w) hwm hwp
+  rw [← hν]
+  exact ⟨U, fun v => (hU v).trans (Filter.EventuallyEq.of_eq rfl)⟩
+
 /-- Paper: (10.1.2.6), p. 438. The local weighted L² completion of §5.4
 identifies isometrically with the degree-zero Sobolev completion at weight one half.
 On test representatives the isometry multiplies by the square root of the norm. -/
