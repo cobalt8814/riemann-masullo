@@ -962,13 +962,62 @@ theorem spectralLineConvolution_nuclear {s : ℝ} (hs : 1 < s) (φ : BruhatCompa
     r e he x Λ hb hj 1 le_rfl
   exact (mem_traceClassOperators_iff_isNuclearOperator _).mp hA
 
+/-- Paper: (10.3.1.2), p. 448. Convolution is complex linear in the test and
+nuclear for each test, so the convolution action is a linear map from the test
+space into the nuclear endomorphisms. -/
+private theorem spectralLineConvolution_traceNorm_continuous_linear {s : ℝ} (hs : 1 < s) :
+    ∃ T : BruhatCompactSupport C𝔽 →ₗ[ℂ] nuclearEndomorphisms (Q(a, h₀, hs₀(hs))),
+      ∀ φ, (T φ).val = spectralConvolution (F := F) a h₀ hs₀(hs) φ := by
+  obtain ⟨hadd, hsmul⟩ := spectralConvolution_isLinear (F := F) a h₀ (hs₀(hs))
+  exact ⟨{ toFun := fun φ ↦ ⟨spectralConvolution (F := F) a h₀ hs₀(hs) φ,
+      spectralLineConvolution_nuclear (F := F) a hs φ⟩,
+    map_add' := fun φ ψ ↦ Subtype.ext (hadd φ ψ),
+    map_smul' := fun c φ ↦ Subtype.ext (hsmul c φ) }, fun _ ↦ rfl⟩
+
+/-- Paper: (10.3.1.19)–(10.3.1.22), p. 451, and (10.3.1.26), p. 453. The
+trace-norm estimate behind the continuity in (10.3.1.2): the trace norm of the
+convolution operator is bounded by a single continuous seminorm of the test.
+
+What a proof of this estimate needs: (10.3.1.22) bounds the singular values of
+the block of one zero by
+`N_s * C * 2 ^ (N_s - 1) * sum_{i < N_s} |phi-hat^(i)(t_{k,j})|`, a bound at that
+one zero, and (10.3.1.26) compares the sum of these over the zeros with an
+integral over the continuous parameter, which gives no control on the sampling
+at the zero ordinates. Turning the per-zero bounds into one seminorm bound
+needs a bound on the number of zeros of `L(s, chi w)` on the line `Re s = a`
+with `|Im s| <= T`, which the printed argument does not state. The alternative
+of bounding the finite sections uniformly in the rectangle is
+`Printed.spectralLineJet_uniformBiorthogonalBound`, refuted in
+`Sec3_Printed.lean`. -/
+private theorem spectralLineConvolution_traceNorm_continuous_seminorm {s : ℝ} (_hs : 1 < s)
+    (T : BruhatCompactSupport C𝔽 →ₗ[ℂ] nuclearEndomorphisms (Q(a, h₀, hs₀(hs)))) :
+    ∃ p : Seminorm ℂ (BruhatCompactSupport C𝔽), Continuous p ∧
+      ∀ φ, ‖traceNorm (H := Q(a, h₀, hs₀(hs))) (T φ)‖ ≤ p φ := by
+  sorry
+
+/-- A seminorm bound on the trace norm of a linear family of nuclear operators
+gives continuity at zero in trace norm. -/
+private theorem spectralLineConvolution_traceNorm_continuous_of_seminorm {s : ℝ}
+    (T : BruhatCompactSupport C𝔽 →ₗ[ℂ] nuclearEndomorphisms (Q(a, h₀, hs₀(hs))))
+    (p : Seminorm ℂ (BruhatCompactSupport C𝔽)) (hp : Continuous p)
+    (h : ∀ φ, ‖traceNorm (H := Q(a, h₀, hs₀(hs))) (T φ)‖ ≤ p φ) :
+    Tendsto (fun φ : BruhatCompactSupport C𝔽 ↦
+      traceNorm (H := Q(a, h₀, hs₀(hs))) (T φ)) (𝓝 0) (𝓝 0) := by
+  refine squeeze_zero_norm h ?_
+  simpa using hp.continuousAt (x := (0 : BruhatCompactSupport C𝔽))
+
 /-- Paper: Theorem 10.3.1.1(2) and (10.3.1.2), p. 448. The convolution
 action lifts to a linear map into the trace class, continuous at zero in trace norm. -/
 theorem spectralLineConvolution_traceNorm_continuous {s : ℝ} (hs : 1 < s) :
     let H := Q(a, h₀, hs₀(hs))
     ∃ T : BruhatCompactSupport C𝔽 →ₗ[ℂ] nuclearEndomorphisms H,
       (∀ φ, (T φ).val = spectralConvolution (F := F) a h₀ hs₀(hs) φ) ∧
-      Tendsto (fun φ : BruhatCompactSupport C𝔽 ↦ traceNorm (H := H) (T φ)) (𝓝 0) (𝓝 0) := by sorry
+      Tendsto (fun φ : BruhatCompactSupport C𝔽 ↦ traceNorm (H := H) (T φ)) (𝓝 0) (𝓝 0) := by
+  obtain ⟨T, hT⟩ := spectralLineConvolution_traceNorm_continuous_linear (F := F) a hs
+  obtain ⟨p, hp, hbound⟩ :=
+    spectralLineConvolution_traceNorm_continuous_seminorm (F := F) a hs T
+  exact ⟨T, hT,
+    spectralLineConvolution_traceNorm_continuous_of_seminorm (F := F) a T p hp hbound⟩
 
 /-- Paper: Theorem 10.3.1.1(2), p. 448. Taking the trace of convolution gives
 a distribution on the Bruhat compactly supported test space. -/
