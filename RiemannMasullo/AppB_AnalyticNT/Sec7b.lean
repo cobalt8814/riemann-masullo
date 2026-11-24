@@ -456,6 +456,160 @@ def heckeEulerProductOscillation (t₀ x t : ℝ) : ℂ :=
   -heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1) -
     ∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n
 
+/-- The decreasing sequence `1 / log (m + 2)` of reciprocal logarithms; it supplies the
+Abel weights of the partial summation in (B.7.2.19). -/
+private def recipLogWeight (m : ℕ) : ℝ := (Real.log ((m + 2 : ℕ) : ℝ))⁻¹
+
+/-- The reciprocal logarithms are nonnegative. -/
+private theorem recipLogWeight_nonneg (m : ℕ) : 0 ≤ recipLogWeight m := by
+  simp only [recipLogWeight]
+  exact inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega))
+
+/-- The reciprocal logarithms decrease. -/
+private theorem recipLogWeight_antitone (m : ℕ) : recipLogWeight (m + 1) ≤ recipLogWeight m := by
+  have h1i : (1 : ℕ) < (m + 1) + 2 := by omega
+  have h2i : (1 : ℕ) < m + 2 := by omega
+  have h1 : (0 : ℝ) < Real.log (((m + 1) + 2 : ℕ) : ℝ) := Real.log_pos (by exact_mod_cast h1i)
+  have h2 : (0 : ℝ) < Real.log ((m + 2 : ℕ) : ℝ) := Real.log_pos (by exact_mod_cast h2i)
+  have hle : ((m + 2 : ℕ) : ℝ) ≤ (((m + 1) + 2 : ℕ) : ℝ) :=
+    by exact_mod_cast (show m + 2 ≤ (m + 1) + 2 by omega)
+  simp only [recipLogWeight]
+  exact (inv_le_inv₀ h1 h2).mpr (Real.log_le_log (by positivity) hle)
+
+/-- The successive differences of the reciprocal logarithms are summable. -/
+private theorem recipLogWeight_summable_diff :
+    Summable (fun m : ℕ => recipLogWeight m - recipLogWeight (m + 1)) := by
+  refine summable_of_sum_range_le (c := recipLogWeight 0)
+    (fun m => sub_nonneg.mpr (recipLogWeight_antitone m)) fun n => ?_
+  rw [Finset.sum_range_sub']
+  linarith [recipLogWeight_nonneg n]
+
+/-- The reciprocal logarithms tend to zero. -/
+private theorem recipLogWeight_tendsto_zero : Tendsto recipLogWeight atTop (𝓝 0) := by
+  have h1 : Tendsto (fun m : ℕ => Real.log (((m + 2 : ℕ)) : ℝ)) atTop atTop :=
+    Real.tendsto_log_atTop.comp
+      (tendsto_natCast_atTop_atTop.comp (tendsto_add_atTop_nat 2))
+  change Tendsto (fun m : ℕ => (Real.log ((m + 2 : ℕ) : ℝ))⁻¹) atTop (𝓝 0)
+  exact tendsto_inv_atTop_zero.comp h1
+
+/-- The Abel weights telescope: the shifted series of successive differences sums to
+the first weight. -/
+private theorem recipLogWeight_tsum_shift (k : ℕ) :
+    ∑' n : ℕ, (recipLogWeight (n + k) - recipLogWeight (n + k + 1)) = recipLogWeight k := by
+  have hsum : HasSum (fun n : ℕ => recipLogWeight (n + k) - recipLogWeight (n + k + 1)) (recipLogWeight k) := by
+    rw [hasSum_iff_tendsto_nat_of_nonneg
+      (fun n => sub_nonneg.mpr (recipLogWeight_antitone (n + k)))]
+    have hcongr : ∀ N : ℕ, ∑ n ∈ Finset.range N, (recipLogWeight (n + k) - recipLogWeight (n + k + 1))
+        = recipLogWeight k - recipLogWeight (N + k) := by
+      intro N
+      simpa only [Nat.add_assoc, Nat.add_comm 1 k, Nat.zero_add] using
+        Finset.sum_range_sub' (fun i => recipLogWeight (i + k)) N
+    simp only [hcongr]
+    have h := recipLogWeight_tendsto_zero.comp (tendsto_add_atTop_nat k)
+    simpa using (tendsto_const_nhds.sub h)
+  exact hsum.tsum_eq
+
+/-- The oscillatory term of norm `k ≥ 1` is bounded by `2 / |t₀ - t|` on the 1-line
+away from the pole ordinate. -/
+private theorem heckePrimePowerTailOscillation_norm_le (t₀ t : ℝ) (ht : t ≠ t₀) {k : ℕ} (hk : 1 ≤ k) :
+    ‖heckePrimePowerTailOscillation t₀ k ⟨1, t⟩‖ ≤ 2 / |t₀ - t| := by
+  have hnz : ‖(⟨1, t₀⟩ : ℂ) - ⟨1, t⟩‖ = |t₀ - t| := by
+    have hzz : (⟨1, t₀⟩ : ℂ) - ⟨1, t⟩ = ((t₀ - t : ℝ) : ℂ) * Complex.I := by
+      apply Complex.ext <;> simp
+    rw [hzz, norm_mul, Complex.norm_I, mul_one, Complex.norm_real, Real.norm_eq_abs]
+  have hne : (⟨1, t⟩ : ℂ) ≠ ⟨1, t₀⟩ := fun h => ht (congrArg Complex.im h)
+  have hre : ((⟨1, t₀⟩ : ℂ) - ⟨1, t⟩).re = 0 := by simp
+  delta heckePrimePowerTailOscillation
+  simp only [hne, ↓reduceIte]
+  rw [norm_div, hnz]
+  gcongr
+  refine (norm_sub_le _ _).trans ?_
+  rw [Complex.norm_natCast_cpow_of_pos (by omega : (0 : ℕ) < k), hre, Real.rpow_zero, norm_one]
+  norm_num
+
+/-- On a compact set of ordinates avoiding `t₀`, the distance to `t₀` is bounded
+below by a positive constant. -/
+private theorem exists_pos_le_abs_sub_of_isCompact (t₀ : ℝ) (K : Set ℝ) (hK : IsCompact K) (hpole : t₀ ∉ K) :
+    ∃ c : ℝ, 0 < c ∧ ∀ t ∈ K, c ≤ |t₀ - t| := by
+  rcases K.eq_empty_or_nonempty with rfl | hne
+  · exact ⟨1, one_pos, by simp⟩
+  · obtain ⟨t₁, ht₁, hmin⟩ := hK.exists_isMinOn hne
+      (by fun_prop : ContinuousOn (fun t : ℝ => |t₀ - t|) K)
+    refine ⟨|t₀ - t₁|, ?_, fun t ht => hmin ht⟩
+    exact abs_pos.mpr (sub_ne_zero.mpr (fun h => hpole (h ▸ ht₁)))
+
+/-- The weighted oscillatory terms of (B.7.2.19) are dominated, uniformly on a compact
+set of ordinates away from the pole, by the successive differences of the reciprocal
+logarithms. -/
+private theorem heckePrimePowerTailOscillationTerm_norm_le (t₀ x : ℝ) (hx : 2 < x) (K : Set ℝ) {c : ℝ} (hc0 : 0 < c)
+    (hc : ∀ t ∈ K, c ≤ |t₀ - t|) (n : ℕ) {t : ℝ} (ht : t ∈ K) :
+    ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤
+      (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2)) := by
+  rcases lt_or_ge n 3 with hn | hn
+  · have hn2 : (n : ℝ) ≤ 2 := by
+      have : n ≤ 2 := by omega
+      exact_mod_cast this
+    have hzero : recipLogWeight (n - 3) - recipLogWeight (n - 2) = 0 := by
+      simp only [recipLogWeight, show n - 3 = 0 by omega, show n - 2 = 0 by omega]
+      simp
+    delta heckePrimePowerTailOscillationTerm
+    rw [ite_eq_right (by linarith), norm_zero, hzero, mul_zero]
+  · have ht0 : t ≠ t₀ := by
+      intro h
+      have h1 : c ≤ |t₀ - t| := hc t ht
+      rw [h, sub_self, abs_zero] at h1
+      linarith
+    have hln : (0 : ℝ) < Real.log ((n : ℕ) : ℝ) := Real.log_pos (by norm_cast; omega)
+    have hlm : (0 : ℝ) < Real.log ((n - 1 : ℕ) : ℝ) := Real.log_pos (by norm_cast; omega)
+    have hle : Real.log ((n - 1 : ℕ) : ℝ) ≤ Real.log ((n : ℕ) : ℝ) :=
+      Real.log_le_log (by norm_cast; omega) (by norm_cast; omega)
+    have hstep : (Real.log ((n : ℕ) : ℝ))⁻¹ ≤ (Real.log ((n - 1 : ℕ) : ℝ))⁻¹ :=
+      (inv_le_inv₀ hln hlm).mpr hle
+    have hΔ : recipLogWeight (n - 3) - recipLogWeight (n - 2) =
+        (Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹ := by
+      simp only [recipLogWeight, show n - 3 + 2 = n - 1 from by omega,
+        show n - 2 + 2 = n from by omega]
+    have hweight :
+        ‖((Real.log ((n : ℕ) : ℝ) : ℂ))⁻¹ - ((Real.log ((n - 1 : ℕ) : ℝ) : ℂ))⁻¹‖ =
+        (Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹ := by
+      rw [← Complex.ofReal_inv, ← Complex.ofReal_inv, ← Complex.ofReal_sub, Complex.norm_real,
+        Real.norm_eq_abs, abs_sub_comm, abs_of_nonneg (sub_nonneg.mpr hstep)]
+    have hgn : ‖heckePrimePowerTailOscillation t₀ (n - 1) ⟨1, t⟩‖ ≤ 2 / |t₀ - t| :=
+      heckePrimePowerTailOscillation_norm_le t₀ t ht0 (by omega : 1 ≤ n - 1)
+    have hc' : 2 / |t₀ - t| ≤ 2 / c := div_le_div_of_nonneg_left (by norm_num) hc0 (hc t ht)
+    have hnon : 0 ≤ (Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹ :=
+      sub_nonneg.mpr hstep
+    have hkey : ‖heckePrimePowerTailOscillation t₀ (n - 1) ⟨1, t⟩ *
+        (((Real.log ((n : ℕ) : ℝ) : ℂ))⁻¹ - ((Real.log ((n - 1 : ℕ) : ℝ) : ℂ))⁻¹)‖ ≤
+        (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2)) := by
+      rw [norm_mul, hweight, hΔ]
+      calc ‖heckePrimePowerTailOscillation t₀ (n - 1) ⟨1, t⟩‖ *
+            ((Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹)
+          ≤ (2 / |t₀ - t|) *
+            ((Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹) :=
+            mul_le_mul_of_nonneg_right hgn hnon
+        _ ≤ (2 / c) * ((Real.log ((n - 1 : ℕ) : ℝ))⁻¹ - (Real.log ((n : ℕ) : ℝ))⁻¹) :=
+            mul_le_mul_of_nonneg_right hc' hnon
+    delta heckePrimePowerTailOscillationTerm
+    split_ifs with hif
+    · exact hkey
+    · rw [norm_zero]
+      exact mul_nonneg (by positivity) (by linarith [hΔ, hnon])
+
+/-- If `x ≤ y * y` with `x, y > 1`, the reciprocal logarithm of `y` is at most twice
+that of `x`. -/
+private theorem inv_log_le_two_mul_inv_log_of_le_sq {x y : ℝ} (hx : 1 < x) (hy : 1 < y) (hle : x ≤ y * y) :
+    (Real.log y)⁻¹ ≤ 2 * (Real.log x)⁻¹ := by
+  have hx0 : 0 < Real.log x := Real.log_pos hx
+  have hy0 : 0 < Real.log y := Real.log_pos hy
+  have h : Real.log x ≤ 2 * Real.log y := by
+    calc Real.log x ≤ Real.log (y * y) := Real.log_le_log (by linarith) hle
+      _ = Real.log y + Real.log y := Real.log_mul (by linarith) (by linarith)
+      _ = 2 * Real.log y := by ring
+  rw [show (2 : ℝ) * (Real.log x)⁻¹ = 2 / Real.log x by ring, le_div_iff₀ hx0,
+    show (Real.log y)⁻¹ * Real.log x = Real.log x / Real.log y by ring, div_le_iff₀ hy0]
+  linarith
+
 /-- Paper: Equation (B.7.2.19), p. 652. On compact sets away from the pole,
 the endpoint term minus the finite correction sums converges uniformly to `G_x`.
 Deviation: The cutoff is greater than two so `log (M - 1)` is nonzero. -/
@@ -465,7 +619,35 @@ theorem heckeEulerProductOscillation_tendstoUniformlyOn (t₀ x : ℝ) (hx : 2 <
       -heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1) -
         ∑ n ∈ Finset.range N, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n)
       (heckeEulerProductOscillation t₀ x) atTop K := by
-  sorry
+  classical
+  obtain ⟨c, hc0, hc⟩ := exists_pos_le_abs_sub_of_isCompact t₀ K hK hpole
+  have hu' : Summable (fun n : ℕ => recipLogWeight (n - 3) - recipLogWeight (n - 2)) := by
+    rw [← summable_nat_add_iff 3]
+    simpa only [Nat.add_sub_cancel, show ∀ n : ℕ, n + 3 - 2 = n + 1 from fun n => by omega]
+      using recipLogWeight_summable_diff
+  have hu : Summable (fun n : ℕ => (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2))) :=
+    hu'.mul_left _
+  have hbound : ∀ᶠ n : ℕ in atTop, ∀ t ∈ K,
+      ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤
+        (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2)) :=
+    Eventually.of_forall fun n t ht => heckePrimePowerTailOscillationTerm_norm_le t₀ x hx K hc0 hc n ht
+  have hmain := tendstoUniformlyOn_tsum_nat_eventually
+    (f := fun n : ℕ => fun t : ℝ => heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n)
+    hu hbound
+  rw [Metric.tendstoUniformlyOn_iff] at hmain ⊢
+  intro ε hε
+  filter_upwards [hmain ε hε] with N hN t ht
+  have h := hN t ht
+  rw [dist_eq_norm] at h ⊢
+  have hsub : heckeEulerProductOscillation t₀ x t -
+        (-heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1) -
+          ∑ n ∈ Finset.range N, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n) =
+      ∑ n ∈ Finset.range N, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n -
+        ∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n := by
+    delta heckeEulerProductOscillation
+    ring
+  rw [hsub, norm_sub_rev]
+  exact h
 
 /-- Paper: Theorem B.7.2.4(1), Equation (B.7.2.19), p. 652. The oscillatory
 part is real analytic away from the pole ordinate.
@@ -480,7 +662,129 @@ theorem heckeEulerProductOscillation_bound (t₀ : ℝ)
     (K : Set ℝ) (hK : IsCompact K) (hpole : t₀ ∉ K) :
     ∃ C : ℝ, 0 ≤ C ∧ ∀ᶠ x : ℝ in atTop, ∀ t ∈ K,
       ‖heckeEulerProductOscillation t₀ x t‖ ≤ C / Real.log x := by
-  sorry
+  classical
+  obtain ⟨c, hc0, hc⟩ := exists_pos_le_abs_sub_of_isCompact t₀ K hK hpole
+  refine ⟨8 / c, by positivity, ?_⟩
+  have hu' : Summable (fun n : ℕ => recipLogWeight (n - 3) - recipLogWeight (n - 2)) := by
+    rw [← summable_nat_add_iff 3]
+    simpa only [Nat.add_sub_cancel, show ∀ n : ℕ, n + 3 - 2 = n + 1 from fun n => by omega]
+      using recipLogWeight_summable_diff
+  filter_upwards [eventually_ge_atTop 4] with x hx t ht
+  have hlogx : 0 < Real.log x := Real.log_pos (by linarith)
+  have hM4 : (4 : ℕ) ≤ ⌈x⌉₊ := by
+    have h := Nat.ceil_mono (show (4 : ℝ) ≤ x by linarith)
+    simpa using h
+  set M : ℕ := ⌈x⌉₊ - 1 with hM
+  have hM3 : 3 ≤ M := by omega
+  have hMx : (M : ℝ) < x := by
+    have h := Nat.ceil_lt_add_one (show (0 : ℝ) ≤ x by linarith)
+    have h2 : (⌈x⌉₊ : ℝ) = (M : ℝ) + 1 := by
+      have : M + 1 = ⌈x⌉₊ := by omega
+      exact_mod_cast this.symm
+    linarith
+  have hxM : x ≤ (M : ℝ) + 1 := by
+    have h := Nat.le_ceil x
+    have h2 : (⌈x⌉₊ : ℝ) = (M : ℝ) + 1 := by
+      have : M + 1 = ⌈x⌉₊ := by omega
+      exact_mod_cast this.symm
+    linarith
+  have hM2 : (2 : ℝ) ≤ M := by exact_mod_cast (by omega : 2 ≤ M)
+  have hxMsq : x ≤ (M : ℝ) * M := by nlinarith
+  have hxM1sq : x ≤ ((M : ℝ) - 1) * ((M : ℝ) - 1) := by nlinarith
+  have hMgt1 : (1 : ℝ) < M := by linarith
+  have hM1gt1 : (1 : ℝ) < (M : ℝ) - 1 := by linarith
+  have hinvM : (Real.log (M : ℝ))⁻¹ ≤ 2 * (Real.log x)⁻¹ :=
+    inv_log_le_two_mul_inv_log_of_le_sq (by linarith) hMgt1 hxMsq
+  have hinvM1 : (Real.log ((M : ℝ) - 1))⁻¹ ≤ 2 * (Real.log x)⁻¹ :=
+    inv_log_le_two_mul_inv_log_of_le_sq (by linarith) hM1gt1 hxM1sq
+  have hlogM : (0 : ℝ) < Real.log (M : ℝ) := Real.log_pos hMgt1
+  have hlogM1 : (0 : ℝ) < Real.log ((M : ℝ) - 1) := Real.log_pos hM1gt1
+  -- bound for the endpoint term
+  have ht0 : t ≠ t₀ := fun h => hpole (h ▸ ht)
+  have hg : ‖heckePrimePowerTailOscillation t₀ M ⟨1, t⟩ * invLog(M)‖ ≤
+      (2 / c) * (Real.log (M : ℝ))⁻¹ := by
+    have hb := heckePrimePowerTailOscillation_norm_le t₀ t ht0 (k := M) (by omega : 1 ≤ M)
+    have hc' : 2 / |t₀ - t| ≤ 2 / c := div_le_div_of_nonneg_left (by norm_num) hc0 (hc t ht)
+    have hpos : 0 ≤ (Real.log (M : ℝ))⁻¹ := le_of_lt (inv_pos.mpr hlogM)
+    calc ‖heckePrimePowerTailOscillation t₀ M ⟨1, t⟩ * invLog(M)‖
+        = ‖heckePrimePowerTailOscillation t₀ M ⟨1, t⟩‖ * (Real.log (M : ℝ))⁻¹ := by
+          rw [norm_mul, ← Complex.ofReal_inv, Complex.norm_real, Real.norm_eq_abs,
+            abs_of_pos (inv_pos.mpr hlogM)]
+      _ ≤ (2 / |t₀ - t|) * (Real.log (M : ℝ))⁻¹ := mul_le_mul_of_nonneg_right hb hpos
+      _ ≤ (2 / c) * (Real.log (M : ℝ))⁻¹ := mul_le_mul_of_nonneg_right hc' hpos
+  -- bound for the oscillatory series
+  have hf_le : ∀ n : ℕ, ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤
+      (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2)) :=
+    fun n => heckePrimePowerTailOscillationTerm_norm_le t₀ x (by linarith) K hc0 hc n ht
+  have hmaj : Summable (fun n : ℕ => (2 / c) * (recipLogWeight (n - 3) - recipLogWeight (n - 2))) :=
+    hu'.mul_left _
+  have hnormsum : Summable (fun n : ℕ => ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖) :=
+    Summable.of_nonneg_of_le (fun n => norm_nonneg _) hf_le hmaj
+  have hzero : ∀ i ∈ Finset.range M,
+      ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ i‖ = 0 := by
+    intro i hi
+    have hiM : i < M := Finset.mem_range.mp hi
+    have hiR : (i : ℝ) ≤ (M : ℝ) - 1 := by
+      have h : i ≤ M - 1 := by omega
+      have h2 : ((i : ℕ) : ℝ) ≤ ((M - 1 : ℕ) : ℝ) := by exact_mod_cast h
+      have h3 : ((M - 1 : ℕ) : ℝ) = (M : ℝ) - 1 := by
+        rw [Nat.cast_sub (by omega : 1 ≤ M)]
+        simp
+      linarith
+    delta heckePrimePowerTailOscillationTerm
+    rw [ite_eq_right (by linarith), norm_zero]
+  have hsplit := hnormsum.sum_add_tsum_nat_add M
+  rw [Finset.sum_eq_zero hzero, zero_add] at hsplit
+  have hshift : ∑' n : ℕ, ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ (n + M)‖ ≤
+      ∑' n : ℕ, (2 / c) * (recipLogWeight (n + M - 3) - recipLogWeight (n + M - 2)) :=
+    Summable.tsum_le_tsum (fun n => hf_le (n + M))
+      (hnormsum.comp_injective (fun a b h => Nat.add_right_cancel h))
+      (hmaj.comp_injective (fun a b h => Nat.add_right_cancel h))
+  have hval : ∑' n : ℕ, (recipLogWeight (n + M - 3) - recipLogWeight (n + M - 2)) =
+      (Real.log ((M : ℝ) - 1))⁻¹ := by
+    have hfun : (fun n : ℕ => recipLogWeight (n + M - 3) - recipLogWeight (n + M - 2)) =
+        (fun n : ℕ => recipLogWeight (n + (M - 3)) - recipLogWeight (n + (M - 3) + 1)) := by
+      funext n
+      rw [show n + M - 3 = n + (M - 3) by omega,
+        show n + M - 2 = n + (M - 3) + 1 by omega]
+    have hpk : recipLogWeight (M - 3) = (Real.log ((M : ℝ) - 1))⁻¹ := by
+      have hc1 : ((M - 1 : ℕ) : ℝ) = (M : ℝ) - 1 := by
+        rw [Nat.cast_sub (by omega : 1 ≤ M)]
+        simp
+      rw [show M - 3 = M - 3 by rfl, recipLogWeight, show M - 3 + 2 = M - 1 by omega, hc1]
+    rw [hfun, recipLogWeight_tsum_shift, hpk]
+  have htsum_le : ‖∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤
+      (2 / c) * (Real.log ((M : ℝ) - 1))⁻¹ := by
+    refine (norm_tsum_le_tsum_norm hnormsum).trans ?_
+    rw [← hsplit]
+    calc ∑' n : ℕ, ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ (n + M)‖
+        ≤ ∑' n : ℕ, (2 / c) * (recipLogWeight (n + M - 3) - recipLogWeight (n + M - 2)) := hshift
+      _ = (2 / c) * ∑' n : ℕ, (recipLogWeight (n + M - 3) - recipLogWeight (n + M - 2)) := by
+          rw [tsum_mul_left]
+      _ = (2 / c) * (Real.log ((M : ℝ) - 1))⁻¹ := by rw [hval]
+  -- assemble
+  have hgoal : heckeEulerProductOscillation t₀ x t =
+      -(heckePrimePowerTailOscillation t₀ M ⟨1, t⟩ * invLog(M)) -
+        ∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n := by
+    delta heckeEulerProductOscillation
+    ring
+  rw [hgoal]
+  refine (norm_sub_le _ _).trans ?_
+  rw [norm_neg]
+  have hsum_le : ‖heckePrimePowerTailOscillation t₀ M ⟨1, t⟩ * invLog(M)‖ +
+      ‖∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤
+      (8 / c) * (Real.log x)⁻¹ := by
+    have h1 : (2 / c) * (Real.log (M : ℝ))⁻¹ ≤ (2 / c) * (2 * (Real.log x)⁻¹) :=
+      mul_le_mul_of_nonneg_left hinvM (by positivity)
+    have h2 : (2 / c) * (Real.log ((M : ℝ) - 1))⁻¹ ≤ (2 / c) * (2 * (Real.log x)⁻¹) :=
+      mul_le_mul_of_nonneg_left hinvM1 (by positivity)
+    have h3 : (2 / c) * (2 * (Real.log x)⁻¹) + (2 / c) * (2 * (Real.log x)⁻¹) =
+        (8 / c) * (Real.log x)⁻¹ := by ring
+    linarith
+  calc ‖heckePrimePowerTailOscillation t₀ M ⟨1, t⟩ * invLog(M)‖ +
+        ‖∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖
+      ≤ (8 / c) * (Real.log x)⁻¹ := hsum_le
+    _ = 8 / c / Real.log x := by ring
 
 /-- Paper: Theorem B.7.2.4(1), p. 652. The correction `H_x` is minus
 the logarithmic terms whose primes lie below the cutoff but whose powers
