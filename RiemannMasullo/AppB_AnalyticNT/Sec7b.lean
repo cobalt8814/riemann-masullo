@@ -379,6 +379,25 @@ def heckeEulerProductOscillation (t₀ x t : ℝ) : ℂ :=
   -heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1) -
     ∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n
 
+/-- Away from the pole ordinate, the oscillatory factor is bounded by `2 / |t₀ - t|`,
+since its numerator has norm at most two and its denominator has norm `|t₀ - t|`. -/
+private theorem heckePrimePowerTailOscillation_norm_le (t₀ : ℝ) {n : ℕ} (hn : 0 < n) (t : ℝ)
+    (ht : t ≠ t₀) :
+    ‖heckePrimePowerTailOscillation t₀ n ⟨1, t⟩‖ ≤ 2 / |t₀ - t| := by
+  have hne : (⟨1, t⟩ : ℂ) ≠ ⟨1, t₀⟩ := fun h ↦ ht (congrArg Complex.im h)
+  have hnz : ‖(⟨1, t₀⟩ : ℂ) - ⟨1, t⟩‖ = |t₀ - t| := by
+    have hz : (⟨1, t₀⟩ : ℂ) - ⟨1, t⟩ = ((t₀ - t : ℝ) : ℂ) * Complex.I := by
+      apply Complex.ext <;> simp
+    rw [hz, norm_mul, Complex.norm_I, mul_one, Complex.norm_real, Real.norm_eq_abs]
+  have hre : ((⟨1, t₀⟩ : ℂ) - ⟨1, t⟩).re = 0 := by simp
+  delta heckePrimePowerTailOscillation
+  simp only [hne, ↓reduceIte]
+  rw [norm_div, hnz]
+  gcongr
+  refine (norm_sub_le _ _).trans ?_
+  rw [Complex.norm_natCast_cpow_of_pos hn, hre, Real.rpow_zero, norm_one]
+  norm_num
+
 /-- Paper: Equation (B.7.2.19), p. 652. On compact sets away from the pole,
 the endpoint term minus the finite correction sums converges uniformly to `G_x`.
 Deviation: The cutoff is greater than two so `log (M - 1)` is nonzero. -/
@@ -388,7 +407,83 @@ theorem heckeEulerProductOscillation_tendstoUniformlyOn (t₀ x : ℝ) (hx : 2 <
       -heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1) -
         ∑ n ∈ Finset.range N, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n)
       (heckeEulerProductOscillation t₀ x) atTop K := by
-  sorry
+  classical
+  let a (n : ℕ) (t : ℝ) : ℂ := heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n
+  let E (t : ℝ) : ℂ :=
+    -heckePrimePowerTailOscillation t₀ (⌈x⌉₊ - 1) ⟨1, t⟩ * invLog(⌈x⌉₊ - 1)
+  rcases Set.eq_empty_or_nonempty K with rfl | hKne
+  · exact tendstoUniformlyOn_empty
+  · obtain ⟨t₁, ht₁K, ht₁min⟩ := hK.exists_isMinOn hKne
+      (continuous_abs.comp (continuous_const.sub continuous_id)).continuousOn
+    let δ : ℝ := |t₀ - t₁|
+    have ht₁ne : t₁ ≠ t₀ := fun h ↦ hpole (h ▸ ht₁K)
+    have hδ : 0 < δ := abs_pos.mpr (sub_ne_zero.mpr (Ne.symm ht₁ne))
+    have hδle : ∀ t ∈ K, δ ≤ |t₀ - t| := fun t htK ↦ ht₁min htK
+    let e : ℕ → ℝ := fun m ↦ (Real.log ((m + 2 : ℕ) : ℝ))⁻¹
+    have he0 (m : ℕ) : 0 ≤ e m :=
+      inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega))
+    have hanti (m : ℕ) : e (m + 1) ≤ e m := by
+      apply inv_anti₀ (Real.log_pos (by norm_cast; omega))
+      exact Real.log_le_log (by positivity) (by norm_cast; omega)
+    have hd : Summable (fun m ↦ e m - e (m + 1)) := by
+      refine summable_of_sum_range_le (c := e 0) (fun m ↦ sub_nonneg.mpr (hanti m))
+        fun n ↦ ?_
+      rw [Finset.sum_range_sub']
+      exact sub_le_self _ (he0 n)
+    let v : ℕ → ℝ := fun m ↦ (2 / δ) * (e m - e (m + 1))
+    have hv : Summable v := hd.mul_left _
+    let u : ℕ → ℝ := fun n ↦ if 3 ≤ n then v (n - 3) else 0
+    have hu : Summable u := by
+      rw [← summable_nat_add_iff 3]
+      have : (fun n ↦ u (n + 3)) = v := by funext n; simp [u]
+      rw [this]; exact hv
+    have hbound : ∀ (n : ℕ) (t : ℝ), t ∈ K → ‖a n t‖ ≤ u n := by
+      intro n t htK
+      by_cases hn3 : 3 ≤ n
+      · obtain ⟨m, rfl⟩ : ∃ m, n = m + 3 := ⟨n - 3, by omega⟩
+        simp only [u, show 3 ≤ m + 3 by omega, ↓reduceIte]
+        change ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ (m + 3)‖ ≤ v m
+        simp only [heckePrimePowerTailOscillationTerm]
+        split_ifs with hxn
+        · rw [norm_mul]
+          have htne : t ≠ t₀ := fun h ↦ hpole (h.symm ▸ htK)
+          have hg := heckePrimePowerTailOscillation_norm_le t₀ (by omega : 0 < m + 3 - 1) t htne
+          have hinv : ‖(invLog(m + 3) - invLog(m + 3 - 1) : ℂ)‖ = e m - e (m + 1) := by
+            rw [show m + 3 - 1 = m + 2 by omega, ← Complex.ofReal_inv, ← Complex.ofReal_inv,
+              ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs, abs_sub_comm,
+              abs_of_nonneg (sub_nonneg.mpr (hanti m))]
+          rw [hinv]
+          have hfrac : 2 / |t₀ - t| ≤ 2 / δ := by
+            have := one_div_le_one_div_of_le hδ (hδle t htK)
+            calc 2 / |t₀ - t| = 2 * (1 / |t₀ - t|) := by ring
+              _ ≤ 2 * (1 / δ) := mul_le_mul_of_nonneg_left this (by norm_num)
+              _ = 2 / δ := by ring
+          calc ‖heckePrimePowerTailOscillation t₀ (m + 3 - 1) ⟨1, t⟩‖ * (e m - e (m + 1))
+              ≤ (2 / |t₀ - t|) * (e m - e (m + 1)) :=
+                mul_le_mul_of_nonneg_right hg (sub_nonneg.mpr (hanti m))
+            _ ≤ (2 / δ) * (e m - e (m + 1)) :=
+                mul_le_mul_of_nonneg_right hfrac (sub_nonneg.mpr (hanti m))
+            _ = v m := rfl
+        · rw [norm_zero]
+          exact mul_nonneg (by positivity) (sub_nonneg.mpr (hanti m))
+      · have hu0 : u n = 0 := by simp [u, hn3]
+        rw [hu0]
+        have hnx : ¬ x ≤ (n : ℝ) := by
+          have : (n : ℝ) ≤ 2 := by exact_mod_cast (show n ≤ 2 by omega)
+          linarith
+        change ‖heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n‖ ≤ 0
+        simp [heckePrimePowerTailOscillationTerm, hnx]
+    have hrange : TendstoUniformlyOn (fun N : ℕ ↦ fun t ↦ ∑ n ∈ Finset.range N, a n t)
+        (fun t ↦ ∑' n, a n t) atTop K := by
+      have hfin := tendstoUniformlyOn_tsum hu hbound
+      rw [tendstoUniformlyOn_iff_tendsto] at hfin ⊢
+      have hcomp := hfin.comp (tendsto_finset_range.prodMap (tendsto_id : Tendsto id (𝓟 K) (𝓟 K)))
+      exact hcomp.congr (fun q ↦ by rcases q with ⟨N, t⟩; rfl)
+    have hconst : TendstoUniformlyOn (fun _ : ℕ ↦ E) E atTop K :=
+      fun u hu ↦ Filter.Eventually.of_forall fun N t htK ↦
+        refl_le_uniformity hu (Set.mem_diagonal (E t))
+    have hgoal := hconst.sub hrange
+    exact hgoal
 
 /-- Paper: Theorem B.7.2.4(1), Equation (B.7.2.19), p. 652. The oscillatory
 part is real analytic away from the pole ordinate.
