@@ -1705,9 +1705,9 @@ theorem not_bairespace_strongDual (E : Type*) [AddCommGroup E] [Module ℂ E]
     montelSpace_of_schwartz_frechet hFE (isSchwartzTVS_of_isNuclearTVS hN)
   have : MontelSpace ℂ E := hMontel
   -- A countable decreasing neighbourhood basis of the primal.
-  obtain ⟨U, hU⟩ := (𝓝 (0 : E)).exists_antitone_basis
+  obtain ⟨Un, hUn⟩ := (𝓝 (0 : E)).exists_antitone_basis
   set K : ℕ → Set (StrongDual ℂ E) :=
-    fun n => (((n + 1 : ℕ) : ℂ)) • StrongDual.polar ℂ (U (n + 1)) with hKdef
+    fun n => (((n + 1 : ℕ) : ℂ)) • StrongDual.polar ℂ (Un (n + 1)) with hKdef
   -- The scaled polars cover the strong dual.
   have hcover : (univ : Set (StrongDual ℂ E)) ⊆ ⋃ n, K n := by
     intro φ _
@@ -1716,10 +1716,10 @@ theorem not_bairespace_strongDual (E : Type*) [AddCommGroup E] [Module ℂ E]
       exact Metric.ball_mem_nhds 0 one_pos
     have hopen : φ ⁻¹' Metric.ball (0 : ℂ) 1 ∈ 𝓝 (0 : E) :=
       φ.continuous.continuousAt.preimage_mem_nhds hb
-    obtain ⟨m, hm⟩ := hU.mem_iff.mp hopen
+    obtain ⟨m, hm⟩ := hUn.mem_iff.mp hopen
     refine mem_iUnion.mpr ⟨m, ?_⟩
-    have hsub : U (m + 1) ⊆ U m := hU.antitone (Nat.le_succ m)
-    have hφ : φ ∈ StrongDual.polar ℂ (U (m + 1)) := by
+    have hsub : Un (m + 1) ⊆ Un m := hUn.antitone (Nat.le_succ m)
+    have hφ : φ ∈ StrongDual.polar ℂ (Un (m + 1)) := by
       rw [StrongDual.mem_polar_iff]
       intro x hx
       exact (mem_ball_zero_iff.mp (hm (hsub hx))).le
@@ -1727,7 +1727,7 @@ theorem not_bairespace_strongDual (E : Type*) [AddCommGroup E] [Module ℂ E]
       simpa using Nat.cast_ne_zero.mpr (Nat.succ_ne_zero m)
     have hsmul : (((m + 1 : ℕ) : ℂ)) • (((((m + 1 : ℕ) : ℂ)))⁻¹ • φ) = φ := by
       rw [smul_smul, mul_inv_cancel₀ hcast, one_smul]
-    have hψ : (((((m + 1 : ℕ) : ℂ)))⁻¹ • φ) ∈ StrongDual.polar ℂ (U (m + 1)) := by
+    have hψ : (((((m + 1 : ℕ) : ℂ)))⁻¹ • φ) ∈ StrongDual.polar ℂ (Un (m + 1)) := by
       rw [StrongDual.mem_polar_iff]
       intro x hx
       rw [smul_apply, norm_smul, norm_inv, Complex.norm_natCast]
@@ -1739,7 +1739,7 @@ theorem not_bairespace_strongDual (E : Type*) [AddCommGroup E] [Module ℂ E]
     rw [← hsmul]
     exact smul_mem_smul_set hψ
   have hKcompact (n : ℕ) : IsCompact (K n) :=
-    (isCompact_strongDual_polar (U := U (n + 1)) (hU.mem (n + 1))).smul (((n + 1 : ℕ) : ℂ))
+    (isCompact_strongDual_polar (hUn.mem (n + 1))).smul (((n + 1 : ℕ) : ℂ))
   -- A compact set with nonempty interior would make the strong dual finite-dimensional.
   have hKempty (n : ℕ) : interior (K n) = ∅ := by
     by_contra hne
