@@ -1649,6 +1649,36 @@ theorem strongCoprimalityPrimaryQuotient_nuclearFrechet (ω : PontryaginDual C�
       IsNuclearTVS (StrongCoprimalityQuotient η (finite_nuclearityPlacesAbove (F := F) p).toFinset))
     hχ).mp (strongCoprimalityPrimaryQuotient_character χ _)
 
+/-- A linear equivalence preserves infinite-dimensionality. -/
+private theorem not_finiteDimensional_iff_of_linearEquiv {X Y : Type*} [AddCommGroup X]
+    [Module ℂ X] [AddCommGroup Y] [Module ℂ Y] (e : X ≃ₗ[ℂ] Y) :
+    ¬ FiniteDimensional ℂ X ↔ ¬ FiniteDimensional ℂ Y := by
+  constructor
+  · intro hX hY
+    haveI := hY
+    exact hX (FiniteDimensional.of_injective e.toLinearMap e.injective)
+  · intro hY hX
+    haveI := hX
+    exact hY (FiniteDimensional.of_surjective e.toLinearMap e.surjective)
+
+open Classical in
+/-- Paper: Remark 7.5.0.2 and Equation (7.5.0.15), p. 378.
+The primary quotient is infinite-dimensional exactly when the comparison difference quotient is:
+`strongCoprimality` identifies the two by a topological linear equivalence. The difference
+quotient is the modulated decay isotype modulo the range of the difference product over the
+unramified places, so the remaining input for the refutation of the printed subquotient model
+is that this range has infinite codimension. -/
+theorem not_finiteDimensional_strongCoprimalityQuotient_iff (χ : U) (S : Finset V)
+    (π : (v : V) → (v.adicCompletion F)ˣ)
+    (hπ : ∀ v ∈ S, Valuation.IsUniformizer
+      (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))) (π v).val) :
+    let T := S.filter (fun v ↦ (ideleClassNormTwist χ 0).IsUnramifiedAt v)
+    ¬ FiniteDimensional ℂ (StrongCoprimalityQuotient ω(χ) S) ↔
+      ¬ FiniteDimensional ℂ (StrongCoprimalityDecaySpace ω(χ) ⧸
+        strongCoprimalityDifferenceRange ω(χ) T π) := by
+  obtain ⟨e, _⟩ := strongCoprimality χ S π hπ
+  exact not_finiteDimensional_iff_of_linearEquiv e.toLinearEquiv
+
 /-- Riesz's theorem: a compact set with nonempty interior in a Hausdorff topological vector
 space forces finite-dimensionality. -/
 private theorem finiteDimensional_of_isCompact_of_interior_nonempty {E : Type*}
