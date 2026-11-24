@@ -3786,6 +3786,73 @@ private theorem exists_L2_density_ratio {X : Type*} [MeasurableSpace X] (μ : Me
   rw [← hν]
   exact ⟨U, fun v => (hU v).trans (Filter.EventuallyEq.of_eq rfl)⟩
 
+private def sLocalNormDens (F : Type*) [Field F] [NumberField F]
+    (S : Finset (HeightOneSpectrum (𝓞 F))) : SIdeleQuotient F S → ℝ :=
+  fun g => ((((⟨sIdeleQuotientNorm F S, (isProperMap_sIdeleQuotientNorm F S).continuous⟩ :
+    SIdeleQuotient F S →ₜ* ℝ≥0ˣ) g) : ℝ≥0ˣ).val : ℝ)
+
+/-- The §9.2 interval Sobolev density on the degenerate interval `{0}` at degree `0`. -/
+private def sLocalSobDens (F : Type*) [Field F] [NumberField F]
+    (S : Finset (HeightOneSpectrum (𝓞 F))) : SIdeleQuotient F S → ℝ :=
+  fun g =>
+    if (false : Bool) then
+      (intervalSobolevDensity 0 0 0 (Real.log (((⟨sIdeleQuotientNorm F S,
+        (isProperMap_sIdeleQuotientNorm F S).continuous⟩ : SIdeleQuotient F S →ₜ* ℝ≥0ˣ) g).val : ℝ)))⁻¹
+    else intervalSobolevDensity 0 0 0 (Real.log (((⟨sIdeleQuotientNorm F S,
+      (isProperMap_sIdeleQuotientNorm F S).continuous⟩ : SIdeleQuotient F S →ₜ* ℝ≥0ˣ) g).val : ℝ))
+
+local notation "νsob" =>
+  ((μₛ).withDensity (fun x => ENNReal.ofReal (sLocalSobDens F S x)))
+
+private theorem sLocalNormDens_measurable : Measurable (sLocalNormDens F S) := by
+  have hc : Continuous fun g : Jₛ => (((sIdeleQuotientNorm F S g) : ℝ≥0ˣ).val : ℝ) :=
+    NNReal.continuous_coe.comp (Units.continuous_val.comp
+      (isProperMap_sIdeleQuotientNorm F S).continuous)
+  exact hc.measurable
+
+private theorem sLocalNormDens_pos (g : Jₛ) : 0 < sLocalNormDens F S g :=
+  NNReal.coe_pos.mpr (Units.zero_lt (sIdeleQuotientNorm F S g))
+
+private theorem sLocalSobDens_one (g : Jₛ) : sLocalSobDens F S g = 1 := by
+  simp only [sLocalSobDens]
+  simp [intervalSobolevDensity]
+
+private theorem sLocalSobDens_measurable : Measurable (sLocalSobDens F S) := by
+  have h : sLocalSobDens F S = fun _ => (1 : ℝ) := funext fun g => sLocalSobDens_one g
+  simpa only [h] using (measurable_const : Measurable fun _ : Jₛ => (1 : ℝ))
+
+private theorem sLocalSobDens_pos (g : Jₛ) : 0 < sLocalSobDens F S g := by
+  rw [sLocalSobDens_one g]
+  norm_num
+
+/-- The Sobolev measure at the degenerate interval is the quotient Haar measure. -/
+private theorem sLocalSobDens_measure : νsob = μₛ := by
+  have h : (fun x : Jₛ => ENNReal.ofReal (sLocalSobDens F S x)) =ᵐ[μₛ] (fun _ => 1) := by
+    filter_upwards with g
+    rw [sLocalSobDens_one g]
+    simp
+  rw [withDensity_congr_ae h]
+  exact withDensity_one
+
+private theorem sLocalSobDens_absolutelyContinuous : μₛ ≪ νsob := by
+  rw [sLocalSobDens_measure]
+
+private theorem sLocalNormDens_absolutelyContinuous :
+    μₛ ≪ ((μₛ).withDensity (fun x => ENNReal.ofReal (sLocalNormDens F S x))) :=
+  withDensity_absolutelyContinuous' (sLocalNormDens_measurable).ennreal_ofReal.aemeasurable
+    (.of_forall fun g => by
+      simp only [ne_eq, ENNReal.ofReal_eq_zero, not_le]
+      exact sLocalNormDens_pos g)
+
+/-- The density-ratio unitary of (10.1.2.6) on the ambient `L²` spaces. -/
+private theorem exists_sLocalHalfWeight_unitary :
+    ∃ U : Lp ℂ 2 ((μₛ).withDensity (fun g => ENNReal.ofReal ((((mₛ g) : ℝ≥0ˣ).val : ℝ))))
+        ≃ₗᵢ[ℂ] Wₛ(0, 0, 0),
+      ∀ v, (U v : Jₛ → ℂ) =ᵐ[νsob]
+        (fun x => (Real.sqrt (sLocalNormDens F S x / sLocalSobDens F S x) : ℂ) * v x) :=
+  exists_L2_density_ratio (μ := μₛ) (sLocalNormDens F S) (sLocalSobDens F S)
+    sLocalNormDens_measurable sLocalSobDens_measurable sLocalNormDens_pos sLocalSobDens_pos
+
 /-- Paper: (10.1.2.6), p. 438. The local weighted L² completion of §5.4
 identifies isometrically with the degree-zero Sobolev completion at weight one half.
 On test representatives the isometry multiplies by the square root of the norm. -/
