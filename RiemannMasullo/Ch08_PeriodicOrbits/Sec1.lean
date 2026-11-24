@@ -120,8 +120,46 @@ is the principal value of the theta class of another restricted test. -/
 theorem mem_sLocalOrbitalSupportRelations_iff (hT : T ⊆ S) (η : PontryaginDual J₁(S))
     (f : U(S, T)) :
     f ∈ sLocalOrbitalSupportRelations hT η ↔
-      ∃ g : U(S, T), q(η) f.val = sLocalHomogeneousThetaPrincipalValue hT η (q(η) g.val) :=
-  by sorry
+      ∃ g : U(S, T), q(η) f.val = sLocalHomogeneousThetaPrincipalValue hT η (q(η) g.val) := by
+  have hker : ∀ x : U(S, T), q(η) x.val = 0 ↔
+      x ∈ ((sLocalHomogeneousAdelicThetaLinearMap F S η).domRestrict (U(S, T))).ker := by
+    intro x
+    simp only [Submodule.mkQL_apply, Submodule.mkQ_apply, LinearMap.mem_ker,
+      LinearMap.domRestrict_apply, Submodule.Quotient.mk_eq_zero]
+  have hP : ∀ g : U(S, T), q(η) (sAdelePrincipalValue F hT g.val) =
+      sLocalHomogeneousThetaPrincipalValue hT η (q(η) g.val) := by
+    intro g
+    simp only [Submodule.mkQL_apply, Submodule.mkQ_apply]
+    exact (sLocalHomogeneousThetaPrincipalValue_mk hT η g.val).symm
+  rw [show sLocalOrbitalSupportRelations hT η =
+      ((sLocalHomogeneousAdelicThetaLinearMap F S η).domRestrict (U(S, T))).ker ⊔
+        (LinearMap.codRestrict (U(S, T))
+          ((sAdelePrincipalValue F hT).domRestrict (U(S, T)))
+          (fun f ↦ sLocalOrbitalSupportTests_principalValue (F := F) hT f)).range from rfl,
+    Submodule.mem_sup]
+  constructor
+  · intro hf
+    obtain ⟨a, ha, b, hb, rfl⟩ := hf
+    obtain ⟨g, rfl⟩ := hb
+    refine ⟨g, ?_⟩
+    rw [show (↑(a + LinearMap.codRestrict (U(S, T))
+          ((sAdelePrincipalValue F hT).domRestrict (U(S, T)))
+          (fun f ↦ sLocalOrbitalSupportTests_principalValue (F := F) hT f) g) : B(S)) =
+        a.val + sAdelePrincipalValue F hT g.val from rfl, map_add,
+      (hker a).mpr ha, hP g, zero_add]
+  · rintro ⟨g, hg⟩
+    refine ⟨f - LinearMap.codRestrict (U(S, T))
+        ((sAdelePrincipalValue F hT).domRestrict (U(S, T)))
+        (fun f ↦ sLocalOrbitalSupportTests_principalValue (F := F) hT f) g, ?_,
+      LinearMap.codRestrict (U(S, T))
+        ((sAdelePrincipalValue F hT).domRestrict (U(S, T)))
+        (fun f ↦ sLocalOrbitalSupportTests_principalValue (F := F) hT f) g,
+      ⟨g, rfl⟩, sub_add_cancel f _⟩
+    refine (hker _).mp ?_
+    rw [show (↑(f - LinearMap.codRestrict (U(S, T))
+          ((sAdelePrincipalValue F hT).domRestrict (U(S, T)))
+          (fun f ↦ sLocalOrbitalSupportTests_principalValue (F := F) hT f) g) : B(S)) =
+        f.val - sAdelePrincipalValue F hT g.val from rfl, map_sub, hP g, hg, sub_self]
 
 local notation "π(" hT ", " η ")" => (D(hT, η)).mkQL.comp (q(η))
 
