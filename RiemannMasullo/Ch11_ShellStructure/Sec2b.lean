@@ -1579,6 +1579,26 @@ local notation "Aω(" φ ")" => ContinuousLinearMap.restrict (A(hs, φ))
 /-- Paper: (11.2.2.1)–(11.2.2.3), pp. 489–490.
 Convolution preserves the closed principal-value subspace of the zero-line isotype.
 Deviation: Use the closure of the principal-value image. -/
+-- STUCK (elaboration budget, not mathematics). The reduction is complete:
+-- (1) at twist 0 the completed principal value `globalThetaSobolevPrincipalValue F (Sₚ(p)) 0 hs`
+--     commutes with EVERY ambient translation, not only norm-one ones: extend
+--     `globalThetaPrincipalValue_equivariant` (Ch05 Sec3a) from theta classes to the completion
+--     by `DenseRange.equalizer` on `globalThetaSobolev_dense`, exactly as Sec2a's
+--     `globalThetaSobolevPrincipalValue_equivariant` does for norm-one elements (the weight
+--     `|g|^(-0)=1` for all g); the empty-`S` case uses `adelePrincipalValue F ∅ = id`.
+-- (2) hence each `hardySobolevTranslation` preserves the closed range
+--     `(H.subtype.comp P.toLinearMap).range.topologicalClosure` (`Submodule.topologicalClosure_minimal`).
+-- (3) convolution is the Pettis integral of translations (`bruhatRegularizedAction_apply`), and a
+--     Pettis integral of vectors in a closed Hilbert subspace stays in it (orthogonal-complement
+--     argument, cf. Ch10 Sec3 `hardySobolevTestAction_preserves_globalTheta_aux`). Restrict to the
+--     isotype and use `Submodule.Quotient.mk_eq_zero`.
+-- Obstacle: `globalThetaSobolev` is an `abbrev` over a `.choose`; expanding it (needed to use the
+-- PV range) exceeds the default 200000 heartbeats at `whnf`/`isDefEq` in Sec2b (which also sets
+-- `Elab.async false`). The analogous Ch10 Sec3 lemmas are proved only under
+-- `set_option maxHeartbeats 600000/800000 in`. A local heartbeat increase (integrator approval;
+-- provers may not add one) or a `def`-with-instances model for `globalThetaSobolev` (AGENTS.md #5398)
+-- would unblock this. Abstracting H/P into opaque helper arguments avoids statement elaboration but
+-- the final instantiation/unification still overruns.
 theorem primeOrbitalSobolevSubmodule_convolution_invariant (φ : BruhatCompactSupport C𝔽) :
     N(p, hs, ω) ≤ ((N(p, hs, ω)).mkQL.comp (Aω(φ))).ker := by sorry
 
