@@ -33,6 +33,24 @@ def adeleOrbitBasepoint : Option (InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)
   | some (.inl v) => AdeleRing.ofCompletion (𝓞 F) F v 0
   | some (.inr v) => AdeleRing.ofAdicCompletion (𝓞 F) F v 0
 
+/-- The selected finite base point has coordinate zero at its own place. -/
+private theorem adeleOrbitBasepoint_finite_apply_self (v : HeightOneSpectrum (𝓞 F)) :
+    ((FiniteAdeleRing.ofAdicCompletion F v) 0) v = 0 := by
+  classical
+  rw [show ((FiniteAdeleRing.ofAdicCompletion F v) 0) v =
+      (RestrictedProduct.mulSingle
+        (fun w => HeightOneSpectrum.adicCompletionIntegers F w) v 0) v from rfl]
+  rw [RestrictedProduct.coe_mulSingle_apply, Pi.mulSingle_eq_same]
+
+/-- The selected finite base point has coordinate one at every other place. -/
+private theorem adeleOrbitBasepoint_finite_apply_ne {v w : HeightOneSpectrum (𝓞 F)}
+    (hw : w ≠ v) : ((FiniteAdeleRing.ofAdicCompletion F v) 0) w = 1 := by
+  classical
+  rw [show ((FiniteAdeleRing.ofAdicCompletion F v) 0) w =
+      (RestrictedProduct.mulSingle
+        (fun w => HeightOneSpectrum.adicCompletionIntegers F w) v 0) w from rfl]
+  rw [RestrictedProduct.coe_mulSingle_apply, Pi.mulSingle_eq_of_ne hw 0]
+
 /-- Paper: Definition 8.2.0.1(1), p. 384. Coordinate formulas for the global base points. -/
 theorem adeleOrbitBasepoint_coordinates :
     adeleOrbitBasepoint F none = 1 ∧
@@ -45,7 +63,21 @@ theorem adeleOrbitBasepoint_coordinates :
         (adeleOrbitBasepoint F (some (.inr v))).2 v = 0 ∧
         ∀ w : HeightOneSpectrum (𝓞 F), w ≠ v →
           (adeleOrbitBasepoint F (some (.inr v))).2 w = 1) := by
-  sorry
+  refine ⟨rfl, ?_, ?_⟩
+  · intro v
+    refine ⟨?_, ?_, ?_⟩
+    · simp [adeleOrbitBasepoint]
+    · intro w hw
+      simpa [adeleOrbitBasepoint] using hw
+    · simp [adeleOrbitBasepoint]
+  · intro v
+    refine ⟨?_, ?_, ?_⟩
+    · simp [adeleOrbitBasepoint]
+    · simp only [adeleOrbitBasepoint]
+      exact adeleOrbitBasepoint_finite_apply_self F v
+    · intro w hw
+      simp only [adeleOrbitBasepoint]
+      exact adeleOrbitBasepoint_finite_apply_ne F hw
 
 /-- Paper: Definition 8.2.0.1(1), p. 384. The S-local base points keep all infinite
 places and the finite places in S. -/
@@ -56,7 +88,11 @@ def sAdeleOrbitBasepoint (i : Option (InfinitePlace F ⊕ S)) : Aₛ :=
 has zero at that place, including after projection to the S-adeles. -/
 theorem sAdeleOrbitBasepoint_finite (v : S) :
     (sAdeleOrbitBasepoint F S (some (.inr v))).2 v = 0 := by
-  sorry
+  classical
+  rw [show (sAdeleOrbitBasepoint F S (some (.inr v))).2 v =
+      ((FiniteAdeleRing.ofAdicCompletion F (v : HeightOneSpectrum (𝓞 F))) 0)
+        (v : HeightOneSpectrum (𝓞 F)) from rfl]
+  exact adeleOrbitBasepoint_finite_apply_self F (v : HeightOneSpectrum (𝓞 F))
 
 /-- Paper: Definition 8.2.0.1(1), p. 384. The set $Z_{F,S}$ in (8.2.0.1)
 consists of 1 and the single-zero base points, with the adelic subspace topology. -/
@@ -74,7 +110,7 @@ def adeleOrbitBasepoints : Set 𝔸[F] :=
 
 /-- Paper: Definition 8.2.0.1(1), p. 384. The ordinary base point lies in $Z_F$. -/
 theorem one_mem_adeleOrbitBasepoints : 1 ∈ adeleOrbitBasepoints F := by
-  sorry
+  exact ⟨none, rfl⟩
 
 /-- Paper: Definition 8.2.0.1(2), p. 384. The family in (8.2.0.3) consists of the
 S-local full-idele orbits with their adelic subspace topologies. -/
