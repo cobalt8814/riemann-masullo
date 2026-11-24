@@ -1894,6 +1894,80 @@ theorem sLocalThetaPrincipalValue_toGlobal {S₀ S : Finset V}
   apply sLocalThetaPrincipalValue_transition_mapQ
   exact sLocalThetaPrincipalValue_toGlobal_tests h₀
 
+open Classical in
+/-- On test functions the S-local principal value commutes with translation by an S-idele:
+on pure tensors the translation splits into the archimedean and the local factors, the
+selected factors commute by the local statement, and the remaining factors are untouched. -/
+private theorem sAdelePrincipalValue_equivariant_tests {S₀ S : Finset V} (h₀ : S₀ ⊆ S)
+    (gS : (SAdeleRing F S)ˣ) (k : ℬₛ(S)) :
+    sAdelePrincipalValue F h₀ (schwartzBruhatUnitTranslate gS k) =
+      schwartzBruhatUnitTranslate gS (sAdelePrincipalValue F h₀ k) := by
+  let e' := (sAdeleSchwartz_inductiveTensor_equiv F S).choose
+  have he' := (sAdeleSchwartz_inductiveTensor_equiv F S).choose_spec
+  let P := sAdelePrincipalValue F h₀
+  let T : ℬₛ(S) →ₗ[ℂ] ℬₛ(S) :=
+    { toFun := schwartzBruhatUnitTranslate gS
+      map_add' := fun _ _ ↦ rfl
+      map_smul' := fun _ _ ↦ rfl }
+  let gInf : (InfiniteAdeleRing F)ˣ := Units.map (RingHom.fst _ _).toMonoidHom gS
+  let gw (w : S) : (w.val.adicCompletion F)ˣ :=
+    Units.map ((Pi.evalRingHom _ w).comp (RingHom.snd _ _)).toMonoidHom gS
+  have hlocal (v : V) (c : (v.adicCompletion F)ˣ) (h : ℬ(v.adicCompletion F)) :
+      finitePlacePrincipalValue v (schwartzBruhatUnitTranslate c h) =
+        schwartzBruhatUnitTranslate c (finitePlacePrincipalValue v h) := by
+    let hπ0 := (Valued.v : Valuation (v.adicCompletion F)
+      (WithZero (Multiplicative ℤ))).exists_isUniformizer_of_isCyclic_of_nontrivial
+    let π := Units.mk0 (hπ0.choose : v.adicCompletion F) hπ0.choose_spec.ne_zero
+    let : MeasurableSpace (v.adicCompletion F)ˣ := borel _
+    have : BorelSpace (v.adicCompletion F)ˣ := ⟨rfl⟩
+    apply Subtype.ext
+    funext x
+    change finitePlacePrincipalValue v (schwartzBruhatUnitTranslate c h)
+        (Multiplicative.ofAdd x.toAdd) =
+      schwartzBruhatUnitTranslate c (finitePlacePrincipalValue v h) (Multiplicative.ofAdd x.toAdd)
+    rw [schwartzBruhatUnitTranslate_apply, finitePlacePrincipalValue_spec v π hπ0.choose_spec,
+      finitePlacePrincipalValue_spec v π hπ0.choose_spec]
+    unfold finitePlacePrincipalValueFun
+    simp only [schwartzBruhatUnitTranslate_apply, toAdd_ofAdd]
+    congr 2
+    refine setIntegral_congr_fun ?_ fun u _ ↦ ?_
+    · exact (Submonoid.isOpen_units (Valued.isOpen_valuationSubring _)).measurableSet
+    · exact congrArg (fun y ↦ h (Multiplicative.ofAdd y)) (by ring)
+  have hT (a : ℬ(InfiniteAdeleRing F)) (g : ∀ w : S, ℬ(w.val.adicCompletion F)) :
+      T (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) = e' (schwartzBruhatUnitTranslate gInf a ⊗ₜ[ℂ]
+        (⨂ₜ[ℂ] w, schwartzBruhatUnitTranslate (gw w) (g w))) := by
+    apply Subtype.ext
+    funext x
+    refine (he' a g ((↑gS⁻¹ : SAdeleRing F S) * x.toAdd)).trans (Eq.trans ?_
+      (he' (schwartzBruhatUnitTranslate gInf a)
+        (fun w ↦ schwartzBruhatUnitTranslate (gw w) (g w)) x.toAdd).symm)
+    rfl
+  have hyp : ∀ (a : ℬ(InfiniteAdeleRing F)) (g : ∀ w : S, ℬ(w.val.adicCompletion F)),
+      (P ∘ₗ T) (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) = (T ∘ₗ P) (e' (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, g w))) := by
+    intro a g
+    have h1 := sAdelePrincipalValue_tmul h₀ (schwartzBruhatUnitTranslate gInf a)
+      (fun w ↦ schwartzBruhatUnitTranslate (gw w) (g w))
+    have h2 := sAdelePrincipalValue_tmul h₀ a g
+    refine (congrArg P (hT a g)).trans (h1.trans ?_)
+    refine Eq.trans ?_ (congrArg T h2).symm
+    refine Eq.trans ?_ (hT a _).symm
+    have hfun : (fun w : S ↦ if w.val ∈ S₀ then
+          finitePlacePrincipalValue w.val (schwartzBruhatUnitTranslate (gw w) (g w))
+        else schwartzBruhatUnitTranslate (gw w) (g w)) =
+        fun w ↦ schwartzBruhatUnitTranslate (gw w)
+          (if w.val ∈ S₀ then finitePlacePrincipalValue w.val (g w) else g w) := by
+      funext w
+      by_cases hw : w.val ∈ S₀
+      · simp only [hw, ite_true]
+        exact hlocal w.val (gw w) (g w)
+      · simp only [hw, ite_false]
+    exact congrArg (fun φ : ∀ w : S, ℬ(w.val.adicCompletion F) ↦
+      e' (schwartzBruhatUnitTranslate gInf a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, φ w))) hfun
+  have hcomp := sLocalThetaPrincipalValue_transition_ext
+    (M := fun w : S ↦ ℬ(w.val.adicCompletion F)) e' LinearMap.id (P ∘ₗ T) (T ∘ₗ P)
+    (fun a g ↦ hyp a g)
+  exact LinearMap.congr_fun hcomp k
+
 /-- Paper: Lemma 5.3.1.5, p. 242.
 The S-local principal value commutes with each S-idele translation on theta classes. -/
 theorem sLocalThetaPrincipalValue_equivariant {S₀ S : Finset V}
@@ -1901,7 +1975,9 @@ theorem sLocalThetaPrincipalValue_equivariant {S₀ S : Finset V}
     Submodule.Quotient.mk
         (sAdelePrincipalValue F h₀ (schwartzBruhatUnitTranslate g f)) =
       (Submodule.Quotient.mk
-        (schwartzBruhatUnitTranslate g (sAdelePrincipalValue F h₀ f)) : Θₛ(S)) := by sorry
+        (schwartzBruhatUnitTranslate g (sAdelePrincipalValue F h₀ f)) : Θₛ(S)) := by
+  apply congrArg
+  exact sAdelePrincipalValue_equivariant_tests h₀ g f
 
 /-- Weil's local principal value commutes with multiplicative translation, since both only
 rescale the argument. -/
