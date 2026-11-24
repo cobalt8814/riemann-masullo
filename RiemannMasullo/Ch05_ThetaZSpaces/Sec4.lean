@@ -421,12 +421,336 @@ private theorem existsUnique_sLocalZetaMatchingDifference_multiplier
   exact ENNReal.toReal_mono (hv.const_smul C).eLpNorm_ne_top
     (eLpNorm_mono hu.aestronglyMeasurable hle)
 
+/-- A continuous function periodic in the imaginary direction is bounded on closed strips. -/
+private theorem rhoGrowth_periodic_strip_bound {p : ℂ → ℂ} {T : ℝ}
+    (hT : 0 < T) (hperiod : Periodic p ((T : ℂ) * Complex.I))
+    (hp : Continuous p) (a b : ℝ) :
+    ∃ C ≥ (0 : ℝ), ∀ z : ℂ, z.re ∈ Icc a b → ‖p z‖ ≤ C := by
+  let K := Complex.reProdIm (Icc a b) (Icc 0 T)
+  have hK : IsCompact K := isCompact_Icc.reProdIm isCompact_Icc
+  obtain ⟨C, hC⟩ := hK.bddAbove_image hp.norm.continuousOn
+  refine ⟨max C 0, le_max_right _ _, fun z hz ↦ ?_⟩
+  let n := ⌊z.im / T⌋
+  let v := (n : ℂ) * ((T : ℂ) * Complex.I)
+  have hvre : v.re = 0 := by simp [v, Complex.mul_re, Complex.mul_im]
+  have hvim : v.im = (n : ℝ) * T := by simp [v, Complex.mul_re, Complex.mul_im]
+  have hzK : z - v ∈ K := by
+    have hfloor := (le_div_iff₀ hT).mp (Int.floor_le (z.im / T))
+    have hceil := (div_lt_iff₀ hT).mp (Int.lt_floor_add_one (z.im / T))
+    change (z - v).re ∈ Icc a b ∧ (z - v).im ∈ Icc 0 T
+    rw [Complex.sub_re, hvre, sub_zero, Complex.sub_im, hvim]
+    exact ⟨hz, ⟨by dsimp [n]; linarith, by dsimp [n]; linarith⟩⟩
+  have hper : p z = p (z - v) := by
+    simpa only [v, zsmul_eq_mul, sub_add_cancel] using (hperiod.zsmul n (z - v))
+  rw [hper]
+  exact (hC ⟨z - v, hzK, rfl⟩).trans (le_max_left _ _)
+
+/-- The finite-place norm-twist chart is periodic in the imaginary direction. -/
+private theorem rhoGrowth_finite_chart_periodic (v : HeightOneSpectrum (𝓞 F))
+    (η : PontryaginDual (v.adicCompletion F)ˣ) :
+    ∃ T : ℝ, 0 < T ∧ Periodic (quasiCharacterNormTwist
+      (Units.map nnNormHom.toMonoidHom : (v.adicCompletion F)ˣ →* ℝ≥0ˣ)
+      (continuous_finiteLocalModule v)
+      ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp η))
+      ((T : ℂ) * Complex.I) := by
+  let q := (v.asIdeal.absNorm : ℝ)
+  have hq : 1 < q := by
+    dsimp only [q]
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v
+  let T := 2 * Real.pi / Real.log q
+  refine ⟨T, div_pos (by positivity) (Real.log_pos hq), fun z ↦ ?_⟩
+  ext1 u
+  let k := WithZero.log (Valued.v u.val)
+  have hnorm : ‖u.val‖ = q ^ k := by
+    rw [FinitePlace.norm_def, WithZeroMulInt.toNNReal_neg_apply _
+      ((Valuation.ne_zero_iff _).mpr u.ne_zero)]
+    push_cast
+    rfl
+  have hu : 0 < ‖u.val‖ := norm_pos_iff.mpr u.ne_zero
+  have hlog : Complex.log (‖u.val‖ : ℂ) = (k : ℂ) * (Real.log q : ℂ) := by
+    rw [← Complex.ofReal_log hu.le, hnorm, Real.log_zpow, Complex.ofReal_mul,
+      Complex.ofReal_intCast]
+  have hprod : (Real.log q : ℂ) * ((T : ℂ) * Complex.I) =
+      2 * (Real.pi : ℂ) * Complex.I := by
+    dsimp only [T]
+    push_cast
+    field_simp [(Real.log_pos hq).ne']
+  have hpow : (‖u.val‖ : ℂ) ^ ((T : ℂ) * Complex.I) = 1 := by
+    rw [Complex.cpow_def_of_ne_zero (Complex.ofReal_ne_zero.mpr hu.ne'), hlog, mul_assoc, hprod,
+      Complex.exp_int_mul_two_pi_mul_I]
+  change (η u : ℂ) * (‖u.val‖ : ℂ) ^ (z + (T : ℂ) * Complex.I) =
+    (η u : ℂ) * (‖u.val‖ : ℂ) ^ z
+  rw [Complex.cpow_add _ _ (Complex.ofReal_ne_zero.mpr hu.ne'), hpow, mul_one]
+
+/-- The S-local epsilon factor is bounded on every closed vertical strip. -/
+private theorem rhoGrowth_epsilon_bound (χ : PontryaginDual Jₛ) (a b : ℝ) :
+    ∃ C ≥ (0 : ℝ), ∀ z : ℂ, z.re ∈ Icc a b →
+      ‖sLocalEpsilonFactor (normChart(χ) z)‖ ≤ C := by
+  classical
+  have hfinite (v : S) : ∃ C ≥ (0 : ℝ), ∀ z : ℂ, z.re ∈ Icc a b →
+      ‖finiteLocalEpsilonFactor v.val (sLocalFiniteRestriction v (normChart(χ) z))‖ ≤ C := by
+    obtain ⟨η, hη, _⟩ := sLocalFiniteRestriction_exists_normTwistChart χ v
+    obtain ⟨T, hT, hperiod⟩ := rhoGrowth_finite_chart_periodic v.val η
+    have hE : Periodic (finiteLocalEpsilonFactor v.val ∘
+        (quasiCharacterNormTwist
+          (Units.map nnNormHom.toMonoidHom : (v.val.adicCompletion F)ˣ →* ℝ≥0ˣ)
+          (continuous_finiteLocalModule v.val)
+          ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp η)))
+        ((T : ℂ) * Complex.I) := fun z ↦ congrArg (finiteLocalEpsilonFactor v.val) (hperiod z)
+    simpa only [hη, Function.comp_apply] using
+      rhoGrowth_periodic_strip_bound hT hE
+        (continuous_iff_continuousAt.mpr fun z ↦
+          ((finiteLocalEpsilonFactor_entire v.val η) z (mem_univ z)).continuousAt) a b
+  choose C hC hbound using hfinite
+  refine ⟨∏ v : S, C v, Finset.prod_nonneg fun v _ ↦ hC v, fun z hz ↦ ?_⟩
+  have harch (w : InfinitePlace F) :
+      ‖infiniteLocalEpsilonFactor w (sLocalInfiniteRestriction w (normChart(χ) z))‖ = 1 := by
+    unfold infiniteLocalEpsilonFactor
+    split <;> rw [norm_pow, Complex.norm_I, one_pow]
+  rw [sLocalEpsilonFactor, norm_mul, norm_prod, norm_prod]
+  simp only [harch, Finset.prod_const_one, one_mul]
+  exact Finset.prod_le_prod₀ (fun _ _ ↦ norm_nonneg _) (fun v _ ↦ hbound v z hz)
+
+/-- On a closed strip in the overlap, each finite Euler factor is bounded by a
+geometric constant. -/
+private theorem rhoGrowth_euler_le (η : PontryaginDual (IdeleClassGroup (𝓞 F) F))
+    (v : HeightOneSpectrum (𝓞 F)) {a : ℝ} (ha : 0 < a) {z : ℂ} (hz : a ≤ z.re) :
+    ‖finiteHeckeEulerFactor η v z‖ ≤ (1 - (v.asIdeal.absNorm : ℝ) ^ (-a))⁻¹ := by
+  classical
+  let q : ℝ := v.asIdeal.absNorm
+  have hq : 1 < q := by
+    dsimp only [q]
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v
+  have hq0 : 0 < q := by linarith
+  have hqa : (q : ℝ) ^ (-a) < 1 := Real.rpow_lt_one_of_one_lt_of_neg hq (by linarith)
+  rw [finiteHeckeEulerFactor]
+  split_ifs with hχ
+  · change ‖(1 - (ideleClassNormTwist η 0).localValue v * (q : ℂ) ^ (-z))⁻¹‖ ≤
+      (1 - q ^ (-a))⁻¹
+    have hw : ‖(ideleClassNormTwist η 0).localValue v * (q : ℂ) ^ (-z)‖ ≤ q ^ (-a) := by
+      rw [norm_mul, norm_ideleClassNormTwist_zero_localValue, one_mul,
+        Complex.norm_cpow_eq_rpow_re_of_pos hq0, Complex.neg_re]
+      exact Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ q) (by linarith)
+    have hd : 1 - q ^ (-a) ≤ ‖1 - (ideleClassNormTwist η 0).localValue v * (q : ℂ) ^ (-z)‖ := by
+      have := norm_sub_norm_le (1 : ℂ)
+        ((ideleClassNormTwist η 0).localValue v * (q : ℂ) ^ (-z))
+      rw [norm_one] at this
+      linarith
+    rw [norm_inv]
+    exact (inv_le_inv₀ (by linarith) (by linarith)).mpr hd
+  · change ‖(1 : ℂ)‖ ≤ (1 - q ^ (-a))⁻¹
+    rw [norm_one, ← one_div]
+    exact (one_le_div (by linarith)).mpr (by linarith [Real.rpow_nonneg hq0.le (-a)])
+
+/-- On a closed strip in the overlap, the reciprocal of each reflected finite Euler
+factor is bounded by a geometric constant. -/
+private theorem rhoGrowth_euler_inv_le (η : PontryaginDual (IdeleClassGroup (𝓞 F) F))
+    (v : HeightOneSpectrum (𝓞 F)) {b : ℝ} (hb : b < 1) {z : ℂ} (hz : z.re ≤ b) :
+    ‖(finiteHeckeEulerFactor η v (1 - z))⁻¹‖ ≤
+      1 + (v.asIdeal.absNorm : ℝ) ^ (-(1 - b)) := by
+  classical
+  let q : ℝ := v.asIdeal.absNorm
+  have hq : 1 < q := by
+    dsimp only [q]
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v
+  have hq0 : 0 < q := by linarith
+  rw [finiteHeckeEulerFactor]
+  split_ifs with hχ
+  · rw [inv_inv]
+    change ‖1 - (ideleClassNormTwist η 0).localValue v * (q : ℂ) ^ (-(1 - z))‖ ≤
+      1 + q ^ (-(1 - b))
+    refine (norm_sub_le _ _).trans ?_
+    rw [norm_one]
+    gcongr
+    rw [norm_mul, norm_ideleClassNormTwist_zero_localValue, one_mul,
+      Complex.norm_cpow_eq_rpow_re_of_pos hq0]
+    simp only [Complex.neg_re, Complex.sub_re, Complex.one_re]
+    exact Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ q) (by linarith)
+  · rw [inv_one, norm_one]
+    exact le_add_of_nonneg_right (Real.rpow_nonneg (Nat.cast_nonneg _) _)
+
 /-- The S-local correcting factor has polynomial growth on every closed substrip
 of the overlap. The degree may depend on the substrip and the character. -/
 private theorem existsUnique_sLocalZetaMatchingDifference_rhoGrowth (χ : PontryaginDual Jₛ)
     (a b : ℝ) (hab : a ≤ b) (hsub : Icc a b ⊆ overlapInterval) :
     ∃ C ≥ (0 : ℝ), ∃ m : ℕ, ∀ z ∈ Complex.re ⁻¹' Icc a b, ‖ρₛ(χ, z)‖ ≤ C * ‖z‖ ^ m := by
-  sorry
+  classical
+  have ha : 0 < a := (hsub (left_mem_Icc.mpr hab)).1
+  have hb : b < 1 := (hsub (right_mem_Icc.mpr hab)).2
+  -- A slightly wider closed strip, still inside the overlap.
+  let a' : ℝ := a / 2
+  let b' : ℝ := (b + 1) / 2
+  have ha' : 0 < a' := by dsimp [a']; linarith
+  have hb' : b' < 1 := by dsimp [b']; linarith
+  have hab' : a' ≤ b' := by dsimp [a', b']; linarith
+  have haa' : a' < a := by dsimp [a']; linarith
+  have hbb' : b < b' := by dsimp [b']; linarith
+  let n : ℕ := Module.finrank ℚ F
+  -- The epsilon factor is bounded on the wider strip.
+  obtain ⟨E, hE0, hE⟩ := rhoGrowth_epsilon_bound χ a' b'
+  -- A global unitary extension of χ, and the inverse extension for χ⁻¹.
+  obtain ⟨η, hη, hχη, -⟩ := sLocal_character_extension χ
+  have hpt (g : IdeleClassGroup (𝓞 F) F) :
+      ideleClassNormTwist η⁻¹ 0 g = (ideleClassNormTwist η 0 g)⁻¹ := by
+    change ((η⁻¹ g : Circle) : ℂ) * (((ideleClassNorm F g : ℝ≥0) : ℝ) : ℂ) ^ (0 : ℂ) =
+      (((η g : Circle) : ℂ) * (((ideleClassNorm F g : ℝ≥0) : ℝ) : ℂ) ^ (0 : ℂ))⁻¹
+    simp only [Complex.cpow_zero, mul_one]
+    rfl
+  have hηinv : ideleClassNormTwist η⁻¹ 0 ∈ unramifiedOutside F S := by
+    rw [mem_unramifiedOutside_iff F S (ideleClassNormTwist η 0)] at hη
+    rw [mem_unramifiedOutside_iff F S (ideleClassNormTwist η⁻¹ 0)]
+    intro v hv u
+    have h := hη v hv u
+    let x := IdeleClassGroup.ofAdicCompletion (𝓞 F) F v
+      (Units.map (v.adicCompletionIntegers F).subtype.toMonoidHom u)
+    have hx : (ideleClassNormTwist η 0) x = 1 := h
+    change (ideleClassNormTwist η⁻¹ 0) x = 1
+    rw [hpt, hx, inv_one]
+  have hχinv : sIdeleRestriction F S ⟨ideleClassNormTwist η⁻¹ 0, hηinv⟩ =
+      normChart(χ⁻¹) 0 := by
+    have h1 (g : Jₛ) : normChart(χ⁻¹) 0 g = (normChart(χ) 0 g)⁻¹ := by
+      change ((χ⁻¹ g : Circle) : ℂ) * (((mₛ g : ℝ≥0) : ℝ) : ℂ) ^ (0 : ℂ) =
+        (((χ g : Circle) : ℂ) * (((mₛ g : ℝ≥0) : ℝ) : ℂ) ^ (0 : ℂ))⁻¹
+      simp only [Complex.cpow_zero, mul_one]
+      rfl
+    ext x
+    obtain ⟨g, rfl⟩ := QuotientGroup.mk_surjective x
+    have hx : sIdeleRestriction F S ⟨ideleClassNormTwist η 0, hη⟩ (QuotientGroup.mk g) =
+        normChart(χ) 0 (QuotientGroup.mk g) := by rw [hχη]
+    simp only [sIdeleRestriction_mk] at hx ⊢
+    calc (ideleClassNormTwist η⁻¹ 0) (QuotientGroup.mk (sIdeleInsertion F S g))
+        = ((ideleClassNormTwist η 0) (QuotientGroup.mk (sIdeleInsertion F S g)))⁻¹ := hpt _
+      _ = (normChart(χ) 0 (QuotientGroup.mk g))⁻¹ := by rw [hx]
+      _ = normChart(χ⁻¹) 0 (QuotientGroup.mk g) := (h1 g).symm
+  -- The gamma reflection bound on the reflected strip.
+  obtain ⟨Cγ, Tγ, hCγ, hTγ, hγ⟩ := heckeGamma_reflection_bound η⁻¹ (1 - b') (1 - a')
+  let T : ℝ := max Tγ 1
+  have hT1 : 1 ≤ T := le_max_right _ _
+  have hTγ : Tγ ≤ T := le_max_left _ _
+  have hTpos : 0 < T := by linarith
+  -- Bounds for the finite Euler products on the wider strip.
+  let P₁ : ℝ := ∏ v : S, (1 - (v.val.asIdeal.absNorm : ℝ) ^ (-a'))⁻¹
+  let P₂ : ℝ := ∏ v : S, (1 + (v.val.asIdeal.absNorm : ℝ) ^ (-(1 - b')))
+  have hP1nn : 0 ≤ P₁ :=
+    Finset.prod_nonneg fun v _ ↦ inv_nonneg.mpr (sub_nonneg.mpr
+      (Real.rpow_le_one_of_one_le_of_nonpos
+        (by exact_mod_cast (HeightOneSpectrum.one_lt_absNorm v.val).le) (by linarith)))
+  have hP2nn : 0 ≤ P₂ := Finset.prod_nonneg fun _ _ ↦ by positivity
+  have hP1 (z : ℂ) (hz : z.re ∈ Icc a' b') :
+      ‖∏ v : S, finiteHeckeEulerFactor η v.val z‖ ≤ P₁ := by
+    rw [norm_prod]
+    exact Finset.prod_le_prod₀ (fun _ _ ↦ norm_nonneg _)
+      (fun v _ ↦ rhoGrowth_euler_le η v.val ha' hz.1)
+  have hP2 (z : ℂ) (hz : z.re ∈ Icc a' b') :
+      ‖(∏ v : S, finiteHeckeEulerFactor η⁻¹ v.val (1 - z))⁻¹‖ ≤ P₂ := by
+    rw [← Finset.prod_inv_distrib, norm_prod]
+    exact Finset.prod_le_prod₀ (fun _ _ ↦ norm_nonneg _)
+      (fun v _ ↦ rhoGrowth_euler_inv_le η⁻¹ v.val hb' hz.2)
+  -- The correcting factor is analytic on the right half-plane.
+  have hρ : AnalyticOnNhd ℂ (fun z ↦ ρₛ(χ, z)) rightHalf := by
+    have h := sLocalRhoFactor_iteratedDeriv_analyticOn χ 0
+    rwa [iteratedDeriv_zero] at h
+  -- Compactness bound at bounded height.
+  let K := Complex.reProdIm (Icc a' b') (Icc (-(T + 1)) (T + 1))
+  have hK : IsCompact K := isCompact_Icc.reProdIm isCompact_Icc
+  have hKsub : K ⊆ rightHalf := fun z hz ↦ ha'.trans_le hz.1.1
+  obtain ⟨M, hM⟩ := hK.bddAbove_image (hρ.continuousOn.mono hKsub).norm
+  have hM0 : 0 ≤ M := by
+    have hz0 : (⟨a', 0⟩ : ℂ) ∈ K :=
+      ⟨⟨le_rfl, hab'⟩, ⟨by linarith, by linarith⟩⟩
+    exact (norm_nonneg _).trans (hM ⟨_, hz0, rfl⟩)
+  have hsmall (z : ℂ) (hz : z.re ∈ Icc a' b') (hzi : |z.im| ≤ T + 1) :
+      ‖ρₛ(χ, z)‖ ≤ M := by
+    have hzK : z ∈ K := ⟨hz, ⟨by linarith [abs_le.mp hzi], by linarith [abs_le.mp hzi]⟩⟩
+    exact hM ⟨z, hzK, rfl⟩
+  -- Large-height bound, off the discrete exceptional set of the ratio identity.
+  have hlarge : ∀ᶠ z : ℂ in codiscrete ℂ, z.re ∈ Icc a' b' → T ≤ |z.im| →
+      ‖ρₛ(χ, z)‖ ≤ (E * Cγ * P₁ * P₂) * ‖z‖ ^ n := by
+    filter_upwards [sLocalRhoFactor_eq_epsilon_mul χ] with z hz
+    intro hstrip him
+    dsimp only at hz
+    have hdual : dualQuasiCharacter (G := Jₛ) mₛ hmₛ (normChart(χ) z) =
+        normChart(χ⁻¹) (1 - z) := sLocalNormTwistChart_dual χ z
+    have hL : sLocalHeckeL (normChart(χ) z) =
+        heckeGammaFactor η z * ∏ v : S, finiteHeckeEulerFactor η v.val z :=
+      sLocalHeckeL_eq_partialEulerProduct χ η hη hχη z
+    have hLd : sLocalHeckeL (normChart(χ⁻¹) (1 - z)) =
+        heckeGammaFactor η⁻¹ (1 - z) *
+          ∏ v : S, finiteHeckeEulerFactor η⁻¹ v.val (1 - z) :=
+      sLocalHeckeL_eq_partialEulerProduct χ⁻¹ η⁻¹ hηinv hχinv (1 - z)
+    have hform : ρₛ(χ, z) = sLocalEpsilonFactor (normChart(χ) z) *
+        (heckeGammaFactor η z / heckeGammaFactor η⁻¹ (1 - z)) *
+        ((∏ v : S, finiteHeckeEulerFactor η v.val z) *
+          (∏ v : S, finiteHeckeEulerFactor η⁻¹ v.val (1 - z))⁻¹) := by
+      rw [hz, hdual, hL, hLd, div_eq_mul_inv, mul_inv_rev]
+      ring
+    rw [hform, norm_mul, norm_mul]
+    have hε := hE z hstrip
+    have hΓ : ‖heckeGammaFactor η z / heckeGammaFactor η⁻¹ (1 - z)‖ ≤ Cγ * ‖z‖ ^ n := by
+      have h := hγ (1 - z)
+        (by simp only [Complex.sub_re, Complex.one_re]; linarith [hstrip.1, hstrip.2])
+        (by simp only [Complex.sub_re, Complex.one_re]; linarith [hstrip.1, hstrip.2])
+        (by simpa only [Complex.sub_im, Complex.one_im, zero_sub, abs_neg] using hTγ.trans him)
+      simp only [inv_inv, sub_sub_cancel, Complex.sub_im, Complex.one_im, zero_sub, abs_neg,
+        Complex.sub_re, Complex.one_re] at h
+      have hexp : (1 / 2 - (1 - z.re) : ℝ) = z.re - 1 / 2 := by ring
+      rw [hexp] at h
+      change ‖heckeGammaFactor η z / heckeGammaFactor η⁻¹ (1 - z)‖ ≤
+        Cγ * |z.im| ^ ((n : ℝ) * (z.re - 1 / 2)) at h
+      have hle : (n : ℝ) * (z.re - 1 / 2) ≤ (n : ℝ) := by
+        calc
+          (n : ℝ) * (z.re - 1 / 2) ≤ (n : ℝ) * 1 :=
+            mul_le_mul_of_nonneg_left (by linarith [hstrip.2, hb']) (Nat.cast_nonneg _)
+          _ = (n : ℝ) := mul_one _
+      calc
+        ‖heckeGammaFactor η z / heckeGammaFactor η⁻¹ (1 - z)‖
+          ≤ Cγ * |z.im| ^ ((n : ℝ) * (z.re - 1 / 2)) := h
+        _ ≤ Cγ * |z.im| ^ (n : ℝ) :=
+          mul_le_mul_of_nonneg_left
+            (Real.rpow_le_rpow_of_exponent_le (hT1.trans him) hle) hCγ.le
+        _ ≤ Cγ * ‖z‖ ^ n := by
+          rw [Real.rpow_natCast]
+          exact mul_le_mul_of_nonneg_left
+            (pow_le_pow_left₀ (abs_nonneg _) (Complex.abs_im_le_norm z) n) hCγ.le
+    have hP : ‖(∏ v : S, finiteHeckeEulerFactor η v.val z) *
+        (∏ v : S, finiteHeckeEulerFactor η⁻¹ v.val (1 - z))⁻¹‖ ≤ P₁ * P₂ := by
+      rw [norm_mul]
+      exact mul_le_mul (hP1 z hstrip) (hP2 z hstrip) (norm_nonneg _) hP1nn
+    exact (mul_le_mul (mul_le_mul hε hΓ (norm_nonneg _) hE0) hP (norm_nonneg _)
+      (mul_nonneg hE0 (mul_nonneg hCγ.le (pow_nonneg (norm_nonneg _) _)))).trans
+      (le_of_eq (by ring))
+  -- Assemble the two regimes by continuity at each point of the strip.
+  refine ⟨max (E * Cγ * P₁ * P₂) (M / (a') ^ n), ?_, n, fun z hz ↦ ?_⟩
+  · exact (mul_nonneg (mul_nonneg (mul_nonneg hE0 hCγ.le) hP1nn) hP2nn).trans
+      (le_max_left _ _)
+  · have hzc : z.re ∈ Icc a' b' := ⟨by linarith [haa', hz.1], by linarith [hbb', hz.2]⟩
+    have hcont : ContinuousAt (fun w ↦ ρₛ(χ, w)) z :=
+      hρ.continuousOn.continuousAt
+        ((isOpen_Ioi.preimage Complex.continuous_re).mem_nhds (ha.trans_le hz.1))
+    have hbc : ContinuousAt (fun w : ℂ ↦ max (E * Cγ * P₁ * P₂) (M / (a') ^ n) * ‖w‖ ^ n) z :=
+      continuousAt_const.mul (continuous_norm.pow n).continuousAt
+    apply le_of_tendsto_of_tendsto (b := 𝓝[≠] z)
+      (hcont.norm.tendsto.mono_left nhdsWithin_le_nhds)
+      (hbc.tendsto.mono_left nhdsWithin_le_nhds)
+    have hopen : ∀ᶠ w : ℂ in 𝓝 z, w.re ∈ Ioo a' b' :=
+      (isOpen_Ioo.preimage Complex.continuous_re).mem_nhds
+        ⟨by linarith [haa', hz.1], by linarith [hbb', hz.2]⟩
+    filter_upwards [hlarge.filter_mono (nhdsNE_le_codiscrete z),
+      hopen.filter_mono nhdsWithin_le_nhds] with w hw hwo
+    by_cases hwi : T ≤ |w.im|
+    · exact (hw ⟨hwo.1.le, hwo.2.le⟩ hwi).trans
+        (mul_le_mul_of_nonneg_right (le_max_left _ _) (pow_nonneg (norm_nonneg _) _))
+    · have hsm := hsmall w ⟨hwo.1.le, hwo.2.le⟩ (by linarith [not_le.mp hwi])
+      have hnormz : (a') ^ n ≤ ‖w‖ ^ n :=
+        pow_le_pow_left₀ ha'.le (hwo.1.le.trans (Complex.re_le_norm w)) n
+      have hcoef : 0 ≤ M / (a') ^ n := div_nonneg hM0 (pow_pos ha' n).le
+      have hMle : M ≤ (M / (a') ^ n) * ‖w‖ ^ n := by
+        calc
+          M = (M / (a') ^ n) * (a') ^ n := by
+            rw [div_mul_cancel₀ _ (pow_ne_zero _ ha'.ne')]
+          _ ≤ (M / (a') ^ n) * ‖w‖ ^ n := mul_le_mul_of_nonneg_left hnormz hcoef
+      exact hsm.trans (hMle.trans
+        (mul_le_mul_of_nonneg_right (le_max_right _ _) (pow_nonneg (norm_nonneg _) _)))
 
 /-- Paper: (5.4.1.3), p. 266.
 Subtracting the corrected second component from the first on the overlap is a
