@@ -668,6 +668,351 @@ theorem heckePrimesBelow_mem_iff (v : V[F]) (x : ℝ) :
   rw [← Nat.lt_ceil]
   omega
 
+/-- The norm of a prime-power logarithmic term on the 1-line is bounded by the
+corresponding higher-power weight, keeping the exponent denominator. -/
+private theorem heckePrimePowerLogTerm_norm_le_weight (χ : U[F]) (v : V[F]) (k : ℕ) (t : ℝ) :
+    ‖heckePrimePowerLogTerm χ v k ⟨1, t⟩‖ ≤
+      1 / (((k + 1 : ℕ) : ℝ) * ((v.asIdeal ^ (k + 1)).absNorm : ℝ)) := by
+  have hN : 0 < ((v.asIdeal ^ (k + 1)).absNorm : ℝ) := by
+    exact_mod_cast Nat.pos_of_ne_zero (Ideal.absNorm_eq_zero_iff.not.mpr (pow_ne_zero _ v.ne_bot))
+  have hχ : ‖heckeIdealValue (ideleClassNormTwist χ 0) (v.asIdeal ^ (k + 1))‖ ≤ 1 := by
+    rw [heckeIdealValue_prime_pow _ v (Nat.succ_pos k)]
+    split_ifs with h
+    · rw [norm_pow, norm_ideleClassNormTwist_zero_localValue, one_pow]
+    · simp
+  calc ‖heckePrimePowerLogTerm χ v k ⟨1, t⟩‖
+      = ‖heckeIdealValue (ideleClassNormTwist χ 0) (v.asIdeal ^ (k + 1))‖ /
+          (((k + 1 : ℕ) : ℝ) * ((v.asIdeal ^ (k + 1)).absNorm : ℝ)) := by
+        delta heckePrimePowerLogTerm
+        rw [norm_div, norm_mul, Complex.norm_natCast,
+          ← Complex.ofReal_natCast ((v.asIdeal ^ (k + 1)).absNorm),
+          Complex.norm_cpow_eq_rpow_re_of_pos hN]
+        simp
+    _ ≤ 1 / (((k + 1 : ℕ) : ℝ) * ((v.asIdeal ^ (k + 1)).absNorm : ℝ)) := by
+        gcongr
+
+/-- The prime powers of a fixed integer norm form a finite set. -/
+private theorem heckePrimePowerFiber_finite (n : ℕ) :
+    Finite {a : V[F] × ℕ // a.1.asIdeal.absNorm ^ (a.2 + 1) = n} := by
+  classical
+  let P (a : {a : V[F] × ℕ // a.1.asIdeal.absNorm ^ (a.2 + 1) = n}) :
+      {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = n} :=
+    ⟨a.val.1.asIdeal ^ (a.val.2 + 1), pow_ne_zero _ a.val.1.ne_bot, by
+      rw [map_pow]; exact a.property⟩
+  have hP : Function.Injective P := by
+    rintro ⟨⟨v, k⟩, hk⟩ ⟨⟨w, j⟩, hj⟩ he
+    have heq : v.asIdeal ^ (k + 1) = w.asIdeal ^ (j + 1) := congrArg Subtype.val he
+    obtain rfl := HeightOneSpectrum.eq_of_dvd_pow ((dvd_pow_self _ k.succ_ne_zero).trans heq.dvd)
+    exact Subtype.ext (Prod.ext rfl
+      (Nat.succ.inj (pow_injective_of_not_isUnit v.prime.not_isUnit v.ne_bot heq)))
+  have : Finite {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = n} :=
+    ((Ring.HasFiniteQuotients.finite_absNorm_eq (S := 𝓞 F) n).subset
+      (show {I : Ideal (𝓞 F) | I ≠ ⊥ ∧ I.absNorm = n} ⊆ {I | I.absNorm = n} from
+        fun I hI ↦ hI.2)).to_subtype
+  exact Finite.of_injective P hP
+
+/-- The higher prime-power terms grouped by norm are summable on the 1-line, with a
+majorant independent of the ordinate. -/
+private theorem heckeHigherPrimePowerGrouped_bound (χ : U[F]) :
+    ∃ M : ℕ → ℝ, Summable M ∧
+      ∀ (n : ℕ) (t : ℝ),
+        ‖∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩‖ ≤ M n := by
+  classical
+  let N : V[F] × ℕ → ℕ := fun a ↦ a.1.asIdeal.absNorm ^ (a.2 + 1)
+  let A := {a : V[F] × ℕ // 1 ≤ a.2}
+  let w : A → ℝ := fun a ↦
+    1 / (((a.val.2 + 1 : ℕ) : ℝ) * ((a.val.1.asIdeal ^ (a.val.2 + 1)).absNorm : ℝ))
+  have hw : Summable w := by
+    -- summability of the higher-power majorant at abscissa 1 (self-contained)
+    have hu : Summable fun v : V[F] ↦ (v.asIdeal.absNorm : ℝ) ^ (-(2 : ℝ)) :=
+      (summable_absNorm_rpow F (by norm_num : 1 < (2 : ℝ))).comp_injective
+        (fun _ _ he ↦ HeightOneSpectrum.ext he)
+    have hg : Summable fun k : ℕ ↦ ((2 : ℝ) ^ (-(1 : ℝ))) ^ k :=
+      summable_geometric_of_lt_one (by positivity) (by norm_num)
+    have hW : Summable fun a : V[F] × ℕ ↦
+        (1 : ℝ) / ((a.2 + 2 : ℕ) * (((a.1.asIdeal.absNorm ^ (a.2 + 2) : ℕ) : ℝ) ^ (1 : ℝ))) := by
+      refine Summable.of_nonneg_of_le (fun a ↦ by positivity) (fun a ↦ ?_)
+        (hu.mul_of_nonneg hg (fun v ↦ Real.rpow_nonneg (Nat.cast_nonneg _) _)
+          (fun k ↦ pow_nonneg (by positivity) k))
+      obtain ⟨v, k⟩ := a
+      dsimp only
+      have hN : (2 : ℝ) ≤ v.asIdeal.absNorm := by
+        exact_mod_cast HeightOneSpectrum.one_lt_absNorm v
+      have hN0 : (0 : ℝ) < v.asIdeal.absNorm := by linarith
+      have hpow : ((v.asIdeal.absNorm ^ (k + 2) : ℕ) : ℝ) ^ (1 : ℝ) =
+          (v.asIdeal.absNorm : ℝ) ^ 2 * (v.asIdeal.absNorm : ℝ) ^ k := by
+        rw [Real.rpow_one, Nat.cast_pow, show (k + 2 : ℕ) = 2 + k by omega, pow_add]
+      rw [hpow]
+      have hA : 0 < (v.asIdeal.absNorm : ℝ) ^ 2 := pow_pos hN0 2
+      have hB : 0 < (2 : ℝ) ^ k := pow_pos (by norm_num) k
+      have hle : (2 : ℝ) ^ k ≤ (v.asIdeal.absNorm : ℝ) ^ k :=
+        pow_le_pow_left₀ (by norm_num) hN k
+      have h1 : (1 : ℝ) ≤ ((k + 2 : ℕ) : ℝ) := by exact_mod_cast (by omega : 1 ≤ k + 2)
+      calc 1 / (((k + 2 : ℕ) : ℝ) *
+            ((v.asIdeal.absNorm : ℝ) ^ 2 * (v.asIdeal.absNorm : ℝ) ^ k))
+          ≤ 1 / ((v.asIdeal.absNorm : ℝ) ^ 2 * (2 : ℝ) ^ k) := by
+            apply one_div_le_one_div_of_le (mul_pos hA hB)
+            calc (v.asIdeal.absNorm : ℝ) ^ 2 * (2 : ℝ) ^ k
+                ≤ (v.asIdeal.absNorm : ℝ) ^ 2 * (v.asIdeal.absNorm : ℝ) ^ k :=
+                  mul_le_mul_of_nonneg_left hle hA.le
+              _ ≤ ((k + 2 : ℕ) : ℝ) *
+                  ((v.asIdeal.absNorm : ℝ) ^ 2 * (v.asIdeal.absNorm : ℝ) ^ k) :=
+                  le_mul_of_one_le_left (by positivity) h1
+        _ = (v.asIdeal.absNorm : ℝ) ^ (-(2 : ℝ)) * ((2 : ℝ) ^ (-(1 : ℝ))) ^ k := by
+            rw [Real.rpow_neg hN0.le, Real.rpow_neg (by norm_num), one_div, mul_inv]
+            simp [inv_pow]
+    have h1 := hW.comp_injective (i := fun a : A ↦ (a.val.1, a.val.2 - 1)) (fun a b h ↦ by
+      cases a with | mk a ha =>
+      cases b with | mk b hb =>
+      simp only [Prod.mk.injEq] at h
+      exact Subtype.ext (Prod.ext h.1 (by
+        have := congrArg (· + 1) h.2
+        simpa [Nat.sub_add_cancel (show 1 ≤ a.2 by omega),
+          Nat.sub_add_cancel (show 1 ≤ b.2 by omega)] using this)))
+    refine h1.congr (fun a ↦ ?_)
+    cases a with | mk a ha =>
+    simp only [w, Function.comp_apply]
+    rw [show a.2 - 1 + 2 = a.2 + 1 by omega, Real.rpow_one, map_pow]
+  let Nfn : A → ℕ := fun a ↦ N a.val
+  have hfib := hw.hasSum.tsum_fiberwise Nfn
+  refine ⟨fun n ↦ ∑' a : Nfn ⁻¹' {n}, w a, hfib.summable, fun n t ↦ ?_⟩
+  haveI : Finite {a : V[F] × ℕ // N a = n} := by
+    simpa [N] using heckePrimePowerFiber_finite n
+  haveI : Finite {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n} :=
+    Finite.of_injective (fun a ↦ (⟨a.val, a.property.2⟩ : {a : V[F] × ℕ // N a = n}))
+      (fun a b h ↦ by
+        cases a; cases b
+        simpa using h)
+  haveI : Fintype {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n} := Fintype.ofFinite _
+  let e : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n} ≃ (Nfn ⁻¹' {n}) :=
+    { toFun := fun a ↦ ⟨⟨a.val, a.property.1⟩, a.property.2⟩
+      invFun := fun a ↦ ⟨a.val.val, a.val.property, a.property⟩
+      left_inv := fun _ ↦ rfl
+      right_inv := fun _ ↦ rfl }
+  haveI : Fintype (Nfn ⁻¹' {n}) := Fintype.ofEquiv _ e
+  have hfin : ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n},
+      heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ =
+      ∑ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n},
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ :=
+    finsum_eq_sum_of_fintype _
+  rw [hfin]
+  calc ‖∑ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n},
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩‖
+      ≤ ∑ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n},
+        ‖heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩‖ := norm_sum_le _ _
+    _ ≤ ∑ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n}, w (e a) := by
+        apply Finset.sum_le_sum
+        intro a _
+        exact heckePrimePowerLogTerm_norm_le_weight χ a.val.1 a.val.2 t
+    _ = ∑ a : Nfn ⁻¹' {n}, w a :=
+        Fintype.sum_equiv e (fun a ↦ w (e a)) (fun a ↦ w a) (fun _ ↦ rfl)
+    _ = ∑' a : Nfn ⁻¹' {n}, w a := by
+        rw [tsum_fintype]
+
+/-- The norm-grouped logarithmic coefficient splits into its exponent-one (prime) part
+and its higher prime-power part. -/
+private theorem heckePrimePowerLogCoefficient_split (χ : U[F]) (n : ℕ) (t : ℝ) :
+    LSeries.term (heckePrimePowerLogCoefficient χ) ⟨1, t⟩ n =
+      (∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n}, heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩) +
+      ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ := by
+  classical
+  by_cases hn0 : n = 0
+  · subst hn0
+    haveI h1 : IsEmpty {v : V[F] // v.asIdeal.absNorm = 0} :=
+      ⟨fun v ↦ by
+        have := Ideal.absNorm_eq_zero_iff.not.mpr v.val.ne_bot
+        exact this v.property⟩
+    haveI h2 : IsEmpty {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = 0} :=
+      ⟨fun a ↦ by
+        have : 0 < a.val.1.asIdeal.absNorm ^ (a.val.2 + 1) :=
+          pow_pos (Nat.pos_of_ne_zero (Ideal.absNorm_eq_zero_iff.not.mpr a.val.1.ne_bot)) _
+        omega⟩
+    simp [LSeries.term_zero, finsum_of_isEmpty]
+  · rw [LSeries.term_of_ne_zero hn0, heckePrimePowerLogCoefficient_eq_sum]
+    let N : V[F] × ℕ → ℕ := fun a ↦ a.1.asIdeal.absNorm ^ (a.2 + 1)
+    let S := {a : V[F] × ℕ // N a = n}
+    haveI : Finite S := by
+      simpa [N, S] using heckePrimePowerFiber_finite n
+    haveI : Fintype S := Fintype.ofFinite _
+    let f (a : S) : ℂ :=
+      heckeIdealValue (ideleClassNormTwist χ 0) (a.val.1.asIdeal ^ (a.val.2 + 1)) /
+        ((a.val.2 + 1 : ℕ) : ℂ)
+    have hconv : ∑ᶠ a : {a : V[F] × ℕ // a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+        heckeIdealValue (ideleClassNormTwist χ 0) (a.val.1.asIdeal ^ (a.val.2 + 1)) /
+          ((a.val.2 + 1 : ℕ) : ℂ) = ∑ a : S, f a := by
+      rw [finsum_eq_sum_of_fintype]
+    rw [hconv, Finset.sum_div]
+    have hpoint (a : S) : f a / (n : ℂ) ^ (⟨1, t⟩ : ℂ) =
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ := by
+      delta heckePrimePowerLogTerm
+      simp only [f]
+      rw [show ((a.val.1.asIdeal ^ (a.val.2 + 1)).absNorm : ℂ) = (n : ℂ) by
+        rw [map_pow]; exact_mod_cast a.property]
+      ring
+    simp_rw [hpoint]
+    have hsplit : ∑ a : S, heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ =
+        ∑ a ∈ (Finset.univ : Finset S).filter (fun a ↦ a.val.2 = 0),
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ +
+        ∑ a ∈ (Finset.univ : Finset S).filter (fun a ↦ 1 ≤ a.val.2),
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ := by
+      have : ∑ a : S, heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ =
+          ∑ a : S, (if a.val.2 = 0 then heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ else 0) +
+          ∑ a : S, (if 1 ≤ a.val.2 then heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ else 0) := by
+        rw [← Finset.sum_add_distrib]
+        apply Finset.sum_congr rfl
+        intro a _
+        by_cases h : a.val.2 = 0 <;> simp [h] <;> omega
+      rw [this, ← Finset.sum_filter, ← Finset.sum_filter]
+    -- reindex the k ≥ 1 part
+    have h1 : ∑ a ∈ (Finset.univ : Finset S).filter (fun a ↦ 1 ≤ a.val.2),
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ =
+        ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n},
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ := by
+      haveI : Finite {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n} :=
+        Finite.of_injective (fun a ↦ (⟨a.val, a.property.2⟩ : S)) (fun a b h ↦ by
+          cases a; cases b; simpa using h)
+      haveI : Fintype {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n} := Fintype.ofFinite _
+      rw [finsum_eq_sum_of_fintype]
+      symm
+      apply Finset.sum_bij (fun (a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ N a = n}) _ ↦
+        (⟨a.val, a.property.2⟩ : S))
+      · intro a _
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+        exact a.property.1
+      · intro a _ b _ h
+        exact Subtype.ext (congrArg (fun s : S ↦ s.val) h)
+      · intro b hb
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hb
+        refine ⟨⟨b.val, hb, b.property⟩, ?_, rfl⟩
+        simp
+      · intro a _
+        rfl
+    -- reindex the k = 0 part
+    have h0 : ∑ a ∈ (Finset.univ : Finset S).filter (fun a ↦ a.val.2 = 0),
+        heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ =
+        ∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n}, heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩ := by
+      haveI : Finite {v : V[F] // v.asIdeal.absNorm = n} :=
+        Finite.of_injective (fun v ↦ (⟨(v.val, 0), by simpa [N] using v.property⟩ : S))
+          (fun v w h ↦ Subtype.ext (congrArg (fun a : S ↦ a.val.1) h))
+      haveI : Fintype {v : V[F] // v.asIdeal.absNorm = n} := Fintype.ofFinite _
+      rw [finsum_eq_sum_of_fintype]
+      symm
+      apply Finset.sum_bij (fun (v : {v : V[F] // v.asIdeal.absNorm = n}) _ ↦
+        (⟨(v.val, 0), by simpa [N] using v.property⟩ : S))
+      · intro v _
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      · intro v _ w _ h
+        exact Subtype.ext (congrArg (fun a : S ↦ a.val.1) h)
+      · intro b hb
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hb
+        have hb2 : b.val.2 = 0 := hb
+        refine ⟨⟨b.val.1, ?_⟩, ?_, ?_⟩
+        · have := b.property
+          simp only [N, hb2, zero_add, pow_one] at this ⊢
+          exact this
+        · simp
+        · ext <;> simp [hb2]
+      · intro v _
+        rfl
+    rw [hsplit, h0, h1]
+
+/-- The exponent-one part of the norm-grouped sum below the cutoff is the prime sum
+over `heckePrimesBelow`. -/
+private theorem heckePrimeSum_below_reindex (χ : U[F]) (x : ℝ) (t : ℝ) :
+    ∑ n ∈ Finset.range ⌈x⌉₊,
+      ∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n}, heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩ =
+    ∑ v ∈ heckePrimesBelow F x, heckePrimePowerLogTerm χ v 0 ⟨1, t⟩ := by
+  classical
+  have hfib := Finset.sum_fiberwise_of_maps_to (g := fun v : V[F] ↦ v.asIdeal.absNorm)
+    (s := heckePrimesBelow F x) (t := Finset.range ⌈x⌉₊)
+    (fun v hv ↦ by
+      rw [Finset.mem_range]
+      exact Nat.lt_ceil.mpr ((heckePrimesBelow_mem_iff v x).mp hv))
+    (fun v ↦ heckePrimePowerLogTerm χ v 0 ⟨1, t⟩)
+  rw [← hfib]
+  apply Finset.sum_congr rfl
+  intro n hn
+  have hinner : ∑ v ∈ (heckePrimesBelow F x).filter (fun v ↦ v.asIdeal.absNorm = n),
+      heckePrimePowerLogTerm χ v 0 ⟨1, t⟩ =
+      ∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n}, heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩ := by
+    haveI : Finite {v : V[F] // v.asIdeal.absNorm = n} :=
+      Finite.of_injective (fun v ↦ (⟨v.val, by
+        rw [heckePrimesBelow_mem_iff, v.property]
+        exact Nat.lt_ceil.mp (Finset.mem_range.mp hn)⟩ :
+        {v : V[F] // v ∈ heckePrimesBelow F x}))
+        (fun v w h ↦ Subtype.ext (congrArg
+          (fun w : {v : V[F] // v ∈ heckePrimesBelow F x} ↦ w.val) h))
+    haveI : Fintype {v : V[F] // v.asIdeal.absNorm = n} := Fintype.ofFinite _
+    rw [finsum_eq_sum_of_fintype]
+    symm
+    apply Finset.sum_bij (fun (v : {v : V[F] // v.asIdeal.absNorm = n}) _ ↦ v.val)
+    · intro v _
+      simp only [Finset.mem_filter]
+      exact ⟨by
+        rw [heckePrimesBelow_mem_iff, v.property]
+        exact Nat.lt_ceil.mp (Finset.mem_range.mp hn), v.property⟩
+    · intro v _ w _ h
+      exact Subtype.ext h
+    · intro b hb
+      simp only [Finset.mem_filter] at hb
+      refine ⟨⟨b, hb.2⟩, ?_, rfl⟩
+      simp
+    · intro v _
+      rfl
+  exact hinner.symm
+
+/-- The higher prime-power norm-grouped partial sums converge uniformly on the whole
+1-line to their infinite sum. -/
+private theorem heckeHigherPrimePowerSum_tendstoUniformly (χ : U[F]) :
+    TendstoUniformly
+      (fun x : ℝ ↦ fun t : ℝ ↦ ∑ n ∈ Finset.range ⌈x⌉₊,
+        ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩)
+      (fun t : ℝ ↦ ∑' n : ℕ,
+        ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+          heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩)
+      atTop := by
+  classical
+  obtain ⟨M, hMsum, hMbound⟩ := heckeHigherPrimePowerGrouped_bound χ
+  let h_n : ℕ → ℝ → ℂ := fun n t ↦
+    ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+      heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩
+  have hsum (t : ℝ) : Summable (fun n ↦ h_n n t) :=
+    Summable.of_norm_bounded hMsum (fun n ↦ hMbound n t)
+  have htail : Tendsto (fun N₀ : ℕ ↦ ∑' k, M (k + N₀)) atTop (𝓝 0) := by
+    have h_eq : (fun N₀ ↦ ∑' k, M (k + N₀)) =
+        fun N₀ ↦ ∑' n, M n - ∑ n ∈ Finset.range N₀, M n := by
+      funext N₀
+      rw [← Summable.sum_add_tsum_nat_add N₀ hMsum]
+      abel
+    rw [h_eq]
+    simpa using (tendsto_const_nhds (x := ∑' n, M n)).sub hMsum.hasSum.tendsto_sum_nat
+  have hcomp : Tendsto (fun x : ℝ ↦ ∑' k, M (k + ⌈x⌉₊)) atTop (𝓝 0) :=
+    htail.comp tendsto_nat_ceil_atTop
+  rw [Metric.tendstoUniformly_iff]
+  intro ε hε
+  obtain ⟨X, hX⟩ := Metric.tendsto_atTop.mp hcomp ε hε
+  filter_upwards [Filter.eventually_ge_atTop X] with x hx
+  intro t
+  have hdiff : (∑' n, h_n n t) - ∑ n ∈ Finset.range ⌈x⌉₊, h_n n t =
+      ∑' k, h_n (k + ⌈x⌉₊) t := by
+    rw [← Summable.sum_add_tsum_nat_add ⌈x⌉₊ (hsum t)]
+    abel
+  have hshift (t : ℝ) : Summable (fun k ↦ h_n (k + ⌈x⌉₊) t) :=
+    (hsum t).comp_injective (fun a b h ↦ by simpa using h)
+  have hdist : dist (∑' n, h_n n t) (∑ n ∈ Finset.range ⌈x⌉₊, h_n n t) ≤
+      ∑' k, M (k + ⌈x⌉₊) := by
+    rw [dist_eq_norm, hdiff]
+    calc ‖∑' k, h_n (k + ⌈x⌉₊) t‖
+        ≤ ∑' k, ‖h_n (k + ⌈x⌉₊) t‖ := norm_tsum_le_tsum_norm (hshift t).norm
+      _ ≤ ∑' k, M (k + ⌈x⌉₊) :=
+          Summable.tsum_le_tsum (fun k ↦ hMbound (k + ⌈x⌉₊) t) (hshift t).norm
+            (hMsum.comp_injective (fun a b h ↦ by simpa using h))
+  exact lt_of_le_of_lt hdist
+    (lt_of_le_of_lt (le_abs_self _) (by simpa [Real.dist_eq] using hX x hx))
+
 /-- Paper: Corollary B.7.2.3, p. 651. For a character nontrivial on the
 norm-one subgroup, the prime sum converges locally uniformly on the 1-line. -/
 theorem heckePrimeSum_tendstoLocallyUniformly_of_nontrivial_on_normOne (χ : U[F])
@@ -676,7 +1021,145 @@ theorem heckePrimeSum_tendstoLocallyUniformly_of_nontrivial_on_normOne (χ : U[F
       (fun x : ℝ ↦ fun t : ℝ ↦
         ∑ v ∈ heckePrimesBelow F x, heckePrimePowerLogTerm χ v 0 ⟨1, t⟩)
       limit atTop := by
-  sorry
+  classical
+  let c : ℕ → ℝ → ℂ := fun n t ↦ LSeries.term (heckePrimePowerLogCoefficient χ) ⟨1, t⟩ n
+  let h_n : ℕ → ℝ → ℂ := fun n t ↦
+    ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+      heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩
+  let H : ℝ → ℂ := fun t ↦ ∑' n, h_n n t
+  let limit : ℝ → ℂ := fun t ↦
+    tsum (fun n ↦ c n t) (SummationFilter.conditional ℕ) - H t
+  refine ⟨limit, ?_⟩
+  rw [tendstoLocallyUniformly_iff_forall_isCompact]
+  intro K hK
+  obtain ⟨x₀, hx₀, hbase⟩ :=
+    heckePrimePowerLogTail_of_nontrivial_on_normOne χ hχ K hK (ε := 1) (by norm_num)
+  let P : ℝ → ℝ → ℂ := fun x t ↦ ∑ n ∈ Finset.range ⌈x⌉₊, c n t
+  let H_x : ℝ → ℝ → ℂ := fun x t ↦ ∑ n ∈ Finset.range ⌈x⌉₊, h_n n t
+  let G : ℝ → ℝ → ℂ := fun x t ↦
+    ∑ v ∈ heckePrimesBelow F x, heckePrimePowerLogTerm χ v 0 ⟨1, t⟩
+  have hGH (x : ℝ) (t : ℝ) : G x t = P x t - H_x x t := by
+    simp only [G, P, H_x, h_n, c]
+    have hsplit : ∑ n ∈ Finset.range ⌈x⌉₊,
+        LSeries.term (heckePrimePowerLogCoefficient χ) ⟨1, t⟩ n =
+        (∑ n ∈ Finset.range ⌈x⌉₊,
+          ∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n}, heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩) +
+        ∑ n ∈ Finset.range ⌈x⌉₊,
+          ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+            heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩ := by
+      have : ∑ n ∈ Finset.range ⌈x⌉₊,
+          LSeries.term (heckePrimePowerLogCoefficient χ) ⟨1, t⟩ n =
+          ∑ n ∈ Finset.range ⌈x⌉₊,
+            ((∑ᶠ v : {v : V[F] // v.asIdeal.absNorm = n},
+              heckePrimePowerLogTerm χ v.val 0 ⟨1, t⟩) +
+            ∑ᶠ a : {a : V[F] × ℕ // 1 ≤ a.2 ∧ a.1.asIdeal.absNorm ^ (a.2 + 1) = n},
+              heckePrimePowerLogTerm χ a.val.1 a.val.2 ⟨1, t⟩) := by
+        apply Finset.sum_congr rfl
+        intro n hn
+        exact heckePrimePowerLogCoefficient_split χ n t
+      rw [this, Finset.sum_add_distrib]
+    rw [hsplit, heckePrimeSum_below_reindex χ x t]
+    abel
+  have htailHas (x : ℝ) (hx : x₀ ≤ x) (t : ℝ) (ht : t ∈ K) :
+      HasSum (fun n : ℕ ↦ if x ≤ (n : ℝ) then c n t else 0)
+        (heckePrimePowerLogTail χ x ⟨1, t⟩) (SummationFilter.conditional ℕ) := by
+    have := (hbase x hx).1.tendsto_at ht
+    rw [HasSum, SummationFilter.conditional_filter_eq_map_range, Filter.tendsto_map'_iff]
+    convert this using 1
+    funext N
+    apply Finset.sum_congr rfl
+    intro n hn
+    simp [c, heckePrimePowerLogTailTerm]
+  have htotal (x : ℝ) (hx : x₀ ≤ x) (t : ℝ) (ht : t ∈ K) :
+      tsum (fun n ↦ c n t) (SummationFilter.conditional ℕ) =
+        P x t + heckePrimePowerLogTail χ x ⟨1, t⟩ := by
+    have hfin : HasSum (fun n : ℕ ↦ if (n : ℝ) < x then c n t else 0) (P x t)
+        (SummationFilter.conditional ℕ) := by
+      have hsupp : Summable (fun n : ℕ ↦ if (n : ℝ) < x then c n t else 0) :=
+        summable_of_ne_finset_zero (s := Finset.range ⌈x⌉₊) (by
+          intro n hn
+          have : ¬(n : ℝ) < x := by
+            rw [← Nat.lt_ceil]
+            exact fun h ↦ hn (Finset.mem_range.mpr h)
+          simp [this])
+      have hh := hsupp.hasSum.mono_left
+        (SummationFilter.le_atTop (L := SummationFilter.conditional ℕ))
+      have htsum : ∑' n : ℕ, (if (n : ℝ) < x then c n t else 0) = P x t := by
+        rw [tsum_eq_sum (by
+          intro n hn
+          have : ¬(n : ℝ) < x := by
+            rw [← Nat.lt_ceil]
+            exact fun h ↦ hn (Finset.mem_range.mpr h)
+          simp [this])]
+        simp only [P]
+        apply Finset.sum_congr rfl
+        intro n hn
+        have : (n : ℝ) < x := Nat.lt_ceil.mp (Finset.mem_range.mp hn)
+        simp [this]
+      rw [← htsum]
+      exact hh
+    have hadd := hfin.add (htailHas x hx t ht)
+    have hpoint : (fun n : ℕ ↦ (if (n : ℝ) < x then c n t else 0) +
+        (if x ≤ (n : ℝ) then c n t else 0)) = fun n ↦ c n t := by
+      funext n
+      by_cases h : (n : ℝ) < x <;> simp [h] <;> linarith
+    rw [hpoint] at hadd
+    exact hadd.tsum_eq
+  have hGlim (x : ℝ) (hx : x₀ ≤ x) (t : ℝ) (ht : t ∈ K) :
+      G x t - limit t = (H t - H_x x t) - heckePrimePowerLogTail χ x ⟨1, t⟩ := by
+    rw [hGH]
+    simp only [limit, H]
+    rw [htotal x hx t ht]
+    abel
+  have hHconv : TendstoUniformlyOn H_x H atTop K :=
+    (heckeHigherPrimePowerSum_tendstoUniformly χ).tendstoUniformlyOn
+  have htail0 : TendstoUniformlyOn
+      (fun x t ↦ heckePrimePowerLogTail χ x ⟨1, t⟩) (fun _ ↦ 0) atTop K := by
+    rw [Metric.tendstoUniformlyOn_iff]
+    intro ε hε
+    obtain ⟨x₁, hx₁, h₁⟩ :=
+      heckePrimePowerLogTail_of_nontrivial_on_normOne χ hχ K hK (ε := ε / 2) (half_pos hε)
+    filter_upwards [Filter.eventually_ge_atTop (max x₁ (Real.exp 1))] with x hx
+    intro t ht
+    have hx₁' : x₁ ≤ x := le_trans (le_max_left _ _) hx
+    have hbound := (h₁ x hx₁').2.2 t ht
+    have hlog : 1 ≤ Real.log x := by
+      rw [← Real.log_exp 1]
+      exact Real.log_le_log (by positivity) (le_trans (le_max_right _ _) hx)
+    calc dist 0 (heckePrimePowerLogTail χ x ⟨1, t⟩)
+        = ‖heckePrimePowerLogTail χ x ⟨1, t⟩‖ := by rw [dist_eq_norm, zero_sub, norm_neg]
+      _ < 2 * (ε / 2) / Real.log x := hbound
+      _ = ε / Real.log x := by ring
+      _ ≤ ε := by
+          rw [div_le_iff₀ (by linarith)]
+          nlinarith
+  have hdiff0 : TendstoUniformlyOn
+      (fun x t ↦ (H t - H_x x t) - heckePrimePowerLogTail χ x ⟨1, t⟩) (fun _ ↦ 0) atTop K := by
+    have hconstH : TendstoUniformlyOn (fun _ t ↦ H t) H (atTop : Filter ℝ) K := by
+      rw [Metric.tendstoUniformlyOn_iff]
+      intro ε hε
+      refine Filter.Eventually.of_forall (fun x t ht ↦ ?_)
+      simpa using hε
+    have h1 : TendstoUniformlyOn (fun x t ↦ H t - H_x x t) (fun _ ↦ 0) atTop K :=
+      (hconstH.sub hHconv).congr_right (fun t ht ↦ by simp)
+    exact (h1.sub htail0).congr_right (fun t ht ↦ by simp)
+  have htarget : TendstoUniformlyOn
+      (fun x t ↦ limit t + ((H t - H_x x t) - heckePrimePowerLogTail χ x ⟨1, t⟩))
+      limit atTop K := by
+    have hconstlimit : TendstoUniformlyOn (fun _ t ↦ limit t) limit (atTop : Filter ℝ) K := by
+      rw [Metric.tendstoUniformlyOn_iff]
+      intro ε hε
+      refine Filter.Eventually.of_forall (fun x t ht ↦ ?_)
+      simpa using hε
+    exact (hconstlimit.add hdiff0).congr_right (fun t ht ↦ by simp)
+  refine htarget.congr ?_
+  filter_upwards [Filter.eventually_ge_atTop x₀] with x hx
+  intro t ht
+  have h := hGlim x hx t ht
+  simp only [G] at h
+  dsimp only
+  rw [← h]
+  abel
 
 /-- Paper: Corollary B.7.2.3, p. 651. For a pure norm character, the
 prime sum converges locally uniformly on the 1-line away from the pole. -/
