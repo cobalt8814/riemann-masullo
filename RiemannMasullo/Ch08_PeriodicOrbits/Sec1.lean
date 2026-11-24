@@ -143,7 +143,11 @@ The comparison sends the class of a restricted test to its ambient orbital class
 theorem sLocalOrbitalSupportComparison_mk (hT : T ⊆ S) (η : PontryaginDual J₁(S))
     (f : U(S, T)) :
     sLocalOrbitalSupportComparison hT η ((sLocalOrbitalSupportRelations hT η).mkQL f) =
-      π(hT, η) f.val := by sorry
+      π(hT, η) f.val := by
+  simp only [sLocalOrbitalSupportComparison, Submodule.liftQL_apply,
+    ContinuousLinearMap.comp_apply, ContinuousLinearMap.toLinearMap_comp,
+    LinearMap.comp_apply, Submodule.liftQ_apply]
+  rfl
 
 -- TODO(paper-gap): On p. 383 the identity Λ/L_out = L_S omits the factor regularizing
 -- the trivial norm-one component. Moreover the surjectivity argument on pp. 383–384
