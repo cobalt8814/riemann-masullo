@@ -45,7 +45,44 @@ def truncatedPerronIntegral (f : ℂ → ℂ) (s : ℂ) (x c T : ℝ) : ℂ :=
 constant series at cutoff one gives the arctangent factor. -/
 theorem truncatedPerronIntegral_one (s : ℂ) {c T : ℝ} (hc : 0 < c) :
     truncatedPerronIntegral (fun _ ↦ 1) s 1 c T = (Real.arctan (T / c) / Real.pi : ℝ) := by
-  sorry
+  have hz : ∀ t : ℝ, (⟨c, t⟩ : ℂ) ≠ 0 := fun t h ↦ hc.ne' (congrArg Complex.re h)
+  have hinv : ∀ t : ℝ, 1 / (⟨c, t⟩ : ℂ) =
+      ((c / (c ^ 2 + t ^ 2) : ℝ) : ℂ) - Complex.I * ((t / (c ^ 2 + t ^ 2) : ℝ) : ℂ) := by
+    intro t
+    rw [one_div]
+    apply Complex.ext <;>
+      simp only [Complex.inv_re, Complex.inv_im, Complex.normSq_mk, Complex.sub_re,
+        Complex.sub_im, Complex.mul_re, Complex.mul_im, Complex.I_re, Complex.I_im,
+        Complex.ofReal_re, Complex.ofReal_im] <;>
+      ring
+  have hderiv : ∀ t : ℝ, HasDerivAt
+      (fun t : ℝ ↦ (Real.arctan (t / c) : ℂ) - Complex.I * (Real.log (c ^ 2 + t ^ 2) / 2 : ℝ))
+      (1 / (⟨c, t⟩ : ℂ)) t := by
+    intro t
+    have hpos : 0 < c ^ 2 + t ^ 2 := by positivity
+    have h1 := ((hasDerivAt_id' t).div_const c).arctan.ofReal_comp
+    have h2 := ((((hasDerivAt_pow 2 t).const_add (c ^ 2)).log hpos.ne').div_const 2).ofReal_comp
+    convert h1.sub (h2.const_mul Complex.I) using 1
+    rw [hinv t]
+    congr 3
+    · field_simp
+    · field_simp
+      ring
+  have hcont : Continuous fun t : ℝ ↦ 1 / (⟨c, t⟩ : ℂ) := by
+    refine continuous_const.div ?_ hz
+    rw [show Complex.mk c = fun t : ℝ ↦ (c : ℂ) + (t : ℂ) * Complex.I from
+      funext fun t ↦ Complex.mk_eq_add_mul_I c t]
+    fun_prop
+  have hπ : (Real.pi : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr Real.pi_ne_zero
+  show (∫ t in -T..T, (1 : ℂ) * ((1 : ℝ) : ℂ) ^ (⟨c, t⟩ : ℂ) / (⟨c, t⟩ : ℂ)) /
+    (2 * (Real.pi : ℂ)) = _
+  simp only [Complex.ofReal_one, Complex.one_cpow, one_mul]
+  rw [intervalIntegral.integral_eq_sub_of_hasDerivAt (fun t _ ↦ hderiv t)
+    (hcont.intervalIntegrable _ _)]
+  simp only [neg_div, Real.arctan_neg, neg_sq, Complex.ofReal_neg]
+  push_cast
+  field_simp
+  ring
 
 /-- Paper: Lemma B.7.1.1, pp. 644–645. This sums the Dirichlet terms for positive
 integers up to the real cutoff, with half weight when the cutoff is an integer. -/
@@ -134,7 +171,44 @@ theorem heckeLogDerivPolynomial_eq_sum_ideals (χ : U[F]) (x : ℝ) (s : ℂ) :
     heckeLogDerivPolynomial χ x s =
       ∑ᶠ I : {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ (I.absNorm : ℝ) ≤ x},
         heckeIdealVonMangoldt (ideleClassNormTwist χ 0) I.val / (I.val.absNorm : ℂ) ^ s := by
-  sorry
+  classical
+  let g : Ideal (𝓞 F) → ℂ := fun I ↦
+    heckeIdealVonMangoldt (ideleClassNormTwist χ 0) I / (I.absNorm : ℂ) ^ s
+  have hfin : {I : Ideal (𝓞 F) | I ≠ ⊥ ∧ (I.absNorm : ℝ) ≤ x}.Finite :=
+    (Ring.HasFiniteQuotients.finite_absNorm_le (S := 𝓞 F) ⌊x⌋₊).subset
+      fun I hI ↦ Nat.le_floor hI.2
+  let T := hfin.toFinset
+  have hfib (n : ℕ) (hn : n ∈ Finset.Icc 1 ⌊x⌋₊) :
+      LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) s n =
+        ∑ I ∈ T with I.absNorm = n, g I := by
+    have hn0 : n ≠ 0 := Nat.one_le_iff_ne_zero.mp (Finset.mem_Icc.mp hn).1
+    have hset : {I : Ideal (𝓞 F) | I ≠ ⊥ ∧ I.absNorm = n} =
+        ↑(T.filter fun I ↦ I.absNorm = n) := by
+      ext I
+      simp only [Set.mem_ofPred_eq, Finset.coe_filter, T, Set.Finite.mem_toFinset]
+      constructor
+      · rintro ⟨h0, h1⟩
+        refine ⟨⟨h0, ?_⟩, h1⟩
+        rw [h1]
+        exact (Nat.le_floor_iff' hn0).mp (Finset.mem_Icc.mp hn).2
+      · rintro ⟨⟨h0, -⟩, h1⟩
+        exact ⟨h0, h1⟩
+    rw [LSeries.term_of_ne_zero hn0, heckeLogDerivCoefficient]
+    change (∑ᶠ I : ↥{I : Ideal (𝓞 F) | I ≠ ⊥ ∧ I.absNorm = n},
+      heckeIdealVonMangoldt (ideleClassNormTwist χ 0) I) / (n : ℂ) ^ s = _
+    rw [hset, finsum_set_coe_eq_finsum_mem, finsum_mem_coe_finset, Finset.sum_div]
+    refine Finset.sum_congr rfl fun I hI ↦ ?_
+    change _ = heckeIdealVonMangoldt (ideleClassNormTwist χ 0) I / (I.absNorm : ℂ) ^ s
+    rw [(Finset.mem_filter.mp hI).2]
+  change ∑ n ∈ Finset.Icc 1 ⌊x⌋₊,
+      LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) s n =
+    ∑ᶠ I : ↥{I : Ideal (𝓞 F) | I ≠ ⊥ ∧ (I.absNorm : ℝ) ≤ x}, g I
+  rw [finsum_set_coe_eq_finsum_mem, finsum_mem_eq_finite_toFinset_sum _ hfin,
+    Finset.sum_congr rfl hfib]
+  refine Finset.sum_fiberwise_of_maps_to (fun I hI ↦ ?_) _
+  simp only [T, Set.Finite.mem_toFinset, Set.mem_ofPred_eq] at hI
+  exact Finset.mem_Icc.mpr
+    ⟨Nat.one_le_iff_ne_zero.mpr (Ideal.absNorm_eq_zero_iff.not.mpr hI.1), Nat.le_floor hI.2⟩
 
 /-- Paper: Theorem B.7.1.2(1), p. 645. The set `J_b` consists of the integer
 cuts and the real cuts at distance at least `b` from the integers. -/
@@ -146,7 +220,21 @@ allowed and half-integer cuts are allowed precisely when `b ≤ 1/2`. -/
 theorem perronCutoffSet_integer_half_integer {b : ℝ} (hb : 0 < b) (n : ℤ) :
     (n : ℝ) ∈ perronCutoffSet b ∧
       ((n : ℝ) + 1 / 2 ∈ perronCutoffSet b ↔ b ≤ 1 / 2) := by
-  sorry
+  refine ⟨Or.inl ⟨n, rfl⟩, ?_⟩
+  have hround : round ((n : ℝ) + 1 / 2) = n + 1 := by
+    rw [round_eq, add_assoc, add_halves, Int.floor_intCast_add, Int.floor_one]
+  have hnot : (n : ℝ) + 1 / 2 ∉ Set.range (Int.cast : ℤ → ℝ) := by
+    rintro ⟨k, hk⟩
+    have h : ((2 * (k - n) : ℤ) : ℝ) = 1 := by push_cast; linarith
+    have h' : 2 * (k - n) = 1 := by exact_mod_cast h
+    omega
+  have habs : |(n : ℝ) + 1 / 2 - (round ((n : ℝ) + 1 / 2) : ℝ)| = 1 / 2 := by
+    rw [hround, Int.cast_add, Int.cast_one, show (n : ℝ) + 1 / 2 - (n + 1) = -(1 / 2) by ring,
+      abs_neg, abs_of_pos one_half_pos]
+  change (n : ℝ) + 1 / 2 ∈ Set.range (Int.cast : ℤ → ℝ) ∨
+    b ≤ |(n : ℝ) + 1 / 2 - (round ((n : ℝ) + 1 / 2) : ℝ)| ↔ _
+  rw [habs]
+  exact ⟨fun h ↦ h.resolve_left hnot, Or.inr⟩
 
 /-- Paper: Theorem B.7.1.2(1), Equation (B.7.1.8), p. 645. For the character
 `|·|^(-it₀)`, the cutoff polynomial on the 1-line is the negative shifted
