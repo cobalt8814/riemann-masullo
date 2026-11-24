@@ -1,5 +1,6 @@
 module
 
+public import RiemannMasullo.Ch05_ThetaZSpaces.Sec2b
 public import RiemannMasullo.Ch06_LocalGlobal.Sec1
 public import RiemannMasullo.Ch05_ThetaZSpaces.Sec3a
 public import RiemannMasullo.AppD_SchwartzBruhat.Sec3a
@@ -24,6 +25,7 @@ import RiemannMasullo.ForMathlib.NumberTheory.NumberField.Completion.FinitePlace
 import Mathlib.Topology.Algebra.IsOpenUnits
 
 import RiemannMasullo.ForMathlib.NumberTheory.NumberField.Completion.FinitePlace
+import RiemannMasullo.ForMathlib.Topology.Algebra.Module.OpenMapping
 
 /-! # Structure Theorem V: isotypic exhaustiveness
 
@@ -6413,7 +6415,7 @@ end StandardFunctions
 
 /-- Pullback along the unique real coordinate identifies real Schwartz functions with
 the rational adelic test functions at the stage with no finite places. -/
-private theorem ratTrivialHomogeneousTheta_quotient_realEquiv :
+theorem ratTrivialHomogeneousTheta_quotient_realEquiv :
     ∃ E : SchwartzMap ℝ ℂ ≃L[ℂ] ℬ(SAdeleRing ℚ ∅),
       ∀ (f : SchwartzMap ℝ ℂ) (x : SAdeleRing ℚ ∅),
         E f (Multiplicative.ofAdd x) = f (InfinitePlace.Completion.ringEquivRealOfIsReal

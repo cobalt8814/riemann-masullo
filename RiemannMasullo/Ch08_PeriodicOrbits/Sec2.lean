@@ -93,8 +93,8 @@ def adeleOrbitBasepoints : Set 𝔸[F] :=
   Set.range (adeleOrbitBasepoint F)
 
 /-- Paper: Definition 8.2.0.1(1), p. 384. The ordinary base point lies in $Z_F$. -/
-theorem one_mem_adeleOrbitBasepoints : 1 ∈ adeleOrbitBasepoints F := by
-  sorry
+theorem one_mem_adeleOrbitBasepoints : 1 ∈ adeleOrbitBasepoints F :=
+  ⟨none, rfl⟩
 
 /-- Paper: Definition 8.2.0.1(2), p. 384. The family in (8.2.0.3) consists of the
 S-local full-idele orbits with their adelic subspace topologies. -/
@@ -262,10 +262,526 @@ theorem adeleNormOneOrbitMap_val (g : N₁) (z : adeleOrbitBasepoints F) :
     (adeleNormOneOrbitMap F (g, z)).val = g • z.val := by
   rfl
 
+/-- The coordinates of an S-local base point: zero at its own place and one elsewhere. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_coord (k : Option (InfinitePlace F ⊕ S)) :
+    (∀ w : InfinitePlace F, (k = some (.inl w) → (sAdeleOrbitBasepoint F S k).1 w = 0) ∧
+      (k ≠ some (.inl w) → (sAdeleOrbitBasepoint F S k).1 w = 1)) ∧
+    ∀ v : S, (k = some (.inr v) → (sAdeleOrbitBasepoint F S k).2 v = 0) ∧
+      (k ≠ some (.inr v) → (sAdeleOrbitBasepoint F S k).2 v = 1) := by
+  obtain ⟨-, hinl, hinr⟩ := adeleOrbitBasepoint_coordinates F
+  have h1 (k : Option (InfinitePlace F ⊕ S)) (w : InfinitePlace F) :
+      (sAdeleOrbitBasepoint F S k).1 w =
+        (adeleOrbitBasepoint F (k.map (Sum.map id Subtype.val))).1 w := rfl
+  have h2 (k : Option (InfinitePlace F ⊕ S)) (v : S) :
+      (sAdeleOrbitBasepoint F S k).2 v =
+        (adeleOrbitBasepoint F (k.map (Sum.map id Subtype.val))).2 v.val := rfl
+  rcases k with _ | w₀ | v₀
+  · exact ⟨fun w ↦ ⟨fun h ↦ (by cases h), fun _ ↦ rfl⟩, fun v ↦ ⟨fun h ↦ (by cases h), fun _ ↦ rfl⟩⟩
+  · refine ⟨fun w ↦ ⟨fun h ↦ ?_, fun h ↦ ?_⟩, fun v ↦ ⟨fun h ↦ (by cases h), fun _ ↦ ?_⟩⟩
+    · cases h
+      rw [h1]
+      exact (hinl _).1
+    · rw [h1]
+      exact (hinl w₀).2.1 w (fun e ↦ h (e ▸ rfl))
+    · rw [h2]
+      change (adeleOrbitBasepoint F (some (.inl w₀))).2 v.val = 1
+      rw [(hinl w₀).2.2]
+      rfl
+  · refine ⟨fun w ↦ ⟨fun h ↦ (by cases h), fun _ ↦ ?_⟩, fun v ↦ ⟨fun h ↦ ?_, fun h ↦ ?_⟩⟩
+    · rw [h1]
+      change (adeleOrbitBasepoint F (some (.inr v₀.val))).1 w = 1
+      rw [(hinr v₀.val).1]
+      rfl
+    · cases h
+      rw [h2]
+      exact (hinr _).2.1
+    · rw [h2]
+      exact (hinr v₀.val).2.2 v.val (fun e ↦ h (congrArg (some ∘ Sum.inr) (Subtype.ext e).symm))
+
+/-- The coordinates of an S-idele are nonzero. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_ne_zero (g : 𝕀ₛ) :
+    (∀ w : InfinitePlace F, g.val.1 w ≠ 0) ∧ ∀ v : S, g.val.2 v ≠ 0 :=
+  ⟨fun w ↦ ((g.isUnit.map (RingHom.fst _ _)).map (Pi.evalRingHom _ w)).ne_zero,
+    fun v ↦ ((g.isUnit.map (RingHom.snd _ _)).map (Pi.evalRingHom _ v)).ne_zero⟩
+
+/-- An S-adele whose coordinates are all nonzero is a unit. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_isUnit (y : Aₛ)
+    (h1 : ∀ w : InfinitePlace F, y.1 w ≠ 0) (h2 : ∀ v : S, y.2 v ≠ 0) : IsUnit y :=
+  Prod.isUnit_iff.mpr ⟨(Pi.isUnit_iff (x := (y.1 : (w : InfinitePlace F) → w.Completion))).mpr
+    fun w ↦ (h1 w).isUnit, Pi.isUnit_iff.mpr fun v ↦ (h2 v).isUnit⟩
+
+/-- The S-idelic norm is the product of the normalized local norms. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_norm (g : 𝕀ₛ) :
+    ((sIdeleNorm F S g : ℝ≥0)) =
+      (∏ w : InfinitePlace F, ‖g.val.1 w‖₊ ^ w.mult) * ∏ v : S, ‖g.val.2 v‖₊ := by
+  simp only [sIdeleNorm, MonoidHom.mul_apply, MonoidHom.finsetProd_apply, MonoidHom.pow_apply,
+    Units.val_mul, Units.coe_prod, Units.val_pow_eq_pow_val]
+  rfl
+
+/-- A point of the S-local union with no zero coordinate other than at `c`, and with norm
+product less than one, lies in the orbit of the base point at `c`. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_piece (y : Aₛ)
+    (hy : y ∈ sAdeleNormOneOrbitUnion F S) (c : InfinitePlace F ⊕ S)
+    (hne1 : ∀ w : InfinitePlace F, Sum.inl w ≠ c → y.1 w ≠ 0)
+    (hne2 : ∀ v : S, Sum.inr v ≠ c → y.2 v ≠ 0)
+    (hP : (∏ w : InfinitePlace F, ‖y.1 w‖₊ ^ w.mult) * ∏ v : S, ‖y.2 v‖₊ < 1) :
+    ∃ h : Nₛ, h • sAdeleOrbitBasepoint F S (some c) = y := by
+  simp only [sAdeleNormOneOrbitUnion, Set.mem_iUnion, sAdeleNormOneOrbit,
+    MulAction.mem_orbit_iff] at hy
+  obtain ⟨i, h, rfl⟩ := hy
+  have hco := sAdeleNormOneOrbitMap_isQuotientMap_coord F S
+  rcases i with _ | d
+  · exfalso
+    have hval : h • sAdeleOrbitBasepoint F S none = h.val.val := by
+      change h.val.val * sAdeleOrbitBasepoint F S none = _
+      rw [sAdeleOrbitBasepoint_none, mul_one]
+    rw [hval, ← sAdeleNormOneOrbitMap_isQuotientMap_norm,
+      MonoidHom.mem_ker.mp h.property, Units.val_one] at hP
+    exact lt_irrefl _ hP
+  · by_cases hdc : d = c
+    · exact ⟨h, by rw [hdc]⟩
+    · exfalso
+      rcases d with w | v
+      · apply hne1 w hdc
+        change h.val.val.1 w * (sAdeleOrbitBasepoint F S (some (.inl w))).1 w = 0
+        rw [((hco _).1 w).1 rfl, mul_zero]
+      · apply hne2 v hdc
+        change h.val.val.2 v * (sAdeleOrbitBasepoint F S (some (.inr v))).2 v = 0
+        rw [((hco _).2 v).1 rfl, mul_zero]
+
+/-- A point of the S-local union with no zero coordinate is a norm-one S-idele. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_unit (y : Aₛ)
+    (hy : y ∈ sAdeleNormOneOrbitUnion F S)
+    (hne1 : ∀ w : InfinitePlace F, y.1 w ≠ 0) (hne2 : ∀ v : S, y.2 v ≠ 0) :
+    ∃ h : Nₛ, h.val.val = y := by
+  simp only [sAdeleNormOneOrbitUnion, Set.mem_iUnion, sAdeleNormOneOrbit,
+    MulAction.mem_orbit_iff] at hy
+  obtain ⟨i, h, rfl⟩ := hy
+  have hco := sAdeleNormOneOrbitMap_isQuotientMap_coord F S
+  rcases i with _ | d
+  · refine ⟨h, ?_⟩
+    change _ = h.val.val * sAdeleOrbitBasepoint F S none
+    rw [sAdeleOrbitBasepoint_none, mul_one]
+  · exfalso
+    rcases d with w | v
+    · apply hne1 w
+      change h.val.val.1 w * (sAdeleOrbitBasepoint F S (some (.inl w))).1 w = 0
+      rw [((hco _).1 w).1 rfl, mul_zero]
+    · apply hne2 v
+      change h.val.val.2 v * (sAdeleOrbitBasepoint F S (some (.inr v))).2 v = 0
+      rw [((hco _).2 v).1 rfl, mul_zero]
+
+/-- Near a norm-one S-idele, every point of the S-local union is a norm-one S-idele lying in
+any given neighborhood: the S-ideles are open in the S-adeles, and the other orbits have a
+zero coordinate. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_nhds_none (g : Nₛ) (U : Set Aₛ)
+    (hU : U ∈ 𝓝 (g.val.val)) :
+    ∃ t ∈ 𝓝 (g • sAdeleOrbitBasepoint F S none),
+      ∀ y ∈ sAdeleNormOneOrbitUnion F S, y ∈ t →
+        ∃ h : Nₛ, h.val.val ∈ U ∧ h • sAdeleOrbitBasepoint F S none = y := by
+  have hx : g • sAdeleOrbitBasepoint F S none = g.val.val := by
+    change g.val.val * sAdeleOrbitBasepoint F S none = _
+    rw [sAdeleOrbitBasepoint_none, mul_one]
+  obtain ⟨hg1, hg2⟩ := sAdeleNormOneOrbitMap_isQuotientMap_ne_zero F S g.val
+  have hev : ∀ᶠ y in 𝓝 (g.val.val), y ∈ U ∧ (∀ w : InfinitePlace F, y.1 w ≠ 0) ∧
+      ∀ v : S, y.2 v ≠ 0 := by
+    refine Filter.Eventually.and hU (Filter.Eventually.and ?_ ?_)
+    · exact Filter.eventually_all.mpr fun w ↦
+        ((continuous_apply w).comp continuous_fst).continuousAt.eventually_ne (hg1 w)
+    · exact Filter.eventually_all.mpr fun v ↦
+        ((continuous_apply v).comp continuous_snd).continuousAt.eventually_ne (hg2 v)
+  rw [hx]
+  obtain ⟨t, ht, htp⟩ := hev.exists_mem
+  refine ⟨t, ht, fun y hy hyt ↦ ?_⟩
+  obtain ⟨hyU, hy1, hy2⟩ := htp y hyt
+  obtain ⟨h, rfl⟩ := sAdeleNormOneOrbitMap_isQuotientMap_unit F S y hy hy1 hy2
+  refine ⟨h, hyU, ?_⟩
+  change h.val.val * sAdeleOrbitBasepoint F S none = _
+  rw [sAdeleOrbitBasepoint_none, mul_one]
+
+/-- Near a point of the orbit of the base point at a finite place `v₀`, every point of the
+S-local union is the translate of that base point by a norm-one S-idele lying in any given
+neighborhood of the original one. The coordinate at `v₀` can be kept, because the norm of a
+finite completion changes by a factor of at least two. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_nhds_inr (v₀ : S) (g : Nₛ) (U : Set Aₛ)
+    (hU : U ∈ 𝓝 (g.val.val)) :
+    ∃ t ∈ 𝓝 (g • sAdeleOrbitBasepoint F S (some (.inr v₀))),
+      ∀ y ∈ sAdeleNormOneOrbitUnion F S, y ∈ t →
+        ∃ h : Nₛ, h.val.val ∈ U ∧ h • sAdeleOrbitBasepoint F S (some (.inr v₀)) = y := by
+  classical
+  have hco := sAdeleNormOneOrbitMap_isQuotientMap_coord F S (some (.inr v₀))
+  let e := sAdeleOrbitBasepoint F S (some (.inr v₀))
+  have he1 (w : InfinitePlace F) : e.1 w = 1 := (hco.1 w).2 (by simp)
+  have he2 (v : S) : e.2 v = if v = v₀ then 0 else 1 := by
+    split_ifs with hv
+    · exact (hco.2 v).1 (by rw [hv])
+    · exact (hco.2 v).2 (fun h ↦ hv (Sum.inr_injective (Option.some_injective _ h)).symm)
+  -- Coordinates of a translate of the base point.
+  have hsmul1 (k : Nₛ) (w : InfinitePlace F) : (k • e).1 w = k.val.val.1 w := by
+    change k.val.val.1 w * e.1 w = _
+    rw [he1, mul_one]
+  have hsmul2 (k : Nₛ) (v : S) : (k • e).2 v = if v = v₀ then 0 else k.val.val.2 v := by
+    change k.val.val.2 v * e.2 v = _
+    rw [he2]
+    split_ifs <;> simp
+  let P : Aₛ → ℝ≥0 := fun y ↦ (∏ w : InfinitePlace F, ‖y.1 w‖₊ ^ w.mult) * ∏ v : S, ‖y.2 v‖₊
+  let Q : Aₛ → ℝ≥0 := fun y ↦
+    (∏ w : InfinitePlace F, ‖y.1 w‖₊ ^ w.mult) * ∏ v ∈ Finset.univ.erase v₀, ‖y.2 v‖₊
+  have hPQ (y : Aₛ) : P y = ‖y.2 v₀‖₊ * Q y := by
+    simp only [P, Q]
+    rw [← Finset.mul_prod_erase Finset.univ (fun v ↦ ‖y.2 v‖₊) (Finset.mem_univ v₀)]
+    ring
+  -- `Q` only sees the coordinates away from `v₀`.
+  have hQ (y z : Aₛ) (h1 : ∀ w, y.1 w = z.1 w) (h2 : ∀ v, v ≠ v₀ → y.2 v = z.2 v) :
+      Q y = Q z := by
+    simp only [Q]
+    congr 1
+    · exact Finset.prod_congr rfl fun w _ ↦ by rw [h1]
+    · exact Finset.prod_congr rfl fun v hv ↦ by rw [h2 v (Finset.ne_of_mem_erase hv)]
+  have hQcont : Continuous Q := by
+    simp only [Q]
+    fun_prop
+  have hnorm (k : Nₛ) : P k.val.val = 1 := by
+    have := sAdeleNormOneOrbitMap_isQuotientMap_norm F S k.val
+    rw [MonoidHom.mem_ker.mp k.property, Units.val_one] at this
+    exact this.symm
+  let x := g • e
+  let g₀ := g.val.val.2 v₀
+  obtain ⟨hg1, hg2⟩ := sAdeleNormOneOrbitMap_isQuotientMap_ne_zero F S g.val
+  let H : Aₛ → Aₛ := fun y ↦ (y.1, Function.update y.2 v₀ g₀)
+  have hHcont : Continuous H := continuous_fst.prodMk (continuous_snd.update v₀ continuous_const)
+  have hHx : H x = g.val.val := by
+    refine Prod.ext (funext fun w ↦ hsmul1 g w) (funext fun v ↦ ?_)
+    by_cases hv : v = v₀
+    · subst hv
+      exact Function.update_self _ _ _
+    · change Function.update x.2 v₀ g₀ v = _
+      rw [Function.update_of_ne hv, hsmul2, ite_eq_right hv]
+  have hQx : ‖g₀‖₊ * Q x = 1 := by
+    rw [hQ x g.val.val (hsmul1 g) (fun v hv ↦ by rw [hsmul2, ite_eq_right hv]), ← hPQ, hnorm]
+  have hPx : P x = 0 := by
+    rw [hPQ, show x.2 v₀ = 0 by rw [hsmul2, ite_eq_left rfl], nnNorm_zero, zero_mul]
+  have hev : ∀ᶠ y in 𝓝 x, H y ∈ U ∧ (∀ w : InfinitePlace F, y.1 w ≠ 0) ∧
+      (∀ v : S, v ≠ v₀ → y.2 v ≠ 0) ∧ P y < 1 ∧
+      (1 / 2 < ‖g₀‖₊ * Q y ∧ ‖g₀‖₊ * Q y < 2) := by
+    refine Filter.Eventually.and (hHcont.continuousAt.preimage_mem_nhds (by rwa [hHx]))
+      (Filter.Eventually.and ?_ (Filter.Eventually.and ?_ (Filter.Eventually.and ?_ ?_)))
+    · refine Filter.eventually_all.mpr fun w ↦
+        ((continuous_apply w).comp continuous_fst).continuousAt.eventually_ne ?_
+      change x.1 w ≠ 0
+      rw [hsmul1]
+      exact hg1 w
+    · refine Filter.eventually_all.mpr fun v ↦ ?_
+      by_cases hv : v = v₀
+      · exact Filter.Eventually.of_forall fun y h ↦ absurd hv h
+      · refine (((continuous_apply v).comp continuous_snd).continuousAt.eventually_ne ?_).mono
+          fun y hy _ ↦ hy
+        change x.2 v ≠ 0
+        rw [hsmul2, ite_eq_right hv]
+        exact hg2 v
+    · have hPcont : Continuous P := by
+        simp only [P]
+        fun_prop
+      exact hPcont.continuousAt.eventually_lt continuousAt_const (by rw [hPx]; exact one_pos)
+    · have hc : Continuous fun y ↦ ‖g₀‖₊ * Q y := continuous_const.mul hQcont
+      refine (hc.continuousAt.eventually_lt continuousAt_const ?_).and
+        (continuousAt_const.eventually_lt hc.continuousAt ?_) |>.mono fun y hy ↦ ⟨hy.2, hy.1⟩
+      · rw [hQx]
+        norm_num
+      · rw [hQx]
+        norm_num
+  obtain ⟨t, ht, htp⟩ := hev.exists_mem
+  refine ⟨t, ht, fun y hyD hyt ↦ ?_⟩
+  obtain ⟨hyU, hy1, hy2, hyP, hyr1, hyr2⟩ := htp y hyt
+  obtain ⟨h, rfl⟩ := sAdeleNormOneOrbitMap_isQuotientMap_piece F S y hyD (.inr v₀)
+    (fun w _ ↦ hy1 w) (fun v hv ↦ hy2 v (fun e ↦ hv (e ▸ rfl))) hyP
+  -- The norm at `v₀` of the new idele equals that of `g`.
+  let h₀ := h.val.val.2 v₀
+  obtain ⟨-, hh2⟩ := sAdeleNormOneOrbitMap_isQuotientMap_ne_zero F S h.val
+  have hQh : Q (h • e) = Q h.val.val :=
+    hQ _ _ (hsmul1 h) (fun v hv ↦ by rw [hsmul2, ite_eq_right hv])
+  have hhQ : ‖h₀‖₊ * Q (h • e) = 1 := by rw [hQh, ← hPQ, hnorm]
+  have hgh : ‖g₀‖ = ‖h₀‖ := by
+    have hr1 : (1 / 2 : ℝ) < ‖g₀‖ * (Q (h • e) : ℝ) := by
+      have := NNReal.coe_lt_coe.mpr hyr1
+      push_cast at this
+      exact this
+    have hr2 : ‖g₀‖ * (Q (h • e) : ℝ) < 2 := by
+      have := NNReal.coe_lt_coe.mpr hyr2
+      push_cast at this
+      exact this
+    have hh : ‖h₀‖ * (Q (h • e) : ℝ) = 1 := by
+      have := congrArg (fun r : ℝ≥0 ↦ (r : ℝ)) hhQ
+      push_cast at this
+      exact this
+    have hh0 : 0 < ‖h₀‖ := norm_pos_iff.mpr (hh2 v₀)
+    have hg0 : 0 < ‖g₀‖ := norm_pos_iff.mpr (hg2 v₀)
+    rcases lt_trichotomy ‖g₀‖ ‖h₀‖ with hlt | heq | hgt
+    · exfalso
+      have h1 : 1 < ‖h₀ * g₀⁻¹‖ := by
+        rw [norm_mul, norm_inv, ← div_eq_mul_inv, one_lt_div hg0]
+        exact hlt
+      have h2 := FinitePlace.two_le_norm_of_one_lt_norm (K := F) (v := v₀.val) _ h1
+      rw [norm_mul, norm_inv, ← div_eq_mul_inv, le_div_iff₀ hg0] at h2
+      nlinarith
+    · exact heq
+    · exfalso
+      have h1 : 1 < ‖g₀ * h₀⁻¹‖ := by
+        rw [norm_mul, norm_inv, ← div_eq_mul_inv, one_lt_div hh0]
+        exact hgt
+      have h2 := FinitePlace.two_le_norm_of_one_lt_norm (K := F) (v := v₀.val) _ h1
+      rw [norm_mul, norm_inv, ← div_eq_mul_inv, le_div_iff₀ hh0] at h2
+      nlinarith
+  -- The modified S-adele is a norm-one S-idele.
+  have hH1 (w : InfinitePlace F) : (H (h • e)).1 w ≠ 0 := hy1 w
+  have hH2 (v : S) : (H (h • e)).2 v ≠ 0 := by
+    by_cases hv : v = v₀
+    · subst hv
+      change Function.update (h • e).2 v g₀ v ≠ 0
+      rw [Function.update_self]
+      exact hg2 v
+    · change Function.update (h • e).2 v₀ g₀ v ≠ 0
+      rw [Function.update_of_ne hv]
+      exact hy2 v hv
+  have hunit := sAdeleNormOneOrbitMap_isQuotientMap_isUnit F S _ hH1 hH2
+  have hHnorm : P (H (h • e)) = 1 := by
+    rw [hPQ, hQ (H (h • e)) (h • e) (fun _ ↦ rfl)
+      (fun v hv ↦ Function.update_of_ne hv _ _)]
+    change ‖Function.update (h • e).2 v₀ g₀ v₀‖₊ * _ = 1
+    rw [Function.update_self, ← hhQ]
+    congr 1
+    exact Subtype.ext hgh
+  let k : Nₛ := ⟨hunit.unit, MonoidHom.mem_ker.mpr (Units.ext (by
+    rw [sAdeleNormOneOrbitMap_isQuotientMap_norm, Units.val_one]
+    exact hHnorm))⟩
+  refine ⟨k, hyU, Prod.ext (funext fun w ↦ ?_) (funext fun v ↦ ?_)⟩
+  · change (H (h • e)).1 w * e.1 w = (h • e).1 w
+    rw [he1, mul_one]
+  · change Function.update (h • e).2 v₀ g₀ v * e.2 v = (h • e).2 v
+    by_cases hv : v = v₀
+    · subst hv
+      rw [he2, ite_eq_left rfl, mul_zero, hsmul2, ite_eq_left rfl]
+    · rw [Function.update_of_ne hv, he2, ite_eq_right hv, mul_one]
+
+/-- Near a point of the orbit of the base point at an infinite place `w₀`, every point of the
+S-local union is the translate of that base point by a norm-one S-idele lying in any given
+neighborhood of the original one. The coordinate at `w₀` is rescaled by a positive real
+close to one, chosen to bring the S-norm back to one. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_nhds_inl (w₀ : InfinitePlace F) (g : Nₛ)
+    (U : Set Aₛ) (hU : U ∈ 𝓝 (g.val.val)) :
+    ∃ t ∈ 𝓝 (g • sAdeleOrbitBasepoint F S (some (.inl w₀))),
+      ∀ y ∈ sAdeleNormOneOrbitUnion F S, y ∈ t →
+        ∃ h : Nₛ, h.val.val ∈ U ∧ h • sAdeleOrbitBasepoint F S (some (.inl w₀)) = y := by
+  classical
+  have hco := sAdeleNormOneOrbitMap_isQuotientMap_coord F S (some (.inl w₀))
+  let e := sAdeleOrbitBasepoint F S (some (.inl w₀))
+  have he1 (w : InfinitePlace F) : e.1 w = if w = w₀ then 0 else 1 := by
+    split_ifs with hw
+    · exact (hco.1 w).1 (by rw [hw])
+    · exact (hco.1 w).2 (fun h ↦ hw (Sum.inl_injective (Option.some_injective _ h)).symm)
+  have he2 (v : S) : e.2 v = 1 := (hco.2 v).2 (by simp)
+  -- Coordinates of a translate of the base point.
+  have hsmul1 (k : Nₛ) (w : InfinitePlace F) :
+      (k • e).1 w = if w = w₀ then 0 else k.val.val.1 w := by
+    change k.val.val.1 w * e.1 w = _
+    rw [he1]
+    split_ifs <;> simp
+  have hsmul2 (k : Nₛ) (v : S) : (k • e).2 v = k.val.val.2 v := by
+    change k.val.val.2 v * e.2 v = _
+    rw [he2, mul_one]
+  have hm : w₀.mult ≠ 0 := InfinitePlace.mult_ne_zero
+  let P : Aₛ → ℝ≥0 := fun y ↦ (∏ w : InfinitePlace F, ‖y.1 w‖₊ ^ w.mult) * ∏ v : S, ‖y.2 v‖₊
+  let Q : Aₛ → ℝ≥0 := fun y ↦
+    (∏ w ∈ Finset.univ.erase w₀, ‖y.1 w‖₊ ^ w.mult) * ∏ v : S, ‖y.2 v‖₊
+  have hPQ (y : Aₛ) : P y = ‖y.1 w₀‖₊ ^ w₀.mult * Q y := by
+    simp only [P, Q]
+    rw [← Finset.mul_prod_erase Finset.univ (fun w ↦ ‖y.1 w‖₊ ^ w.mult) (Finset.mem_univ w₀)]
+    ring
+  -- `Q` only sees the coordinates away from `w₀`.
+  have hQ (y z : Aₛ) (h1 : ∀ w, w ≠ w₀ → y.1 w = z.1 w) (h2 : ∀ v, y.2 v = z.2 v) :
+      Q y = Q z := by
+    simp only [Q]
+    congr 1
+    · exact Finset.prod_congr rfl fun w hw ↦ by rw [h1 w (Finset.ne_of_mem_erase hw)]
+    · exact Finset.prod_congr rfl fun v _ ↦ by rw [h2]
+  have hQcont : Continuous Q := by
+    simp only [Q]
+    fun_prop
+  have hnorm (k : Nₛ) : P k.val.val = 1 := by
+    have := sAdeleNormOneOrbitMap_isQuotientMap_norm F S k.val
+    rw [MonoidHom.mem_ker.mp k.property, Units.val_one] at this
+    exact this.symm
+  let x := g • e
+  let g₀ := g.val.val.1 w₀
+  obtain ⟨hg1, hg2⟩ := sAdeleNormOneOrbitMap_isQuotientMap_ne_zero F S g.val
+  have hQx : ‖g₀‖₊ ^ w₀.mult * Q x = 1 := by
+    rw [hQ x g.val.val (fun w hw ↦ by rw [hsmul1, ite_eq_right hw]) (hsmul2 g), ← hPQ, hnorm]
+  have hQxR : ‖g₀‖ ^ w₀.mult * (Q x : ℝ) = 1 := by
+    have := congrArg (fun r : ℝ≥0 ↦ (r : ℝ)) hQx
+    push_cast at this
+    exact this
+  have hQx0 : (0 : ℝ) < Q x := by
+    refine lt_of_le_of_ne (Q x).coe_nonneg fun h ↦ ?_
+    rw [← h, mul_zero] at hQxR
+    exact zero_ne_one hQxR
+  have hPx : P x = 0 := by
+    rw [hPQ, show x.1 w₀ = 0 by rw [hsmul1, ite_eq_left rfl], nnNorm_zero, zero_pow hm,
+      zero_mul]
+  -- The rescaling factor at `w₀`, a positive real root of `Q x / Q y`.
+  let T : Aₛ → ℝ≥0ˣ := fun y ↦ Units.mk0
+    ⟨Real.exp (Real.log (Q x : ℝ) - Real.log (Q y : ℝ)), (Real.exp_pos _).le⟩ (NNReal.coe_ne_zero.mp (Real.exp_pos _).ne')
+  let μ : Aₛ → w₀.Completion := fun y ↦
+    (infinitePlaceRealPower F w₀ (w₀.mult : ℝ)⁻¹ (T y)).val
+  have hμ (y : Aₛ) : InfinitePlace.Completion.extensionEmbedding w₀ (μ y) =
+      ((Real.exp (Real.log (Q x : ℝ) - Real.log (Q y : ℝ)) ^ (w₀.mult : ℝ)⁻¹ : ℝ) : ℂ) :=
+    infinitePlaceRealPower_apply F w₀ _ (T y)
+  have hμnorm (y : Aₛ) :
+      ‖μ y‖ = Real.exp (Real.log (Q x : ℝ) - Real.log (Q y : ℝ)) ^ (w₀.mult : ℝ)⁻¹ := by
+    rw [← (InfinitePlace.Completion.isometry_extensionEmbedding w₀).norm_map_of_map_zero
+      (map_zero _), hμ, Complex.norm_real,
+      Real.norm_of_nonneg (Real.rpow_nonneg (Real.exp_pos _).le _)]
+  have hμx : μ x = 1 := by
+    refine (InfinitePlace.Completion.extensionEmbedding w₀).injective ?_
+    rw [hμ, map_one, sub_self, Real.exp_zero, Real.one_rpow, Complex.ofReal_one]
+  have hμcont : ContinuousAt μ x := by
+    rw [(InfinitePlace.Completion.isometry_extensionEmbedding w₀).isEmbedding.isInducing
+      |>.continuousAt_iff]
+    have hfun : (InfinitePlace.Completion.extensionEmbedding w₀ ∘ μ) = fun y ↦
+        ((Real.exp (Real.log (Q x : ℝ) - Real.log (Q y : ℝ)) ^ (w₀.mult : ℝ)⁻¹ : ℝ) : ℂ) :=
+      funext hμ
+    rw [hfun]
+    have hlog : ContinuousAt (fun y : Aₛ ↦ Real.log (Q y : ℝ)) x :=
+      (NNReal.continuous_coe.comp hQcont).continuousAt.log hQx0.ne'
+    exact Complex.continuous_ofReal.continuousAt.comp
+      (((continuousAt_const.sub hlog).rexp).rpow_const (Or.inl (Real.exp_pos _).ne'))
+  let H : Aₛ → Aₛ := fun y ↦
+    ((Function.update (y.1 : (w : InfinitePlace F) → w.Completion) w₀ (g₀ * μ y) :
+      InfiniteAdeleRing F), y.2)
+  have hHcont : ContinuousAt H x :=
+    (continuous_fst.continuousAt.update w₀ (continuousAt_const.mul hμcont)).prodMk
+      continuous_snd.continuousAt
+  have hHx : H x = g.val.val := by
+    refine Prod.ext (funext fun w ↦ ?_) (funext fun v ↦ hsmul2 g v)
+    by_cases hw : w = w₀
+    · rw [hw]
+      change Function.update (x.1 : (w : InfinitePlace F) → w.Completion) w₀ (g₀ * μ x) w₀ = _
+      rw [Function.update_self, hμx, mul_one]
+    · change Function.update (x.1 : (w : InfinitePlace F) → w.Completion) w₀ (g₀ * μ x) w = _
+      rw [Function.update_of_ne hw, hsmul1, ite_eq_right hw]
+  have hev : ∀ᶠ y in 𝓝 x, H y ∈ U ∧ (∀ w : InfinitePlace F, w ≠ w₀ → y.1 w ≠ 0) ∧
+      (∀ v : S, y.2 v ≠ 0) ∧ P y < 1 ∧ (0 : ℝ) < Q y := by
+    refine Filter.Eventually.and (hHcont.preimage_mem_nhds (by rwa [hHx]))
+      (Filter.Eventually.and ?_ (Filter.Eventually.and ?_ (Filter.Eventually.and ?_ ?_)))
+    · refine Filter.eventually_all.mpr fun w ↦ ?_
+      by_cases hw : w = w₀
+      · exact Filter.Eventually.of_forall fun y h ↦ absurd hw h
+      · refine (((continuous_apply w).comp continuous_fst).continuousAt.eventually_ne ?_).mono
+          fun y hy _ ↦ hy
+        change x.1 w ≠ 0
+        rw [hsmul1, ite_eq_right hw]
+        exact hg1 w
+    · refine Filter.eventually_all.mpr fun v ↦
+        ((continuous_apply v).comp continuous_snd).continuousAt.eventually_ne ?_
+      change x.2 v ≠ 0
+      rw [hsmul2]
+      exact hg2 v
+    · have hPcont : Continuous P := by
+        simp only [P]
+        fun_prop
+      exact hPcont.continuousAt.eventually_lt continuousAt_const (by rw [hPx]; exact one_pos)
+    · exact continuousAt_const.eventually_lt (NNReal.continuous_coe.comp hQcont).continuousAt
+        hQx0
+  obtain ⟨t, ht, htp⟩ := hev.exists_mem
+  refine ⟨t, ht, fun y hyD hyt ↦ ?_⟩
+  obtain ⟨hyU, hy1, hy2, hyP, hyQ⟩ := htp y hyt
+  obtain ⟨h, rfl⟩ := sAdeleNormOneOrbitMap_isQuotientMap_piece F S y hyD (.inl w₀)
+    (fun w hw ↦ hy1 w (fun e ↦ hw (congrArg Sum.inl e))) (fun v _ ↦ hy2 v) hyP
+  -- The rescaled S-adele is a norm-one S-idele.
+  have hH1 (w : InfinitePlace F) : (H (h • e)).1 w ≠ 0 := by
+    by_cases hw : w = w₀
+    · rw [hw]
+      change Function.update ((h • e).1 : (w : InfinitePlace F) → w.Completion) w₀
+        (g₀ * μ (h • e)) w₀ ≠ 0
+      rw [Function.update_self]
+      exact mul_ne_zero (hg1 w₀) (Units.ne_zero _)
+    · change Function.update ((h • e).1 : (w : InfinitePlace F) → w.Completion) w₀
+        (g₀ * μ (h • e)) w ≠ 0
+      rw [Function.update_of_ne hw]
+      exact hy1 w hw
+  have hH2 (v : S) : (H (h • e)).2 v ≠ 0 := hy2 v
+  have hunit := sAdeleNormOneOrbitMap_isQuotientMap_isUnit F S _ hH1 hH2
+  have hHnorm : P (H (h • e)) = 1 := by
+    apply NNReal.eq
+    rw [hPQ, hQ (H (h • e)) (h • e) (fun w hw ↦ Function.update_of_ne hw _ _) (fun _ ↦ rfl)]
+    change ((‖Function.update ((h • e).1 : (w : InfinitePlace F) → w.Completion) w₀
+      (g₀ * μ (h • e)) w₀‖₊ ^ w₀.mult * Q (h • e) : ℝ≥0) : ℝ) = ((1 : ℝ≥0) : ℝ)
+    rw [Function.update_self]
+    push_cast
+    rw [norm_mul, mul_pow, hμnorm, Real.rpow_inv_natCast_pow (Real.exp_pos _).le hm,
+      Real.exp_sub, Real.exp_log hQx0, Real.exp_log hyQ, ← hQxR]
+    field_simp
+    rfl
+  let k : Nₛ := ⟨hunit.unit, MonoidHom.mem_ker.mpr (Units.ext (by
+    rw [sAdeleNormOneOrbitMap_isQuotientMap_norm, Units.val_one]
+    exact hHnorm))⟩
+  refine ⟨k, hyU, Prod.ext (funext fun w ↦ ?_) (funext fun v ↦ ?_)⟩
+  · change (H (h • e)).1 w * e.1 w = (h • e).1 w
+    by_cases hw : w = w₀
+    · rw [he1, ite_eq_left hw, mul_zero, hsmul1, ite_eq_left hw]
+    · rw [he1, ite_eq_right hw, mul_one]
+      change Function.update ((h • e).1 : (w : InfinitePlace F) → w.Completion) w₀
+        (g₀ * μ (h • e)) w = _
+      rw [Function.update_of_ne hw]
+  · change (H (h • e)).2 v * e.2 v = (h • e).2 v
+    rw [he2, mul_one]
+
+/-- Near any point of the orbit of a base point, every point of the S-local union is the
+translate of that base point by a norm-one S-idele lying in any given neighborhood of the
+original one. -/
+private theorem sAdeleNormOneOrbitMap_isQuotientMap_nhds (i : Option (InfinitePlace F ⊕ S))
+    (g : Nₛ) (U : Set Aₛ) (hU : U ∈ 𝓝 (g.val.val)) :
+    ∃ t ∈ 𝓝 (g • sAdeleOrbitBasepoint F S i),
+      ∀ y ∈ sAdeleNormOneOrbitUnion F S, y ∈ t →
+        ∃ h : Nₛ, h.val.val ∈ U ∧ h • sAdeleOrbitBasepoint F S i = y := by
+  rcases i with _ | (w | v)
+  · exact sAdeleNormOneOrbitMap_isQuotientMap_nhds_none F S g U hU
+  · exact sAdeleNormOneOrbitMap_isQuotientMap_nhds_inl F S w g U hU
+  · exact sAdeleNormOneOrbitMap_isQuotientMap_nhds_inr F S v g U hU
+
+/-- The S-local orbit map is open. -/
+private theorem sAdeleNormOneOrbitMap_isOpenMap : IsOpenMap (sAdeleNormOneOrbitMap F S) := by
+  intro W hW
+  rw [isOpen_iff_mem_nhds]
+  rintro _ ⟨⟨g, _, i, rfl⟩, hgW, rfl⟩
+  obtain ⟨u, hu, v, hv, huv⟩ := mem_nhds_prod_iff.mp (hW.mem_nhds hgW)
+  have hind : IsInducing (fun k : Nₛ ↦ k.val.val) :=
+    (sIdeleGroup_description F S).1.comp IsInducing.subtypeVal
+  rw [hind.nhds_eq_comap, Filter.mem_comap] at hu
+  obtain ⟨U, hU, hUu⟩ := hu
+  obtain ⟨t, ht, hts⟩ := sAdeleNormOneOrbitMap_isQuotientMap_nhds F S i g U hU
+  rw [mem_nhds_subtype]
+  refine ⟨t, ht, fun y hy ↦ ?_⟩
+  obtain ⟨h, hhU, hhy⟩ := hts y.val y.property hy
+  exact ⟨(h, ⟨_, i, rfl⟩), huv ⟨hUu hhU, mem_of_mem_nhds hv⟩, Subtype.ext hhy⟩
+
+/-- The S-local orbit map is continuous. -/
+private theorem sAdeleNormOneOrbitMap_continuous : Continuous (sAdeleNormOneOrbitMap F S) := by
+  refine Continuous.subtype_mk ?_ _
+  exact (continuous_subtype_val.comp continuous_fst).smul
+    (continuous_subtype_val.comp continuous_snd)
+
+/-- The S-local orbit map is surjective. -/
+private theorem sAdeleNormOneOrbitMap_surjective :
+    Function.Surjective (sAdeleNormOneOrbitMap F S) := by
+  rintro ⟨y, hy⟩
+  obtain ⟨g, z, rfl⟩ := (mem_sAdeleNormOneOrbitUnion_iff F S y).mp hy
+  exact ⟨(g, z), rfl⟩
+
 /-- Paper: Lemma 8.2.0.3(1), p. 385. The adelic subspace topology on the S-local
 norm-one orbit union is the quotient topology of the S-local orbit map. -/
-theorem sAdeleNormOneOrbitMap_isQuotientMap : IsQuotientMap (sAdeleNormOneOrbitMap F S) := by
-  sorry
+theorem sAdeleNormOneOrbitMap_isQuotientMap : IsQuotientMap (sAdeleNormOneOrbitMap F S) :=
+  (sAdeleNormOneOrbitMap_isOpenMap F S).isQuotientMap (sAdeleNormOneOrbitMap_continuous F S)
+    (sAdeleNormOneOrbitMap_surjective F S)
 
 /-- Paper: Lemma 8.2.0.3(2), p. 385. The global orbit map is continuous for the
 adelic subspace topology on the target.
@@ -583,33 +1099,171 @@ theorem sAdeleNormOneOrbitUnion_secondCountable :
   have := secondCountableTopology_sAdeleRing F S
   infer_instance
 
+/-- The adele ring is second countable: the archimedean factor is a finite product of
+completions that embed isometrically into `ℂ`, and the finite adele ring is second
+countable by `secondCountableTopology_finiteAdeleRing`. -/
+private theorem secondCountableTopology_adeleRing :
+    SecondCountableTopology 𝔸[F] := by
+  haveI (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  haveI : SecondCountableTopology (RestrictedProduct
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite) :=
+    secondCountableTopology_finiteAdeleRing F
+  exact inferInstanceAs (SecondCountableTopology (((w : InfinitePlace F) → w.Completion) ×
+    RestrictedProduct (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+      (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite))
+
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is second-countable. -/
 theorem adeleNormOneOrbitUnion_secondCountable :
     SecondCountableTopology (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := secondCountableTopology_adeleRing F
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is perfectly normal. -/
 theorem sAdeleNormOneOrbitUnion_perfectlyNormal :
     PerfectlyNormalSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := sAdeleNormOneOrbitUnion_metrizableSpace F S
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is perfectly normal. -/
 theorem adeleNormOneOrbitUnion_perfectlyNormal :
     PerfectlyNormalSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := adeleNormOneOrbitUnion_metrizableSpace F
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is separable. -/
 theorem sAdeleNormOneOrbitUnion_separableSpace : SeparableSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := sAdeleNormOneOrbitUnion_secondCountable F S
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is separable. -/
 theorem adeleNormOneOrbitUnion_separableSpace : SeparableSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := adeleNormOneOrbitUnion_secondCountable F
+  infer_instance
+
+/-- The domain of the S-local orbit map is locally compact: the norm-one S-ideles are a
+closed subgroup of the locally compact S-ideles, and the base points are finitely many. -/
+private theorem sAdeleNormOneOrbitUnion_locallyCompactSpace_domain :
+    LocallyCompactSpace (Nₛ × sAdeleOrbitBasepoints F S) := by
+  have hc : Continuous fun g : 𝕀ₛ ↦ ((sIdeleNorm F S g : ℝ≥0)) := by
+    have : (fun g : 𝕀ₛ ↦ ((sIdeleNorm F S g : ℝ≥0))) = fun g ↦
+        (∏ w : InfinitePlace F, ‖g.val.1 w‖₊ ^ w.mult) * ∏ v : S, ‖g.val.2 v‖₊ :=
+      funext (sAdeleNormOneOrbitMap_isQuotientMap_norm F S)
+    rw [this]
+    fun_prop
+  have hclosed : IsClosed (Nₛ : Set 𝕀ₛ) := by
+    have : (Nₛ : Set 𝕀ₛ) = (fun g : 𝕀ₛ ↦ ((sIdeleNorm F S g : ℝ≥0))) ⁻¹' {1} := by
+      ext g
+      simp [MonoidHom.mem_ker, Units.val_eq_one]
+    rw [this]
+    exact isClosed_singleton.preimage hc
+  have := (sIdeleGroup_description F S).2.2.1
+  have : LocallyCompactSpace Nₛ := hclosed.locallyCompactSpace
+  have : Finite (sAdeleOrbitBasepoints F S) := (Set.finite_range _).to_subtype
+  have : LocallyCompactSpace (sAdeleOrbitBasepoints F S) :=
+    ⟨fun _ n hn ↦ ⟨n, hn, subset_rfl, n.toFinite.isCompact⟩⟩
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is locally compact. -/
 theorem sAdeleNormOneOrbitUnion_locallyCompactSpace :
     LocallyCompactSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := sAdeleNormOneOrbitUnion_locallyCompactSpace_domain F S
+  exact (IsOpenQuotientMap.mk (sAdeleNormOneOrbitMap_surjective F S)
+    (sAdeleNormOneOrbitMap_continuous F S) (sAdeleNormOneOrbitMap_isOpenMap F S)).locallyCompactSpace
+
+/-- The adele ring is locally compact: the archimedean factor is a finite product of
+completions, and the finite adele ring is a restricted product of locally compact fields
+with respect to their compact open valuation rings. -/
+private theorem adeleNormOneOrbitUnion_locallyCompactSpace_adeleRing :
+    LocallyCompactSpace 𝔸[F] := by
+  have (v : HeightOneSpectrum (𝓞 F)) : ProperSpace (v.adicCompletion F) :=
+    properSpace_adicCompletion v
+  have : Fact (∀ v : HeightOneSpectrum (𝓞 F),
+      IsOpen (v.adicCompletionIntegers F : Set (v.adicCompletion F))) :=
+    ⟨fun _ ↦ Valued.isOpen_valuationSubring _⟩
+  have (v : HeightOneSpectrum (𝓞 F)) : CompactSpace (v.adicCompletionIntegers F) :=
+    compactSpace_adicCompletionIntegers v
+  have : LocallyCompactSpace (RestrictedProduct (fun v : HeightOneSpectrum (𝓞 F) =>
+      v.adicCompletion F) (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F)
+      Filter.cofinite) := inferInstance
+  exact inferInstanceAs (LocallyCompactSpace (((w : InfinitePlace F) → w.Completion) ×
+    RestrictedProduct (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+      (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite))
+
+/-- The special adeles form a closed subset of the adele ring. A point outside it either has
+a coordinate outside `{0, 1}` or two coordinates different from one; both conditions are
+open and exclude every special adele. A point with neither property is special. -/
+private theorem adeleNormOneOrbitUnion_locallyCompactSpace_isClosed :
+    IsClosed (adeleOrbitBasepoints F) := by
+  classical
+  have hco := adeleNormOneOrbitMap_isOpenQuotientMap_coord F
+  -- `one x c` says that the coordinate of `x` at the place `c` is one.
+  let one : 𝔸[F] → InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F) → Prop := fun x ↦
+    Sum.elim (fun w ↦ x.1 w = 1) (fun v ↦ x.2 v = 1)
+  let zero : 𝔸[F] → InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F) → Prop := fun x ↦
+    Sum.elim (fun w ↦ x.1 w = 0) (fun v ↦ x.2 v = 0)
+  have hcw (w : InfinitePlace F) : Continuous fun y : 𝔸[F] ↦ y.1 w :=
+    (continuous_apply w).comp continuous_fst
+  have hcv (v : HeightOneSpectrum (𝓞 F)) : Continuous fun y : 𝔸[F] ↦ y.2 v :=
+    (RestrictedProduct.continuous_eval v).comp continuous_snd
+  have hopen_one (c : InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)) :
+      IsOpen {y : 𝔸[F] | ¬ one y c} := by
+    rcases c with w | v
+    · exact isOpen_ne_fun (hcw w) continuous_const
+    · exact isOpen_ne_fun (hcv v) continuous_const
+  have hopen_zero (c : InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)) :
+      IsOpen {y : 𝔸[F] | ¬ zero y c} := by
+    rcases c with w | v
+    · exact isOpen_ne_fun (hcw w) continuous_const
+    · exact isOpen_ne_fun (hcv v) continuous_const
+  -- Coordinates of a special adele: zero at its own place, one elsewhere.
+  have hbase (k : Option (InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)))
+      (c : InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)) :
+      (k = some c → zero (adeleOrbitBasepoint F k) c) ∧
+        (k ≠ some c → one (adeleOrbitBasepoint F k) c) := by
+    rcases c with w | v
+    · exact ((hco k).1 w)
+    · exact ((hco k).2 v)
+  rw [← isOpen_compl_iff, isOpen_iff_mem_nhds]
+  intro x hx
+  by_cases hA : ∃ c, ¬ one x c ∧ ¬ zero x c
+  · obtain ⟨c, h1, h0⟩ := hA
+    refine Filter.mem_of_superset (((hopen_one c).inter (hopen_zero c)).mem_nhds ⟨h1, h0⟩) ?_
+    rintro y ⟨hy1, hy0⟩ ⟨k, rfl⟩
+    by_cases hk : k = some c
+    · exact hy0 ((hbase k c).1 hk)
+    · exact hy1 ((hbase k c).2 hk)
+  push Not at hA
+  by_cases hB : ∃ a b, a ≠ b ∧ ¬ one x a ∧ ¬ one x b
+  · obtain ⟨a, b, hab, ha, hb⟩ := hB
+    refine Filter.mem_of_superset (((hopen_one a).inter (hopen_one b)).mem_nhds ⟨ha, hb⟩) ?_
+    rintro y ⟨hya, hyb⟩ ⟨k, rfl⟩
+    by_cases hka : k = some a
+    · exact hyb ((hbase k b).2 (fun h ↦ hab (Option.some_injective _ (hka.symm.trans h))))
+    · exact hya ((hbase k a).2 hka)
+  push Not at hB
+  -- Now `x` is special, contradicting `hx`.
+  exfalso
+  apply hx
+  have hext (k : Option (InfinitePlace F ⊕ HeightOneSpectrum (𝓞 F)))
+      (h : ∀ c, (k = some c → zero x c) ∧ (k ≠ some c → one x c)) :
+      x = adeleOrbitBasepoint F k := by
+    refine Prod.ext (funext fun w ↦ ?_) (FiniteAdeleRing.ext F fun v ↦ ?_)
+    · by_cases hk : k = some (.inl w)
+      · exact ((h (.inl w)).1 hk).trans ((hbase k (.inl w)).1 hk).symm
+      · exact ((h (.inl w)).2 hk).trans ((hbase k (.inl w)).2 hk).symm
+    · by_cases hk : k = some (.inr v)
+      · exact ((h (.inr v)).1 hk).trans ((hbase k (.inr v)).1 hk).symm
+      · exact ((h (.inr v)).2 hk).trans ((hbase k (.inr v)).2 hk).symm
+  by_cases hD : ∃ c, ¬ one x c
+  · obtain ⟨c, hc⟩ := hD
+    refine ⟨some c, (hext (some c) fun d ↦ ⟨fun hd ↦ ?_, fun hd ↦ ?_⟩).symm⟩
+    · rw [Option.some_injective _ hd] at hc
+      exact hA _ hc
+    · exact hB c d (fun h ↦ hd (congrArg some h)) hc
+  · push Not at hD
+    exact ⟨none, (hext none fun d ↦ ⟨fun hd ↦ absurd hd (by simp), fun _ ↦ hD d⟩).symm⟩
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is locally compact
 in the quotient topology of the orbit map.
@@ -617,27 +1271,211 @@ Deviation: The adelic subspace topology fails to be locally compact by ERRATA R1
 theorem adeleNormOneOrbitUnion_locallyCompactSpace :
     @LocallyCompactSpace (adeleNormOneOrbitUnion F)
       (TopologicalSpace.coinduced (adeleNormOneOrbitMap F) inferInstance) := by
-  sorry
+  have : LocallyCompactSpace 𝔸[F]ˣ := (ideleGroup_topology F).2.1
+  have : LocallyCompactSpace N₁ := (ideleGroup_topology F).2.2.2.2.2.locallyCompactSpace
+  have := adeleNormOneOrbitUnion_locallyCompactSpace_adeleRing F
+  have : LocallyCompactSpace (adeleOrbitBasepoints F) :=
+    (adeleNormOneOrbitUnion_locallyCompactSpace_isClosed F).locallyCompactSpace
+  exact @IsOpenQuotientMap.locallyCompactSpace _ _ _
+    (TopologicalSpace.coinduced (adeleNormOneOrbitMap F) inferInstance) _ _
+    (adeleNormOneOrbitMap_isOpenQuotientMap F)
+
+/-- The S-idelic norm is continuous: it is a finite product of powers of coordinate norms. -/
+private theorem sAdeleNormOneOrbitUnion_sigmaCompactSpace_continuous
+    (F : Type*) [Field F] [NumberField F] (S : Finset (HeightOneSpectrum (𝓞 F))) :
+    Continuous (sIdeleNorm F S) := by
+  apply Units.isEmbedding_val₀.continuous_iff.mpr
+  change Continuous (fun g : (SAdeleRing F S)ˣ ↦ ((sIdeleNorm F S g).val))
+  simp only [sIdeleNorm, MonoidHom.mul_apply, MonoidHom.finsetProd_apply, MonoidHom.pow_apply,
+    Units.val_mul, Units.coe_prod, Units.val_pow_eq_pow_val]
+  change Continuous (fun g : (SAdeleRing F S)ˣ ↦
+    (∏ w : InfinitePlace F, ‖g.val.1 w‖₊ ^ w.mult) * ∏ v : S, ‖g.val.2 v‖₊)
+  fun_prop
+
+/-- The S-adele ring is second countable: each infinite completion embeds isometrically
+in the complex numbers, and each finite completion is a proper metric space. -/
+private theorem sAdeleNormOneOrbitUnion_sigmaCompactSpace_secondCountable
+    (F : Type*) [Field F] [NumberField F] (S : Finset (HeightOneSpectrum (𝓞 F))) :
+    SecondCountableTopology (SAdeleRing F S) := by
+  have h1 (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  have h2 (v : S) : SecondCountableTopology (v.val.adicCompletion F) := by
+    have := properSpace_adicCompletion (K := F) v.val
+    infer_instance
+  change SecondCountableTopology
+    (((w : InfinitePlace F) → w.Completion) × ((v : S) → (v.val.adicCompletion F)))
+  infer_instance
+
+/-- The norm-one subgroup of the S-ideles is σ-compact: it is closed in the S-idele group,
+which is locally compact and second countable. -/
+private theorem sAdeleNormOneOrbitUnion_sigmaCompactSpace_kernel
+    (F : Type*) [Field F] [NumberField F] (S : Finset (HeightOneSpectrum (𝓞 F))) :
+    SigmaCompactSpace (MonoidHom.ker (sIdeleNorm F S)) := by
+  have h2 := sAdeleNormOneOrbitUnion_sigmaCompactSpace_secondCountable F S
+  have hd := sIdeleGroup_description F S
+  have h3 : SecondCountableTopology (SAdeleRing F S)ˣ := hd.1.secondCountableTopology
+  have h4 : LocallyCompactSpace (SAdeleRing F S)ˣ := hd.2.2.1
+  have h5 : SigmaCompactSpace (SAdeleRing F S)ˣ := inferInstance
+  have hcl : IsClosed ((MonoidHom.ker (sIdeleNorm F S) : Subgroup (SAdeleRing F S)ˣ) :
+      Set (SAdeleRing F S)ˣ) := by
+    rw [MonoidHom.coe_ker]
+    exact isClosed_singleton.preimage
+      (sAdeleNormOneOrbitUnion_sigmaCompactSpace_continuous F S)
+  exact hcl.sigmaCompactSpace
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is σ-compact. -/
 theorem sAdeleNormOneOrbitUnion_sigmaCompactSpace :
     SigmaCompactSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have h1 := sAdeleNormOneOrbitUnion_sigmaCompactSpace_kernel F S
+  have h2 : Finite (sAdeleOrbitBasepoints F S) :=
+    (Set.finite_range (sAdeleOrbitBasepoint F S)).to_subtype
+  have hc : Continuous (sAdeleNormOneOrbitMap F S) := by
+    refine Continuous.subtype_mk ?_ _
+    exact (continuous_subtype_val.comp continuous_fst).smul
+      (continuous_subtype_val.comp continuous_snd)
+  have hs : Surjective (sAdeleNormOneOrbitMap F S) := by
+    rintro ⟨x, hx⟩
+    obtain ⟨g, z, hgz⟩ := (mem_sAdeleNormOneOrbitUnion_iff F S x).mp hx
+    exact ⟨(g, z), Subtype.ext hgz⟩
+  have hr := isSigmaCompact_range hc
+  rw [hs.range_eq] at hr
+  exact isSigmaCompact_univ_iff.mp hr
+
+/-- The finite places of a number field form a countable set, since every prime ideal is
+finitely generated over the countable ring of integers. -/
+private theorem adeleNormOneOrbitUnion_sigmaCompactSpace_countable_places :
+    Countable (HeightOneSpectrum (𝓞 F)) := by
+  have hF : Countable F := (Module.finBasis ℚ F).equivFun.injective.countable
+  have hO : Countable (𝓞 F) := (RingOfIntegers.coe_injective (K := F)).countable
+  have h : Surjective (fun s : Finset (𝓞 F) ↦ Ideal.span (s : Set (𝓞 F))) :=
+    fun I ↦ IsNoetherian.noetherian I
+  have hI : Countable (Ideal (𝓞 F)) := h.countable
+  exact (show Injective (HeightOneSpectrum.asIdeal (R := 𝓞 F)) from fun _ _ h ↦
+    HeightOneSpectrum.ext h).countable
+
+/-- The adele ring is second countable. The finite adeles are covered by countably many open
+sets, each consisting of the adeles that are integral outside a finite set of places, and
+each of these embeds into the countable product of the second countable local fields. -/
+private theorem adeleNormOneOrbitUnion_sigmaCompactSpace_adeleRing :
+    SecondCountableTopology 𝔸[F] := by
+  classical
+  let I := HeightOneSpectrum (𝓞 F)
+  let K (w : I) := w.adicCompletion F
+  let O (w : I) : Set (K w) := w.adicCompletionIntegers F
+  have hopen (w : I) : IsOpen (O w) := Valued.isOpen_valuationSubring (K w)
+  have hI : Countable I := adeleNormOneOrbitUnion_sigmaCompactSpace_countable_places F
+  have hproper (w : I) : ProperSpace (K w) := properSpace_adicCompletion w
+  have hK (w : I) : SecondCountableTopology (K w) := secondCountable_of_proper
+  let U (s : Finset I) := {a : FiniteAdeleRing (𝓞 F) F | ∀ w ∉ s, a w ∈ O w}
+  have hU (s : Finset I) : SecondCountableTopology (U s) := by
+    have hs : Filter.cofinite ≤ Filter.principal (s : Set I)ᶜ :=
+      Filter.le_principal_iff.mpr s.finite_toSet.compl_mem_cofinite
+    have he := RestrictedProduct.isEmbedding_inclusion_principal (R := K) (A := O) hs
+    have h2 : SecondCountableTopology
+        (RestrictedProduct K O (Filter.principal (s : Set I)ᶜ)) :=
+      (RestrictedProduct.isEmbedding_coe_of_principal (R := K) (A := O)).secondCountableTopology
+    have hrange : Set.range (RestrictedProduct.inclusion K O hs) = U s := by
+      rw [RestrictedProduct.range_inclusion]
+      ext a
+      exact Filter.eventually_principal
+    exact hrange ▸ he.toHomeomorph.symm.isEmbedding.secondCountableTopology
+  have hfin : SecondCountableTopology (FiniteAdeleRing (𝓞 F) F) := by
+    refine secondCountableTopology_of_countable_cover (U := U)
+      (fun _ ↦ RestrictedProduct.isOpen_forall_imp_mem hopen) (Set.eq_univ_of_forall fun a ↦ ?_)
+    have he := Filter.eventually_cofinite.mp a.2
+    exact Set.mem_iUnion.mpr ⟨he.toFinset, fun w hw ↦ by
+      by_contra h
+      exact hw (he.mem_toFinset.mpr h)⟩
+  have hinf (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  exact inferInstanceAs (SecondCountableTopology
+    (((w : InfinitePlace F) → w.Completion) × FiniteAdeleRing (𝓞 F) F))
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is σ-compact
 in the adelic subspace topology. -/
 theorem adeleNormOneOrbitUnion_sigmaCompactSpace :
     SigmaCompactSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  obtain ⟨-, hlc, -, -, -, hker⟩ := ideleGroup_topology F
+  have h2 := adeleNormOneOrbitUnion_sigmaCompactSpace_adeleRing F
+  have hop : SecondCountableTopology 𝔸[F]ᵐᵒᵖ :=
+    MulOpposite.opHomeomorph.symm.isEmbedding.secondCountableTopology
+  have hu : SecondCountableTopology 𝔸[F]ˣ :=
+    Units.isEmbedding_embedProduct.secondCountableTopology
+  have hs : SigmaCompactSpace 𝔸[F]ˣ := inferInstance
+  have hN : SigmaCompactSpace N₁ := hker.sigmaCompactSpace
+  have hc : Countable (HeightOneSpectrum (𝓞 F)) :=
+    adeleNormOneOrbitUnion_sigmaCompactSpace_countable_places F
+  rw [← isSigmaCompact_iff_sigmaCompactSpace]
+  refine isSigmaCompact_iUnion _ fun i ↦ ?_
+  exact isSigmaCompact_range (f := fun g : N₁ ↦ g • adeleOrbitBasepoint F i)
+    (continuous_subtype_val.smul continuous_const)
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is paracompact. -/
 theorem sAdeleNormOneOrbitUnion_paracompactSpace :
     ParacompactSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have h1 := sAdeleNormOneOrbitUnion_t2Space F S
+  have h2 := sAdeleNormOneOrbitUnion_locallyCompactSpace F S
+  have h3 := sAdeleNormOneOrbitUnion_sigmaCompactSpace F S
+  infer_instance
+
+/-- A regular second countable space is paracompact: shrink the cover to countably many open
+sets whose closures lie in members of the cover, and remove from each chosen member the
+closures of the earlier sets. -/
+private theorem adeleNormOneOrbitUnion_paracompactSpace_of_regular_secondCountable
+    {X : Type*} [TopologicalSpace X] [RegularSpace X] [SecondCountableTopology X] :
+    ParacompactSpace X := by
+  classical
+  refine ⟨fun α s ho hc ↦ ?_⟩
+  have hx : ∀ x : X, ∃ a, x ∈ s a := fun x ↦ Set.mem_iUnion.mp (hc ▸ Set.mem_univ x)
+  choose a ha using hx
+  have hV : ∀ x : X, ∃ V : Set X, IsOpen V ∧ x ∈ V ∧ closure V ⊆ s (a x) := by
+    intro x
+    obtain ⟨K, hK, hKc, hKs⟩ := exists_mem_nhds_isClosed_subset ((ho (a x)).mem_nhds (ha x))
+    exact ⟨interior K, isOpen_interior, mem_interior_iff_mem_nhds.mpr hK,
+      (closure_minimal interior_subset hKc).trans hKs⟩
+  choose V hVo hVx hVs using hV
+  obtain ⟨T, hT, hTcov⟩ := isOpen_iUnion_countable V hVo
+  have hTc : Countable T := hT.to_subtype
+  obtain ⟨f, hf⟩ := exists_injective_nat T
+  have hmem : ∀ x : X, ∃ i : T, x ∈ V i := by
+    intro x
+    have h1 : x ∈ ⋃ i ∈ T, V i := by
+      rw [hTcov]
+      exact Set.mem_iUnion.mpr ⟨x, hVx x⟩
+    obtain ⟨i, hi, hxi⟩ := Set.mem_iUnion₂.mp h1
+    exact ⟨⟨i, hi⟩, hxi⟩
+  have hfin : ∀ n : ℕ, {j : T | f j < n}.Finite := fun n ↦
+    (Set.finite_Iio n).preimage hf.injOn
+  have hfin' : ∀ n : ℕ, {j : T | f j ≤ n}.Finite := fun n ↦
+    (Set.finite_Iic n).preimage hf.injOn
+  refine ⟨T, fun i ↦ s (a i) \ ⋃ j ∈ {j : T | f j < f i}, closure (V j), fun i ↦ ?_, ?_, ?_,
+    fun i ↦ ⟨a i, Set.sdiff_subset⟩⟩
+  · exact (ho _).sdiff ((hfin (f i)).isClosed_biUnion fun j _ ↦ isClosed_closure)
+  · refine Set.eq_univ_of_forall fun x ↦ ?_
+    have hex : ∃ n, ∃ i : T, f i = n ∧ x ∈ s (a i) := by
+      obtain ⟨i, hi⟩ := hmem x
+      exact ⟨f i, i, rfl, hVs i (subset_closure hi)⟩
+    obtain ⟨i, hi, hxi⟩ := Nat.find_spec hex
+    refine Set.mem_iUnion.mpr ⟨i, hxi, fun hmem' ↦ ?_⟩
+    obtain ⟨j, hj, hxj⟩ := Set.mem_iUnion₂.mp hmem'
+    have hlt : f j < Nat.find hex := by
+      rw [← hi]
+      exact hj
+    exact Nat.find_min hex hlt ⟨j, rfl, hVs j hxj⟩
+  · intro x
+    obtain ⟨m, hm⟩ := hmem x
+    refine ⟨V m, (hVo m).mem_nhds hm, (hfin' (f m)).subset ?_⟩
+    rintro i ⟨y, hy, hyV⟩
+    by_contra hlt
+    have hlt' : f m < f i := not_le.mp hlt
+    exact hy.2 (Set.mem_iUnion₂.mpr ⟨m, hlt', subset_closure hyV⟩)
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is paracompact. -/
 theorem adeleNormOneOrbitUnion_paracompactSpace : ParacompactSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have h2 := adeleNormOneOrbitUnion_sigmaCompactSpace_adeleRing F
+  have ht2 := t2Space_adeleRing F
+  have ht3 : T3Space 𝔸[F] := inferInstance
+  exact adeleNormOneOrbitUnion_paracompactSpace_of_regular_secondCountable
 
 /-- Paper: Proposition 8.2.0.4, p. 386. The subgroup of global ideles obtained by
 inserting the units of the local valuation ring at the specified finite place. -/
@@ -700,7 +1538,11 @@ def sAdeleFiniteOrbitSection (v : S) (τ : ℝ≥0ˣ →* 𝕀ₛ) : Set Aₛ :=
 single-zero base point. -/
 theorem sAdeleOrbitBasepoint_mem_finiteOrbitSection (v : S) (τ : ℝ≥0ˣ →* 𝕀ₛ) :
     sAdeleOrbitBasepoint F S (some (.inr v)) ∈ sAdeleFiniteOrbitSection F S v τ := by
-  sorry
+  have hN : (1 : ℝ≥0) < (v.val.asIdeal.absNorm : ℝ≥0) := by
+    exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v.val
+  refine ⟨1, ⟨by rw [Units.val_one], by rw [Units.val_one]; exact hN⟩, ?_⟩
+  change τ 1 • sAdeleOrbitBasepoint F S (some (.inr v)) = _
+  rw [map_one, one_smul]
 
 /-- Paper: Equation (8.2.0.10), p. 386. The global section at a finite place takes
 parameters in the half-open interval from 1 to the absolute prime ideal norm. -/
@@ -714,7 +1556,11 @@ single-zero base point. -/
 theorem adeleOrbitBasepoint_mem_finiteOrbitSection (v : HeightOneSpectrum (𝓞 F))
     (τ : ℝ≥0ˣ →* 𝔸[F]ˣ) :
     adeleOrbitBasepoint F (some (.inr v)) ∈ adeleFiniteOrbitSection F v τ := by
-  sorry
+  have hN : (1 : ℝ≥0) < (v.asIdeal.absNorm : ℝ≥0) := by
+    exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+  refine ⟨1, ⟨by rw [Units.val_one], by rw [Units.val_one]; exact hN⟩, ?_⟩
+  change τ 1 • adeleOrbitBasepoint F (some (.inr v)) = _
+  rw [map_one, one_smul]
 
 /-- A uniformizer at a finite place, as a unit, with norm the reciprocal of the absolute norm. -/
 private theorem sAdeleFiniteOrbit_transporter_uniformizer (v : HeightOneSpectrum (𝓞 F)) :

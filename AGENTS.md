@@ -29,6 +29,16 @@ Work is organized with GitHub issues and pull requests. There is no blueprint.
 
 Role instructions are in [`prompts/`](prompts/README.md).
 
+**What is left (24 November 2026).** The steps that are still open are issues labelled
+`open-problem`; issue #7349 lists them. They are not claimed: do not comment `Claiming` on one,
+anyone may work on it at any time, and partial results belong on the issue. A reduction to a
+classical or known result is acceptable even without a proof of that result: state it as one
+lemma with `sorry` whose docstring starts `Classical input:` and cites the source, ideally with
+item and page, and prove the step from it by name. A pull request that closes a recorded gap
+is read by the project owner before it merges. Nothing from a
+formalization of the Riemann hypothesis released in November 2026, or derived from one, may be
+used: the project tests the route of this paper.
+
 ## Layout
 
 | Path | Contents | Who edits |
@@ -39,6 +49,7 @@ Role instructions are in [`prompts/`](prompts/README.md).
 | `RiemannMasullo/<Chapter>.lean` | chapter index (docstring only) | nobody |
 | `RiemannMasullo/ForMathlib/` | general lemmas missing from Mathlib, at the path Mathlib would use | provers |
 | `RiemannMasullo/External/` | vendored third-party Lean, see its README | integrator |
+| `RiemannMasulloClassField/` | the class field theory input of Remark 7.1.3.1, proved from the Lake dependency `Nyll` (Naganori Yamaguchi's class field theory); a library of its own, see its README | integrator |
 | `Statements.lean`, `Challenge.lean`, `Main.lean`, `comparator.json` | the target theorems | integrator |
 | `scripts/land.sh`, `scripts/triage_prs.sh`, `scripts/check_pr.sh` | proof PR merging and triage | merger |
 | `lakefile.toml`, `lean-toolchain`, `lake-manifest.json`, `.github/`, remaining `scripts/`, `prompts/` | infrastructure | integrator |
@@ -198,6 +209,11 @@ lake build                                        # everything; must pass before
 scripts/lint.sh
 scripts/signatures.sh > after.txt                 # one line per declaration: name and statement hash
 ```
+
+The first `lake build` also fetches the class field theory library that
+`RiemannMasulloClassField` depends on and compiles about 1,200 of its modules, once (about five
+hours of one processor core). That is expected. `lake build RiemannMasullo` builds the main
+library without it, and is enough while you work on a proof.
 
 `scripts/signatures.sh --compare before.txt after.txt` lists every declaration whose statement
 or definition changed between two such files. A proof must leave that list empty.

@@ -3,7 +3,9 @@ module
 public import RiemannMasullo.Ch10_TraceSpectral.Sec1
 public import RiemannMasullo.Ch11_ShellStructure.Sec1a
 
-import all RiemannMasullo.AppA_AlgebraicNT.Sec3
+import RiemannMasullo.AppA_AlgebraicNT.Sec3
+import Mathlib.MeasureTheory.Measure.Haar.DistribChar
+import RiemannMasullo.ForMathlib.MeasureTheory.Group.Arithmetic
 import RiemannMasullo.Ch05_ThetaZSpaces.Sec5
 import RiemannMasullo.Ch07_SchauderBasesZeta.Sec1b
 import RiemannMasullo.Ch09_HardySobolev.Sec2
@@ -54,7 +56,7 @@ local notation "μ₁" => normOneIdeleClassTamagawaMeasure F
 local notation "ℬ₀" => ↥(adelePolarSubspace F)
 local notation "ℬₛ(" S ")" => SchwartzBruhat (Multiplicative (SAdeleRing F S))
 local notation "m𝔽" =>
-  (⟨ideleClassNorm F, (isProperMap_ideleClassNorm F).continuous⟩ : C𝔽 →ₜ* ℝ≥0ˣ)
+  (continuousIdeleClassNorm F : C𝔽 →ₜ* ℝ≥0ˣ)
 local notation "norm𝔽" => fun g : C𝔽 ↦ ((ideleClassNorm F g).val : ℝ)
 local notation "classOf" => QuotientGroup.mk' (IdeleGroup.principalSubgroup (𝓞 F) F)
 
@@ -756,7 +758,7 @@ private theorem sLocalUncutCarving_empty_sPV (h : (∅ : Finset V) ⊆ ∅) :
     (sLocalUncutCarving_empty_piMap _ fun w ↦ absurd w.2 (Finset.notMem_empty _))
 
 /-- With no selected places the global principal value is the identity. -/
-private theorem sLocalUncutCarving_empty_PV : adelePrincipalValue F (∅ : Finset V) = LinearMap.id := by
+theorem sLocalUncutCarving_empty_PV : adelePrincipalValue F (∅ : Finset V) = LinearMap.id := by
   unfold adelePrincipalValue
   exact sLocalUncutCarving_empty_conj_right _ _ fun x ↦
     LinearMap.congr_fun (sLocalUncutCarving_empty_sPV _) x
@@ -1126,7 +1128,7 @@ private theorem sLocalCutoffCarving_antitone_extTail {E G N : Type*}
 
 /-- The global principal value at a larger set is the one at the smaller set after the one
 at the difference. -/
-private theorem sLocalCutoffCarving_antitone_PV {T T' : Finset (HeightOneSpectrum (𝓞 F))} (hT : T ⊆ T') :
+theorem sLocalCutoffCarving_antitone_PV {T T' : Finset (HeightOneSpectrum (𝓞 F))} (hT : T ⊆ T') :
     adelePrincipalValue F T' =
       (adelePrincipalValue F T).comp (adelePrincipalValue F (T' \ T)) := by
   refine sLocalCutoffCarving_antitone_extTail (sAdeleTailSchwartz_inductiveTensor_equiv F T').choose _ _ fun a b ↦ ?_

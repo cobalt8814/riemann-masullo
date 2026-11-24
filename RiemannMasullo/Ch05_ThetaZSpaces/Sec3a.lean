@@ -4,7 +4,7 @@ public import Mathlib.Analysis.Calculus.ContDiff.Bounds
 public import Mathlib.Analysis.Calculus.FDeriv.Symmetric
 public import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
 public import RiemannMasullo.ForMathlib.Analysis.Distribution.ContDiffMapSupportedIn
-public import RiemannMasullo.Ch05_ThetaZSpaces.Sec2b
+public import RiemannMasullo.Ch05_ThetaZSpaces.Sec2b_IsotypicAverages
 public import RiemannMasullo.Ch03_IdelicZeta.Sec4
 public import Mathlib.Analysis.Distribution.Support
 
@@ -17,6 +17,7 @@ public import Mathlib.RingTheory.PowerSeries.PiTopology
 public import RiemannMasullo.ForMathlib.Analysis.Distribution.SchwartzSpace.Complete
 public import RiemannMasullo.ForMathlib.Topology.Algebra.Module.StrongDualQuotient
 import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
+import RiemannMasullo.ForMathlib.Analysis.Complex.PhragmenLindelof
 import Mathlib.Geometry.Manifold.PartitionOfUnity
 import RiemannMasullo.ForMathlib.Analysis.Distribution.TestFunction.CoordinatePlane
 import RiemannMasullo.ForMathlib.Analysis.Distribution.TestFunction.Schwartz
@@ -2477,6 +2478,1778 @@ private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_inj
   exact (sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_removed v π hπ f hu x).symm.trans
     (DFunLike.congr_fun he x)
 
+/-- Contract the new tensor factor against evaluation at zero. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_tensor
+    {A B E : Type*} [AddCommGroup A] [Module ℂ A] [TopologicalSpace A]
+    [PolynormableSpace ℂ A] [T2Space A] [AddCommGroup B] [Module ℂ B] [TopologicalSpace B]
+    [PolynormableSpace ℂ B] [T2Space B]
+    [AddCommGroup E] [Module ℂ E] [TopologicalSpace E]
+    (e : InductiveTensor A B ≃L[ℂ] E) (l : B →L[ℂ] ℂ) :
+    ∃ r : E →L[ℂ] A, ∀ a b, r (e (a ⊗ₜ[ℂ] b)) = l b • a := by
+  let L : InductiveTensor A B →ₗ[ℂ] A :=
+    (TensorProduct.rid ℂ A).toLinearMap.comp (TensorProduct.map LinearMap.id l.toLinearMap)
+  have hp (a : A) (b : B) : L (a ⊗ₜ[ℂ] b) = l b • a := TensorProduct.rid_tmul a (l b)
+  have hc : Continuous L := (continuous_inductiveTensor_iff L).mpr
+    ⟨fun a ↦ (l.continuous.smul continuous_const).congr fun b ↦ (hp a b).symm,
+     fun b ↦ (continuous_const.smul continuous_id).congr fun a ↦ (hp a b).symm⟩
+  refine ⟨(⟨L, hc⟩ : _ →L[ℂ] A).comp e.symm.toContinuousLinearMap, fun a b ↦ ?_⟩
+  change L (e.symm (e _)) = _
+  erw [e.symm_apply_apply, hp]
+
+/-- Restriction to the face is continuous. Inserting the integer indicator in the
+missing coordinate gives a continuous section. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_restrict
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (Z : Submodule ℂ ℬₛ(S))
+    (hZ : ∀ f, f ∈ Z ↔ ∀ x : SAdeleRing F S, x.2 v = 0 → f (Multiplicative.ofAdd x) = 0) :
+    ∃ r : ℬₛ(S) →L[ℂ] ℬₛ(T), r.ker = Z ∧
+      (∀ f, r (sAdeleSchwartzTransition F i f) = f) ∧
+      ∀ f (x : SAdeleRing F S), x.2 v = 0 →
+        r f (Multiplicative.ofAdd (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩)) =
+          f (Multiplicative.ofAdd x) := by
+  classical
+  obtain ⟨e, he⟩ := sAdeleDifferenceSchwartz_inductiveTensor_equiv F i
+  let B := ℬ(FinitePlaceProduct F (S \ T))
+  let ev : B →ₗ[ℂ] ℂ := (LinearMap.proj (Multiplicative.ofAdd 0)).comp
+    (schwartzBruhatSubmodule _).subtype
+  have ht := (finiteProduct_tailSchwartz_finestTopology F (S \ T) ∅).1
+  let l : B →L[ℂ] ℂ := ⟨ev, Eq.mpr (congrArg (fun t ↦ @Continuous B ℂ t _ ev) ht)
+    (continuous_of_finestLocallyConvex B ev)⟩
+  let : PolynormableSpace ℂ ℬₛ(T) := (sAdeleSchwartz_nuclear.{_,0} F T).2.1
+  let : T2Space ℬₛ(T) := (sAdeleSchwartz_nuclear.{_,0} F T).1
+  let : PolynormableSpace ℂ B := (finiteProduct_tailSchwartz_nuclear.{_,0} F (S \ T) ∅).1.2.1
+  let : T2Space B := (finiteProduct_tailSchwartz_nuclear.{_,0} F (S \ T) ∅).1.1
+  obtain ⟨r, hr⟩ := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_tensor e l
+  let old (x : SAdeleRing F S) : SAdeleRing F T := (x.1, fun w ↦ x.2 ⟨w.val, i w.property⟩)
+  let z (y : SAdeleRing F T) : SAdeleRing F S :=
+    (y.1, fun w ↦ if h : w.val ∈ T then y.2 ⟨w.val, h⟩ else 0)
+  have hz (y : SAdeleRing F T) : (z y).2 v = 0 := dite_eq_right ((hv v).mpr rfl)
+  have hold (y : SAdeleRing F T) : old (z y) = y :=
+    Prod.ext rfl (funext fun w ↦ dite_eq_left w.property)
+  have face (f : ℬₛ(S)) (x : SAdeleRing F S) (hx : x.2 v = 0) :
+      r f (Multiplicative.ofAdd (old x)) = f (Multiplicative.ofAdd x) := by
+    obtain ⟨t, rfl⟩ := e.surjective f
+    induction t using TensorProduct.inductionOn with
+    | tmul a b =>
+      rw [hr, he]
+      have h0 : (fun w : ↥(S \ T) ↦ x.2 ⟨w.val, (Finset.mem_sdiff.mp w.property).1⟩) = 0 := by
+        funext w
+        let w₀ : S := ⟨w.val, (Finset.mem_sdiff.mp w.property).1⟩
+        change x.2 w₀ = 0
+        rw [(hv w₀).mp (Finset.mem_sdiff.mp w.property).2, hx]
+      rw [h0]
+      exact mul_comm _ _
+    | add t s ht hs =>
+      erw [e.map_add, r.map_add]
+      exact congrArg₂ (· + ·) ht hs
+  refine ⟨r, ?_, fun f ↦ ?_, face⟩
+  · ext f
+    rw [hZ, LinearMap.mem_ker]
+    exact ⟨fun h x hx ↦ (face f x hx).symm.trans (congrArg
+      (fun g : ℬₛ(T) ↦ g (Multiplicative.ofAdd (old x))) h), fun h ↦
+      SchwartzBruhat.ext fun y ↦ by
+        have e := face f (z y.toAdd) (hz _)
+        rw [hold] at e
+        exact e.trans (h _ (hz _))⟩
+  · apply SchwartzBruhat.ext
+    intro y
+    have hh := face (sAdeleSchwartzTransition F i f) (z y.toAdd) (hz _)
+    rw [hold, sAdeleSchwartzTransition_apply, ite_eq_left] at hh
+    · exact hh.trans (congrArg (fun t ↦ f (Multiplicative.ofAdd t)) (hold _))
+    · intro w hw
+      rw [(hv w).mp hw, hz]
+      exact Subring.zero_mem _
+
+/-- An open parameter map gives small parameters for all nearby compatible traces.
+Evaluating a continuous lift at such a parameter gives openness on the kernel. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_lift
+    {A B E X : Type*}
+    [AddCommGroup A] [Module ℂ A] [TopologicalSpace A]
+    [AddCommGroup B] [Module ℂ B] [TopologicalSpace B]
+    [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [AddCommGroup X] [Module ℂ X] [TopologicalSpace X] [IsTopologicalAddGroup X]
+    (K : Submodule ℂ E) (m : E →ₗ[ℂ] X)
+    (t : (m.comp K.subtype).range →L[ℂ] B) (D : A →L[ℂ] B) (hD : IsOpenMap D)
+    (l : ((m.comp K.subtype).range × A) →L[ℂ] E)
+    (hl : ∀ y a, t y = D a → l (y, a) ∈ K ∧ m (l (y, a)) = y.val) :
+    IsOpenMap (m.comp K.subtype).rangeRestrict := by
+  let f := (m.comp K.subtype).rangeRestrict
+  rw [IsTopologicalAddGroup.isOpenMap_iff_nhds_zero]
+  intro U hU
+  have hpre : f ⁻¹' U ∈ 𝓝 (0 : K) := hU
+  rw [nhds_subtype] at hpre
+  obtain ⟨W, hW, hsub⟩ := Filter.mem_comap.mp hpre
+  have hsmall : l ⁻¹' W ∈ 𝓝 ((0, 0) : (m.comp K.subtype).range × A) :=
+    l.continuous.continuousAt.preimage_mem_nhds (by change W ∈ 𝓝 (l 0); rwa [l.map_zero])
+  obtain ⟨N, hN, C, hC, hNC⟩ := mem_nhds_prod_iff.mp hsmall
+  have hDC : D '' C ∈ 𝓝 (0 : B) := by
+    rw [← D.map_zero]
+    exact hD.image_mem_nhds hC
+  have ht : t ⁻¹' (D '' C) ∈ 𝓝 0 :=
+    t.continuous.continuousAt.preimage_mem_nhds (by simpa using hDC)
+  refine mem_of_superset (inter_mem hN ht) ?_
+  rintro y ⟨hy, a, ha, hay⟩
+  obtain ⟨hk, he⟩ := hl y a hay.symm
+  have hkW := hNC (show (y, a) ∈ N ×ˢ C from ⟨hy, ha⟩)
+  have hyU := hsub (a := (⟨l (y, a), hk⟩ : K)) hkW
+  exact (show f ⟨l (y, a), hk⟩ = y from Subtype.ext he) ▸ hyU
+
+/-- A principal power of the prime at the selected place gives an S-unit with
+nonzero valuation there. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_nonzero
+    {S : Finset V} (v : S) :
+    ∃ x : (S : Set V).unit F, v.val.valuation F (x.val : F) ≠ 1 := by
+  classical
+  let n := classNumber F
+  have hv := mem_nonZeroDivisors_iff_ne_zero.mpr v.val.ne_bot
+  have hpow : (ClassGroup.mk0 ⟨v.val.asIdeal, hv⟩) ^ n = 1 := pow_card_eq_one
+  have hp : (v.val.asIdeal ^ n).IsPrincipal := by
+    rw [← ClassGroup.mk0_eq_one_iff (pow_mem hv n), ← hpow, ← map_pow]
+    rfl
+  obtain ⟨a, ha⟩ := hp
+  change v.val.asIdeal ^ n = Ideal.span {a} at ha
+  have ha₀ : a ≠ 0 := fun h ↦ (pow_ne_zero n v.val.ne_bot) (by simpa [h] using ha)
+  let x := Units.mk0 (algebraMap (𝓞 F) F a) (fun h ↦ ha₀ (IsFractionRing.injective (𝓞 F) F (h.trans (map_zero _).symm)))
+  have hdiv (w : V) (hw : a ∈ w.asIdeal) : w = v.val := by
+    have hle := w.isPrime.le_of_pow_le (n := n) (ha.trans_le ((Ideal.span_singleton_le_iff_mem _).mpr hw))
+    exact HeightOneSpectrum.ext (v.val.isMaximal.eq_of_le w.isPrime.ne_top hle).symm
+  refine ⟨⟨x, fun w hw ↦ ?_⟩, ?_⟩
+  · change w.valuation F (algebraMap (𝓞 F) F a) = 1
+    rw [w.valuation_of_algebraMap, w.intValuation_eq_one_iff]
+    exact fun h ↦ hw (hdiv w h ▸ v.property)
+  · change v.val.valuation F (algebraMap (𝓞 F) F a) ≠ 1
+    rw [v.val.valuation_of_algebraMap, ne_eq, v.val.intValuation_eq_one_iff, not_not]
+    apply (Ideal.span_singleton_le_iff_mem _).mp
+    rw [← ha]
+    exact Ideal.pow_le_self (classNumber_ne_zero F)
+
+/-- The positive generator of the valuation image divides the order of every S-unit. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_generator
+    {S : Finset V} (v : S) (w : Fˣ →* Multiplicative ℤ)
+    (hw : ∀ t, WithZero.exp (w t).toAdd = v.val.valuation F (t : F)) :
+    ∃ u : (S : Set V).unit F,
+      let ord (t : (S : Set V).unit F) := -(w t.val).toAdd
+      0 < ord u ∧ ∀ t, ord u ∣ ord t := by
+  let f : Additive ((S : Set V).unit F) →+ ℤ := (w.comp
+    ((S : Set V).unit F).subtype).toAdditive
+  obtain ⟨z, hz⟩ := (AddSubgroup.isAddCyclic_iff_exists_zmultiples_eq f.range).mp
+    (AddSubgroup.isAddCyclic f.range)
+  have hz' := (Int.zmultiples_natAbs z).trans hz
+  obtain ⟨x, hx⟩ := show -(z.natAbs : ℤ) ∈ f.range by
+    rw [← hz']
+    exact AddSubgroup.neg_mem _ (AddSubgroup.mem_zmultiples _)
+  have hn : z ≠ 0 := by
+    obtain ⟨y, hy⟩ := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_nonzero v
+    intro h
+    have hm : f (.ofMul y) ∈ f.range := ⟨_, rfl⟩
+    rw [← hz, h, Int.mem_zmultiples_iff, zero_dvd_iff] at hm
+    exact hy ((hw y.val).symm.trans (by change WithZero.exp (f (.ofMul y)) = 1; rw [hm, WithZero.exp_zero]))
+  refine ⟨x.toMul, ?_⟩
+  change 0 < -f x ∧ ∀ t : (S : Set V).unit F, -f x ∣ -f (.ofMul t)
+  rw [hx, neg_neg]
+  refine ⟨by positivity, fun t ↦ ?_⟩
+  rw [dvd_neg, ← Int.mem_zmultiples_iff, hz']
+  exact ⟨_, rfl⟩
+
+/-- Factor a product over the enlarged stage into its old coordinates and the
+factor at the added place. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_prod
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    {M : Type*} [CommMonoid M] (b : S → M) :
+    (∏ w : S, b w) = (∏ w : T, b ⟨w.val, i w.property⟩) * b v := by
+  classical
+  rw [← Finset.prod_erase_mul _ _ (Finset.mem_univ v)]
+  congr 1
+  exact Finset.prod_bij' (fun w hw ↦ (⟨w.val, by
+    by_contra h
+    exact Finset.ne_of_mem_erase hw ((hv w).mp h)⟩ : T))
+    (fun w _ ↦ (⟨w.val, i w.property⟩ : S)) (fun _ _ ↦ Finset.mem_univ _)
+    (fun w _ ↦ Finset.mem_erase.mpr ⟨fun h ↦ ((hv _).mpr h) w.property, Finset.mem_univ _⟩)
+    (fun _ _ ↦ rfl) (fun _ _ ↦ rfl) (fun _ _ ↦ rfl)
+
+/-- Removing the selected place from the product formula leaves a norm different
+from one whenever the S-unit has positive order there. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_norm
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (u : ((S : Set V).integer F)ˣ) (hu : 0 < -WithZero.log (Valued.v ((sUnitEmbedding F S u).val.2 v))) :
+    let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+      (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+    sIdeleNorm F T g ≠ 1 := by
+  classical
+  intro g
+  let a := sUnitEmbedding F S u
+  have he : sIdeleNorm F S a = 1 := (sIdeleNorm_spec F S).2 ⟨u, rfl⟩
+  have hp : (∏ w : S, ‖a.val.2 w‖) = (∏ w : T, ‖g.val.2 w‖) * ‖a.val.2 v‖ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_prod v i hv (fun w ↦ ‖a.val.2 w‖)
+  intro hg
+  have valS := congrArg (fun t : ℝ≥0ˣ ↦ (t.val : ℝ)) he
+  have valT := congrArg (fun t : ℝ≥0ˣ ↦ (t.val : ℝ)) hg
+  simp [sIdeleNorm] at valS valT
+  change (∏ w : InfinitePlace F, ‖g.val.1 w‖ ^ w.mult) * (∏ w : T, ‖g.val.2 w‖) = 1 at valT
+  change (∏ w : InfinitePlace F, ‖g.val.1 w‖ ^ w.mult) * (∏ w : S, ‖a.val.2 w‖) = 1 at valS
+  rw [hp, ← mul_assoc, valT, one_mul] at valS
+  have h := Valued.toNormedField.norm_eq_one_iff.mp valS
+  change 0 < -WithZero.log (Valued.v (a.val.2 v)) at hu
+  simp [h] at hu
+
+/-- Radial local tests are spanned by valuation balls. After removing the value at
+zero times the unit ball, only finitely many shells remain. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_radial
+    (v : V) (f : ℬ(v.adicCompletion F))
+    (hf : ∀ u ∈ (v.adicCompletionIntegers F).units, schwartzBruhatUnitTranslate u f = f)
+    (D : Submodule ℂ (v.adicCompletion F → ℂ))
+    (hD : ∀ n : ℤ, (fun x : v.adicCompletion F ↦
+      if Valued.v x ≤ WithZero.exp n then (1 : ℂ) else 0) ∈ D) :
+    (fun x ↦ f (Multiplicative.ofAdd x)) ∈ D := by
+  classical
+  let ball (n : ℤ) (x : v.adicCompletion F) : ℂ := if Valued.v x ≤ WithZero.exp n then 1 else 0
+  obtain ⟨b, hb⟩ := finitePlaceDifference_range_on_unitInvariants_ball (F := F) v 0 1
+  let c := f (Multiplicative.ofAdd 0)
+  let h := f - c • b
+  have he (x : v.adicCompletion F) :
+      h (Multiplicative.ofAdd x) = f (Multiplicative.ofAdd x) - c * ball 0 x := by
+    change _ - _ * b _ = _
+    rw [hb]
+  have h0 : h (Multiplicative.ofAdd 0) = 0 := by rw [he 0]; simp [ball, c]
+  obtain ⟨I, hI⟩ := finitePlaceDifference_range_on_unitInvariants_finite (F := F) v h h0
+  choose t ht using fun m : ℤ ↦ v.valuedAdicCompletion_surjective F (WithZero.exp m)
+  let shell (m : ℤ) := ball m - ball (m - 1)
+  have shell_val (m : ℤ) (x : v.adicCompletion F) (hx : x ≠ 0) :
+      shell m x = if m = (Valued.v x).log then 1 else 0 := by
+    have hh := WithZero.exp_log ((Valuation.ne_zero_iff Valued.v).mpr hx)
+    simp only [shell, Pi.sub_apply, ball]
+    conv_lhs => rw [← hh]
+    simp only [WithZero.exp_le_exp]
+    split_ifs <;> first | omega | simp_all
+  have rep : (fun x ↦ f (Multiplicative.ofAdd x)) =
+      c • ball 0 + ∑ m ∈ I, h (Multiplicative.ofAdd (t m)) • shell m := by
+    funext x
+    simp only [Pi.add_apply, Pi.smul_apply, Finset.sum_apply, smul_eq_mul]
+    apply (eq_add_of_sub_eq' (he x).symm).trans
+    congr 1
+    by_cases hx : x = 0
+    · subst x
+      rw [h0]
+      simp [shell, ball]
+    simp only [shell_val _ x hx, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq']
+    split_ifs with hm
+    · let m := (Valued.v x).log
+      have hv : Valued.v (t m) = Valued.v x :=
+        (ht m).trans (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hx))
+      have hn : t m ≠ 0 := fun e ↦ hx ((Valuation.zero_iff _).mp (by rw [← hv, e, map_zero]))
+      have hfx := finitePlaceDifference_range_on_unitInvariants_radial (F := F) v f hf x (t m) hx hn hv.symm
+      change h (Multiplicative.ofAdd x) = h (Multiplicative.ofAdd (t m))
+      rw [he x, he (t m), hfx]
+      simp only [ball, hv]
+    · exact not_ne_iff.mp fun hne ↦ hm (hI x hne)
+  rw [rep]
+  exact D.add_mem (D.smul_mem _ (hD 0))
+    (D.sum_mem fun m _ ↦ D.smul_mem _ (D.sub_mem (hD m) (hD (m - 1))))
+
+/-- The unit-invariant part of a test has a finite expansion in valuation balls
+with test functions on the old stage as coefficients. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_expand
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (k : ℬₛ(S)) :
+    let P := sAdelePrincipalValue F (Finset.singleton_subset_iff.mpr v.property)
+    ∃ (I : Finset ℤ) (a : ℤ → ℬₛ(T)), ∀ x : SAdeleRing F S,
+      (k - P k) (Multiplicative.ofAdd x) = ∑ n ∈ I,
+        if Valued.v (x.2 v) ≤ WithZero.exp (-n) then
+          a n (Multiplicative.ofAdd (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩)) else 0 := by
+  classical
+  intro P
+  let old (x : SAdeleRing F S) : SAdeleRing F T := (x.1, fun w ↦ x.2 ⟨w.val, i w.property⟩)
+  let ev (y : SAdeleRing F T) : ℬₛ(T) →ₗ[ℂ] ℂ :=
+    (LinearMap.proj (Multiplicative.ofAdd y)).comp (schwartzBruhatSubmodule _).subtype
+  let B (n : ℤ) : ℬₛ(T) →ₗ[ℂ] (SAdeleRing F S → ℂ) :=
+    LinearMap.pi fun x ↦ if Valued.v (x.2 v) ≤ WithZero.exp (-n) then ev (old x) else 0
+  let L := Finsupp.lsum ℂ B
+  let valS : ℬₛ(S) →ₗ[ℂ] (SAdeleRing F S → ℂ) := LinearMap.pi fun x ↦
+    (LinearMap.proj (Multiplicative.ofAdd x)).comp (schwartzBruhatSubmodule _).subtype
+  let D := L.range.comap (valS.comp (LinearMap.id - P))
+  let e := (sAdeleSchwartz_inductiveTensor_equiv F S).choose
+  have pure (a : ℬ(InfiniteAdeleRing F)) (b : ∀ w : S, ℬ(w.val.adicCompletion F)) :
+      e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w)) ∈ D := by
+    let f := (sAdeleSchwartz_inductiveTensor_equiv F T).choose
+      (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w : T, b ⟨w.val, i w.property⟩))
+    let ins (h : ℬ(v.val.adicCompletion F)) := e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, Function.update b v h w))
+    let pack := e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w))
+    have hin : ins (b v) = pack := congrArg (fun b ↦ e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w)))
+      (Function.update_eq_self v b)
+    have hP : P pack = ins (finitePlacePrincipalValue v.val (b v)) := by
+      refine (sAdelePrincipalValue_tmul (Finset.singleton_subset_iff.mpr v.property) a b).trans ?_
+      apply congrArg (fun b : ∀ w : S, ℬ(w.val.adicCompletion F) ↦ e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w)))
+      funext w
+      by_cases h : w = v
+      · subst w; simp
+      · simp [Function.update_of_ne h, show w.val ≠ v.val from fun he ↦ h (Subtype.ext he)]
+    have hins (h : ℬ(v.val.adicCompletion F)) (x : SAdeleRing F S) :
+        ins h (Multiplicative.ofAdd x) = f (Multiplicative.ofAdd (old x)) * h (Multiplicative.ofAdd (x.2 v)) := by
+      rw [(sAdeleSchwartz_inductiveTensor_equiv F S).choose_spec,
+        (sAdeleSchwartz_inductiveTensor_equiv F T).choose_spec,
+        sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_prod v i hv,
+        Function.update_self, ← mul_assoc]
+      congr 2
+      refine Finset.prod_congr rfl fun w _ ↦ ?_
+      rw [Function.update_of_ne (show (⟨w.val, i w.property⟩ : S) ≠ v from
+        fun he ↦ ((hv _).mpr he) w.property)]
+    let M : (v.val.adicCompletion F → ℂ) →ₗ[ℂ] (SAdeleRing F S → ℂ) :=
+      LinearMap.pi fun x ↦ f (Multiplicative.ofAdd (old x)) • LinearMap.proj (x.2 v)
+    have hm := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_radial v.val
+      (b v - finitePlacePrincipalValue v.val (b v))
+      (finitePlacePrincipalValue_range_invariant v.val (b v)) (L.range.comap M) (fun n ↦ by
+        refine ⟨Finsupp.single (-n) f, ?_⟩
+        rw [show L (Finsupp.single (-n) f) = B (-n) f from Finsupp.lsum_single ..]
+        funext x
+        by_cases hx : Valued.v (x.2 v) ≤ WithZero.exp n <;> simp [B, M, hx, ev]
+        rfl)
+    change valS (pack - P pack) ∈ L.range
+    suffices hval : valS (pack - P pack) = M (fun x ↦
+        (b v - finitePlacePrincipalValue v.val (b v)) (Multiplicative.ofAdd x)) by rw [hval]; exact hm
+    funext x
+    change pack _ - P pack _ = f _ * ((b v) _ - finitePlacePrincipalValue v.val (b v) _)
+    rw [hP, ← hin, hins, hins, mul_sub]
+  have heq := sLocalThetaPrincipalValue_transition_ext e D.mkQ LinearMap.id 0
+    (fun a b ↦ (Submodule.Quotient.mk_eq_zero D).mpr (pure a b))
+  obtain ⟨a, ha⟩ := (Submodule.Quotient.mk_eq_zero D).mp (LinearMap.congr_fun heq k)
+  refine ⟨a.support, a, fun x ↦ (congrFun ha x).symm.trans ?_⟩
+  change (∑ n ∈ a.support, B n (a n)) x = _
+  rw [Finset.sum_apply]
+  apply Finset.sum_congr rfl
+  intro n _
+  by_cases hx : Valued.v (x.2 v) ≤ WithZero.exp (-n) <;> simp [B, hx, ev, old]
+  rfl
+
+/-- Summing on a valuation fiber is summing on its translate of the old unit
+group. The terms extended by zero have the same sum. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_fiber
+    {G A : Type*} [CommGroup G] [Group A] [DecidableEq A] (H J : Subgroup G) (w : G →* A)
+    (hH : ∀ t, t ∈ H ↔ t ∈ J ∧ w t = 1)
+    (b : J) (f : G → ℂ) (z : ℂ) (hz : HasSum (fun t : H ↦ f (b.val * t.val)) z) :
+    HasSum (fun t : J ↦ if w t.val = w b.val then f t.val else 0) z := by
+  classical
+  let inc (t : H) : J := ⟨b.val * t.val, J.mul_mem b.property ((hH _).mp t.property).1⟩
+  have hi : Injective inc := fun x y h ↦ Subtype.ext (mul_left_cancel (congrArg Subtype.val h))
+  have hw (t : H) : w (inc t).val = w b.val := by
+    change w (b.val * t.val) = _
+    rw [map_mul, ((hH _).mp t.property).2, mul_one]
+  refine (hi.hasSum_iff (fun t ht ↦ ite_eq_right (fun he ↦ ht ?_))).mp ?_
+  · have hm : b.val⁻¹ * t.val ∈ H := (hH _).mpr ⟨J.mul_mem (J.inv_mem b.property) t.property,
+      by rw [map_mul, map_inv, he, inv_mul_cancel]⟩
+    exact ⟨⟨_, hm⟩, Subtype.ext (mul_inv_cancel_left ..)⟩
+  · exact hz.congr_fun fun t ↦ ite_eq_left (hw t)
+
+/-- The two shells of orders `d - 1` and `-1` select a single valuation fiber
+for each ball, including balls with a negative index. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_select
+    (d j n : ℤ) (hd : 0 < d) (c : ℂ) :
+    (if n ≤ j * d + d - 1 then c else 0) - (if n ≤ j * d - 1 then c else 0) =
+      if j = n / d then c else 0 := by
+  have h := Int.ediv_eq_iff_of_pos (x := n) (y := j) hd
+  split_ifs <;> first | omega | simp_all
+
+/-- The theta series indexed by the subgroup of field units has the same sum
+as the series indexed by the units of the ring of S-integers. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_series
+    (S : Finset V) (f : ℬₛ(S)) (x : (SAdeleRing F S)ˣ) :
+    let diag := Units.map ((adeleProjection F S).comp (algebraMap F 𝔸[F])).toMonoidHom
+    HasSum (fun t : (S : Set V).unit F ↦ f (Multiplicative.ofAdd ((diag t.val * x).val)))
+      (sLocalAdelicTheta F S f x) := by
+  intro diag
+  let e := Set.unitEquivUnitsInteger (S : Set V) F
+  exact e.toEquiv.hasSum_iff.mpr
+    ((sLocalAdelicTheta_hasSumUniformlyOn F S f {x} isCompact_singleton).hasSum rfl)
+
+/-- Lift an old idele with any prescribed valuation at the added place. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_idele
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : v.val ∉ T) (p : ℤ) (y : (SAdeleRing F T)ˣ) :
+    ∃ x : (SAdeleRing F S)ˣ,
+      (x.val.1, fun w : T ↦ x.val.2 ⟨w.val, i w.property⟩) = y.val ∧
+      Valued.v (x.val.2 v) = WithZero.exp p := by
+  classical
+  choose b hb using fun w : S ↦ w.val.valuedAdicCompletion_surjective F (WithZero.exp p)
+  let c (w : S) : (w.val.adicCompletion F)ˣ := if h : w.val ∈ T then
+    Units.map ((Pi.evalRingHom _ (⟨w.val, h⟩ : T)).comp (RingHom.snd _ _)).toMonoidHom y
+    else Units.mk0 (b w) (fun hz ↦ WithZero.exp_ne_zero ((hb w).symm.trans (hz ▸ map_zero _)))
+  let x : (SAdeleRing F S)ˣ :=
+    ⟨(y.val.1, fun w ↦ (c w).val), (y.inv.1, fun w ↦ (c w).inv),
+      Prod.ext (congrArg (fun t : SAdeleRing F T ↦ t.1) y.val_inv) (funext fun w ↦ (c w).val_inv),
+      Prod.ext (congrArg (fun t : SAdeleRing F T ↦ t.1) y.inv_val) (funext fun w ↦ (c w).inv_val)⟩
+  refine ⟨x, Prod.ext rfl (funext fun w ↦ ?_), ?_⟩
+  · change (c ⟨w.val, i w.property⟩).val = _
+    simp only [c, dite_eq_left w.property]
+    rfl
+  · change Valued.v (c v).val = _
+    simp only [c, dite_eq_right hv, Units.val_mk0, hb]
+
+/-- Evaluating the difference of two theta series a full valuation period apart
+extracts one translate of each ball coefficient. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_sum
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (w : Fˣ →* Multiplicative ℤ) (hw : ∀ t, WithZero.exp (w t).toAdd = v.val.valuation F (t : F))
+    (u : (S : Set V).unit F) (d : ℤ) (hd : 0 < d)
+    (hu : (w u.val).toAdd = -d)
+    (hdiv : ∀ t : (S : Set V).unit F, d ∣ -(w t.val).toAdd)
+    (f : ℬₛ(S)) (hf : f ∈ Kₛ(S)) (I : Finset ℤ) (a : ℤ → ℬₛ(T))
+    (ha : ∀ x : SAdeleRing F S, f (Multiplicative.ofAdd x) = ∑ n ∈ I,
+      if Valued.v (x.2 v) ≤ WithZero.exp (-n) then
+        a n (Multiplicative.ofAdd (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩)) else 0) :
+    let diag := Units.map ((adeleProjection F T).comp (algebraMap F 𝔸[F])).toMonoidHom
+    (∑ n ∈ I, unitTranslateEnd (diag u.val ^ (-(n / d))) (a n)) ∈ Kₛ(T) := by
+  classical
+  intro diag
+  have hH (t : Fˣ) : t ∈ (T : Set V).unit F ↔ t ∈ (S : Set V).unit F ∧ w t = 1 := by
+    have h1 : w t = 1 ↔ v.val.valuation F t.val = 1 := by
+      rw [← hw t]
+      change w t = 1 ↔ (↑(w t) : WithZero (Multiplicative ℤ)) = 1
+      exact WithZero.coe_inj.symm
+    rw [h1]
+    refine ⟨fun h ↦ ⟨fun z hz ↦ h z (fun ht ↦ hz (i ht)), h _ ((hv v).mpr rfl)⟩, ?_⟩
+    rintro ⟨h, he⟩ z hz
+    by_cases hs : z ∈ S
+    · have eq := congrArg Subtype.val ((hv ⟨z, hs⟩).mp hz)
+      rwa [show z = v.val from eq]
+    · exact h z hs
+  let old : SAdeleRing F S →* SAdeleRing F T :=
+    ⟨⟨fun x ↦ (x.1, fun z ↦ x.2 ⟨z.val, i z.property⟩), rfl⟩, fun _ _ ↦ rfl⟩
+  let newDiag := Units.map ((adeleProjection F S).comp (algebraMap F 𝔸[F])).toMonoidHom
+  let tr (n : ℤ) := unitTranslateEnd (diag u.val ^ (-(n / d))) (a n)
+  apply LinearMap.mem_ker.mpr
+  ext y
+  let val (n : ℤ) (t : Fˣ) := a n (Multiplicative.ofAdd ((diag t * y).val))
+  let term (n : ℤ) (t : (S : Set V).unit F) :=
+    if w t.val = w (u.val ^ (n / d)) then val n t.val else 0
+  have row (n : ℤ) : HasSum (term n) (sLocalAdelicTheta F T (tr n) y) := by
+    apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_fiber
+      _ _ w hH (u ^ (n / d)) (val n)
+    refine (sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_series T (tr n) y).congr_fun
+      fun t ↦ ?_
+    symm
+    change a n (Multiplicative.ofAdd (((diag u.val ^ (-(n / d)))⁻¹ * (diag t.val * y)).val)) =
+      a n (Multiplicative.ofAdd ((diag (u.val ^ (n / d) * t.val) * y).val))
+    rw [map_mul, map_zpow, zpow_neg, inv_inv, mul_assoc]
+  have read (p : ℤ) : HasSum (fun t : (S : Set V).unit F ↦ ∑ n ∈ I,
+      if (w t.val).toAdd + p ≤ -n then val n t.val else 0) 0 := by
+    obtain ⟨x, hx, hp⟩ := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_idele
+      v i ((hv v).mpr rfl) p y
+    have hs := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_series S f x
+    rw [LinearMap.mem_ker.mp hf] at hs
+    refine hs.congr_fun fun t ↦ ((ha _).trans (Finset.sum_congr rfl fun n _ ↦ ?_)).symm
+    have he : old ((newDiag t.val * x).val) = (diag t.val * y).val := by
+      rw [Units.val_mul, map_mul, show old x.val = y.val from hx]
+      rfl
+    have hlocal : Valued.v ((newDiag t.val).val.2 v) = WithZero.exp (w t.val).toAdd := by
+      change Valued.v ((t.val : F) : v.val.adicCompletion F) = _
+      rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact (hw t.val).symm
+    change (if Valued.v ((newDiag t.val).val.2 v * x.val.2 v) ≤ WithZero.exp (-n)
+      then a n (Multiplicative.ofAdd (old ((newDiag t.val * x).val))) else 0) = _
+    simp only [map_mul, hlocal, hp, ← WithZero.exp_add, WithZero.exp_le_exp, he, val]
+  have hdif := (read (1 - d)).sub (read 1)
+  rw [sub_zero] at hdif
+  have hzero : HasSum (fun t ↦ ∑ n ∈ I, term n t) 0 := by
+    refine hdif.congr_fun fun t ↦ ?_
+    rw [← Finset.sum_sub_distrib]
+    apply Finset.sum_congr rfl
+    intro n _
+    obtain ⟨j, hj⟩ := hdiv t
+    have hj' : (w t.val).toAdd = -(j * d) := by
+      change -((w t.val).toAdd) = d * j at hj
+      rw [mul_comm d j] at hj
+      omega
+    have heq : w t.val = w (u.val ^ (n / d)) ↔ j = n / d := by
+      rw [map_zpow]
+      change (w t.val).toAdd = (n / d) • (w u.val).toAdd ↔ _
+      rw [hj', show (w u.val).toAdd = -d from hu, zsmul_eq_mul, mul_neg, neg_inj]
+      exact mul_left_inj' hd.ne'
+    symm
+    unfold term
+    simp only [heq, hj', show -(j * d) + (1 - d) ≤ -n ↔ n ≤ j * d + d - 1 by omega,
+      show -(j * d) + 1 ≤ -n ↔ n ≤ j * d - 1 by omega]
+    exact sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_select d j n hd _
+  change sLocalAdelicTheta F T (∑ n ∈ I, tr n) y = 0
+  rw [map_sum, ContinuousMap.sum_apply]
+  exact (hasSum_sum (s := I) fun n _ ↦ row n).unique hzero
+
+/-- Group the radial ball coefficients of a theta-null test by their indices modulo
+the positive valuation generator `d` of the S-units. Subtracting consecutive theta
+values on the local shells and summing over residues gives an old-stage theta-null
+sum after translating the coefficient at `n` by the power `-(n / d)` of the generator.
+The sum of the untranslated coefficients is the trace at zero. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (r : ℬₛ(S) →L[ℂ] ℬₛ(T))
+    (hr : ∀ f (x : SAdeleRing F S), x.2 v = 0 →
+      r f (Multiplicative.ofAdd (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩)) =
+        f (Multiplicative.ofAdd x)) :
+    ∃ u : ((S : Set V).integer F)ˣ,
+      let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+        (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+      let d := -WithZero.log (Valued.v ((sUnitEmbedding F S u).val.2 v))
+      sIdeleNorm F T g ≠ 1 ∧ ∀ k ∈ Kₛ(S), ∃ (I : Finset ℤ) (a : ℤ → ℬₛ(T)),
+        r k = ∑ n ∈ I, a n ∧
+          (∑ n ∈ I, unitTranslateEnd (g ^ (-(n / d))) (a n)) ∈ Kₛ(T) := by
+  classical
+  let w : Fˣ →* Multiplicative ℤ := WithZero.unitsWithZeroEquiv.toMonoidHom.comp
+    (Units.map (v.val.valuation F).toMonoidHom)
+  have hw (t : Fˣ) : WithZero.exp (w t).toAdd = v.val.valuation F (t : F) :=
+    WithZero.coe_unitsWithZeroEquiv_eq_units_val (Units.map (v.val.valuation F).toMonoidHom t)
+  obtain ⟨u, hd, hdiv⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_generator v w hw
+  let e := Set.unitEquivUnitsInteger (S : Set V) F
+  let d := -(w u.val).toAdd
+  have he : -WithZero.log (Valued.v ((sUnitEmbedding F S (e u)).val.2 v)) = d := by
+    change -WithZero.log (Valued.v ((u.val : F) : v.val.adicCompletion F)) = _
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation', ← hw u.val, WithZero.log_exp]
+  refine ⟨e u, sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_norm
+    v i hv (e u) (he ▸ hd), fun k hk ↦ ?_⟩
+  let P := sAdelePrincipalValue F (Finset.singleton_subset_iff.mpr v.property)
+  obtain ⟨I, a, ha⟩ := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_expand v i hv k
+  refine ⟨I, a, ?_, ?_⟩
+  · apply SchwartzBruhat.ext
+    intro y
+    let x : SAdeleRing F S := (y.toAdd.1, fun w ↦ if h : w.val ∈ T then y.toAdd.2 ⟨w.val, h⟩ else 0)
+    have hx : x.2 v = 0 := dite_eq_right ((hv v).mpr rfl)
+    have hy : (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩) = y.toAdd :=
+      Prod.ext rfl (funext fun w ↦ dite_eq_left w.property)
+    have hz := (sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_face v (P k)).mp ⟨k, rfl⟩ x hx
+    have hh := ha x
+    change k _ - P k _ = _ at hh
+    rw [hz, sub_zero, hx, hy, map_zero] at hh
+    simp only [zero_le, ite_true] at hh
+    let ev : ℬₛ(T) →ₗ[ℂ] ℂ := (LinearMap.proj y).comp (schwartzBruhatSubmodule _).subtype
+    exact ((congrArg (fun t ↦ r k (Multiplicative.ofAdd t)) hy.symm).trans (hr k x hx)).trans
+      (hh.trans (map_sum ev a I).symm)
+  · have hPk : P k ∈ Kₛ(S) :=
+      sAdelePrincipalValue_preserves_thetaKernel (F := F) (Finset.singleton_subset_iff.mpr v.property) hk
+    have hf : k - P k ∈ Kₛ(S) := (Kₛ(S)).sub_mem hk hPk
+    let diag := Units.map ((adeleProjection F T).comp (algebraMap F 𝔸[F])).toMonoidHom
+    have hg : Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+        (Units.map (integralAdeleDiagonal F S).toMonoidHom (e u)) = diag u.val := Units.ext rfl
+    rw [he, hg]
+    exact sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells_sum v i hv w hw u d hd
+      (neg_neg _).symm hdiv (k - P k) hf I a ha
+
+/-- Modulo differences for one generator, each translated shell coefficient has
+the same class as the original coefficient, for positive and negative powers alike. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_telescope
+    {G E : Type*} [Group G] [AddCommGroup E] [Module ℂ E] (A : G →* Module.End ℂ E)
+    (g : G) (K : Submodule ℂ E) (I : Finset ℤ) (a : ℤ → E) (j : ℤ → ℤ)
+    (hk : (∑ n ∈ I, A (g ^ j n) (a n)) ∈ K) :
+    ∃ c : E, (∑ n ∈ I, a n) - (c - A g c) ∈ K := by
+  let D := LinearMap.id - A g
+  let q := D.range.mkQ
+  have step (x : E) : q x = q (A g x) :=
+    (Submodule.Quotient.eq D.range).mpr ⟨x, rfl⟩
+  have pow (n : ℤ) : ∀ x : E, q (A (g ^ n) x) = q x := by
+    apply zpow_induction_left (P := fun b ↦ ∀ x : E, q (A b x) = q x)
+    · intro x
+      rw [map_one]
+      rfl
+    · intro b h x
+      exact (congrArg (fun L : Module.End ℂ E ↦ q (L x)) (map_mul A g b)).trans
+        ((step (A b x)).symm.trans (h x))
+    · intro b h x
+      calc q (A (g⁻¹ * b) x) = q (A g (A (g⁻¹ * b) x)) := step _
+           _ = q (A (g * (g⁻¹ * b)) x) := congrArg (fun L : Module.End ℂ E ↦ q (L x)) (A.map_mul _ _).symm
+           _ = q x := by rw [mul_inv_cancel_left, h]
+  have he : q (∑ n ∈ I, a n) = q (∑ n ∈ I, A (g ^ j n) (a n)) := by
+    simp only [map_sum, pow]
+  obtain ⟨c, hc⟩ := (Submodule.Quotient.eq D.range).mp he
+  refine ⟨c, ?_⟩
+  change c - A g c = _ at hc
+  rwa [hc, sub_sub_cancel]
+
+/-- The normalized Haar average projects onto the fixed vectors. It commutes with
+every continuous linear operator commuting with the subgroup action. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_average
+    {G E : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G]
+    [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [ContinuousSMul ℂ E] [T2Space E] [PolynormableSpace ℂ E]
+    (hc : @CompleteSpace E (IsTopologicalAddGroup.rightUniformSpace E))
+    (ρ : G →* (E →L[ℂ] E)) (hρ : Continuous fun p : G × E ↦ ρ p.1 p.2)
+    (H : Subgroup G) (hH : IsCompact (H : Set G)) :
+    ∃ A : E →L[ℂ] E,
+      (∀ x h, h ∈ H → ρ h (A x) = A x) ∧
+      (∀ x, (∀ h ∈ H, ρ h x = x) → A x = x) ∧
+      ∀ B : E →L[ℂ] E, (∀ h ∈ H, ∀ x, B (ρ h x) = ρ h (B x)) →
+        ∀ x, B (A x) = A (B x) := by
+  let : CompactSpace H := isCompact_iff_compactSpace.mp hH
+  let : MeasurableSpace H := borel _
+  let : BorelSpace H := ⟨rfl⟩
+  let μ : Measure H := Measure.haarMeasure ⊤
+  let : IsProbabilityMeasure μ := ⟨Measure.haarMeasure_self⟩
+  obtain ⟨A, hA⟩ := (existsUnique_globalThetaIsotypicAverage_of_compact H hc μ ρ hρ 1).exists
+  let : Module ℝ E := Module.restrictScalars ℝ ℂ E
+  let : IsScalarTower ℝ ℂ E := IsScalarTower.restrictScalars ℝ ℂ E
+  let : LocallyConvexSpace ℝ E := (PolynormableSpace.withSeminorms ℂ E).toLocallyConvexSpace
+  let : SeparatingDual ℂ E := by
+    refine ⟨fun x hx ↦ ?_⟩
+    obtain ⟨φ, hφ⟩ := RCLike.geometric_hahn_banach_point_point (𝕜 := ℂ) hx
+    exact ⟨φ, fun he ↦ by simp [he] at hφ⟩
+  have dual (x : E) (φ : StrongDual ℂ E) : φ (A x) = ∫ h : H, φ (ρ h.val x) ∂μ := by
+    have eq := congrArg (fun z : PettisWeakCompletion E ↦
+      (show Module.Dual ℂ (StrongDual ℂ E) from z) φ) (hA x).2
+    change φ (A x) = ∫ h : H, φ (star (((1 : PontryaginDual H) h) : ℂ) • ρ h.val x) ∂μ.restrict univ at eq
+    simpa only [Measure.restrict_univ, PontryaginDual.one_apply, Circle.coe_one, star_one, one_smul] using eq
+  refine ⟨A, ?_, ?_, ?_⟩
+  · have hr := compactActionAverage_range μ (ρ.comp H.subtype)
+      (hρ.comp ((continuous_subtype_val.comp continuous_fst).prodMk continuous_snd)) 1 A hA
+    intro x h hh
+    have hx := hr ▸ (show A x ∈ A.toLinearMap.range from ⟨x, rfl⟩)
+    simpa only [MonoidHom.comp_apply, Subgroup.subtype_apply, PontryaginDual.one_apply,
+      Circle.coe_one, one_smul] using (mem_actionIsotype _ _ _).mp hx ⟨h, hh⟩
+  · intro x hx
+    apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+    intro φ
+    simp [dual, hx]
+  · intro B hB x
+    apply (SeparatingDual.eq_iff_forall_dual_eq (R := ℂ)).2
+    intro φ
+    exact (dual x (φ.comp B)).trans ((integral_congr_ae (ae_of_all μ fun h ↦
+      congrArg φ (hB h.val h.property x))).trans (dual (B x) φ).symm)
+
+/-- A closed subspace contained in a Fréchet subspace is Fréchet in the induced
+topology. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_subspace
+    {E : Type*} [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    (L M : Submodule ℂ E) (h : L ≤ M) (hc : IsClosed (L : Set E)) (hM : IsFrechetTVS M) :
+    IsFrechetTVS L := by
+  obtain ⟨a, p, m, c⟩ := hM
+  let : UniformSpace M := IsTopologicalAddGroup.rightUniformSpace M
+  let : IsUniformAddGroup M := isUniformAddGroup_of_addCommGroup
+  let : CompleteSpace M := c
+  let : UniformSpace L := IsTopologicalAddGroup.rightUniformSpace L
+  let : IsUniformAddGroup L := isUniformAddGroup_of_addCommGroup
+  let i := Submodule.inclusion h
+  have hi : IsEmbedding i := IsEmbedding.inclusion h
+  have hr : range i = Subtype.val ⁻¹' (L : Set E) := by
+    ext x
+    exact ⟨fun ⟨y, hy⟩ ↦ hy ▸ y.property, fun hx ↦ ⟨⟨_, hx⟩, rfl⟩⟩
+  have hu := AddMonoidHom.isUniformInducing_of_isInducing (f := i.toAddMonoidHom) hi.isInducing
+  exact ⟨inferInstance, hi.eq_induced ▸ PolynormableSpace.induced i, hi.metrizableSpace,
+    hu.completeSpace (hr ▸ hc.preimage continuous_subtype_val).isComplete⟩
+
+/-- Successive compact averages telescope. Their differences are idempotent, since
+a finer average fixes the coarser range and all the averages commute. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_difference
+    {G E : Type*} [CommGroup G] [TopologicalSpace G] [IsTopologicalGroup G] [T2Space G]
+    [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [ContinuousSMul ℂ E] [T2Space E] [PolynormableSpace ℂ E]
+    (hc : @CompleteSpace E (IsTopologicalAddGroup.rightUniformSpace E))
+    (ρ : G →* (E →L[ℂ] E)) (hρ : Continuous fun p : G × E ↦ ρ p.1 p.2)
+    (H : ℕ → Subgroup G) (hcpt : ∀ n, IsCompact (H n : Set G)) (hm : Antitone H)
+    (hcover : ∀ x, ∃ n, ∀ g ∈ H n, ρ g x = x)
+    (hstage : ∀ n, ∃ M : Submodule ℂ E, IsFrechetTVS M ∧ ∀ x, (∀ g ∈ H n, ρ g x = x) → x ∈ M) :
+    ∃ P : ℕ → E →L[ℂ] E,
+      (∀ x, ∃ I : Finset ℕ, (∑ n ∈ I, P n x) = x ∧ ∀ n ∉ I, P n x = 0) ∧
+      (∀ n, IsFrechetTVS (P n).toLinearMap.range) ∧
+      (∀ n x, P n (P n x) = P n x) ∧
+      ∀ n a x, P n (ρ a x) = ρ a (P n x) := by
+  choose A hinv hfix hcomm using fun n ↦
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_average hc ρ hρ (H n) (hcpt n)
+  have commute (n : ℕ) (a : G) (x : E) : A n (ρ a x) = ρ a (A n x) := by
+    refine (hcomm n (ρ a) (fun g _ y ↦ ?_) x).symm
+    exact DFunLike.congr_fun ((ρ.map_mul a g).symm.trans ((mul_comm a g) ▸ ρ.map_mul g a)) y
+  have nested {i j : ℕ} (hij : i ≤ j) (x : E) : A j (A i x) = A i x :=
+    hfix j _ fun g hg ↦ hinv i x g (hm hij hg)
+  have rev (n : ℕ) (x : E) : A n (A (n+1) x) = A n x :=
+    (hcomm (n+1) (A n) (fun g _ y ↦ commute n g y) x).trans (nested n.le_succ x)
+  let P : ℕ → E →L[ℂ] E
+    | 0 => A 0
+    | n+1 => A (n+1) - A n
+  have proj (n : ℕ) (x : E) : P n (P n x) = P n x := by
+    cases n with
+    | zero => exact nested le_rfl x
+    | succ n =>
+      change A (n+1) (A (n+1) x - A n x) - A n (A (n+1) x - A n x) = _
+      rw [map_sub, map_sub, nested le_rfl, nested n.le_succ, rev, nested le_rfl, sub_self, sub_zero]
+      rfl
+  refine ⟨P, ?_, ?_, proj, ?_⟩
+  · intro x
+    obtain ⟨m, hx⟩ := hcover x
+    have stable {k : ℕ} (hk : m ≤ k) : A k x = x := hfix k x fun g hg ↦ hx g (hm hk hg)
+    have partialSum (k : ℕ) : ∑ n ∈ Finset.range (k+1), P n x = A k x := by
+      induction k with
+      | zero => simp [P]
+      | succ k ih => rw [Finset.sum_range_succ, ih]; exact add_sub_cancel _ _
+    refine ⟨Finset.range (m+1), (partialSum m).trans (stable le_rfl), ?_⟩
+    intro k hk
+    rw [Finset.mem_range, not_lt] at hk
+    cases k with
+    | zero => omega
+    | succ k =>
+      change A (k+1) x - A k x = 0
+      rw [stable (by omega), stable (by omega), sub_self]
+  · intro n
+    obtain ⟨M, hM, hmem⟩ := hstage n
+    apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_subspace
+      _ M ?_ ?_ hM
+    · rintro _ ⟨x, rfl⟩
+      apply hmem
+      intro g hg
+      cases n with
+      | zero => exact hinv 0 x g hg
+      | succ n =>
+        change ρ g (A (n+1) x - A n x) = _
+        rw [map_sub, hinv _ x g hg, hinv _ x g (hm n.le_succ hg)]
+        rfl
+    · have eq : ((P n).toLinearMap.range : Set E) = {x | P n x = x} :=
+        Set.ext fun x ↦ ⟨fun ⟨y, hy⟩ ↦ hy ▸ proj n y, fun hx ↦ ⟨x, hx⟩⟩
+      exact eq ▸ isClosed_eq (P n).continuous continuous_id
+  · intro n a x
+    cases n with
+    | zero => exact commute 0 a x
+    | succ n =>
+      change A (n+1) (ρ a x) - A n (ρ a x) = ρ a (A (n+1) x - A n x)
+      rw [map_sub, commute, commute]
+
+/-- The principal congruence conditions define compact subgroups of the S-ideles.
+Their archimedean component is one. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_groups
+    (T : Finset V) : ∃ H : ℕ → Subgroup (SAdeleRing F T)ˣ,
+      (∀ n, IsCompact (H n : Set (SAdeleRing F T)ˣ)) ∧ Antitone H ∧
+      ∀ n (h : (SAdeleRing F T)ˣ), h ∈ H n ↔ h.val.1 = 1 ∧
+        ∀ w : T, Valued.v (h.val.2 w - 1) ≤ WithZero.exp (-(n + 1 : ℤ)) := by
+  let B (n : ℕ) (w : T) : Set (w.val.adicCompletion F) :=
+    {x | Valued.v (x - 1) ≤ WithZero.exp (-(n + 1 : ℤ))}
+  have val_one {n : ℕ} {w : T} {x : w.val.adicCompletion F} (hx : x ∈ B n w) :
+      Valued.v x = 1 := by
+    have he : WithZero.exp (-(n + 1 : ℤ)) < 1 := by
+      rw [← WithZero.exp_zero]
+      exact WithZero.exp_lt_exp.mpr (by omega)
+    simpa only [add_sub_cancel] using Valued.v.map_one_add_of_lt (lt_of_le_of_lt hx he)
+  have mul_iff {n : ℕ} {w : T} {x : w.val.adicCompletion F} (hx : x ∈ B n w) (y) :
+      x * y ∈ B n w ↔ y ∈ B n w := by
+    have he : x * (y - 1) = (x * y - 1) - (x - 1) := by ring
+    have hv := val_one hx
+    change Valued.v (x * y - 1) ≤ _ ↔ Valued.v (y - 1) ≤ _
+    constructor
+    · intro h
+      have hh := (Valued.v.map_sub (x * y - 1) (x - 1)).trans (max_le h hx)
+      rwa [← he, map_mul, hv, one_mul] at hh
+    · intro h
+      rw [← sub_add_cancel (x * y - 1) (x - 1), ← he]
+      apply (Valued.v.map_add _ _).trans (max_le _ hx)
+      rwa [map_mul, hv, one_mul]
+  have one_mem' (n : ℕ) (w : T) : 1 ∈ B n w := by
+    change Valued.v (1 - 1 : w.val.adicCompletion F) ≤ _
+    rw [sub_self, map_zero]
+    exact zero_le
+  let M (n : ℕ) : Submonoid (SAdeleRing F T) :=
+    { carrier := {x | x.1 = 1 ∧ ∀ w, x.2 w ∈ B n w}
+      one_mem' := ⟨rfl, one_mem' n⟩
+      mul_mem' := fun {x y} hx hy ↦ ⟨(congrArg₂ (· * ·) hx.1 hy.1).trans (one_mul _),
+        fun w ↦ (mul_iff (hx.2 w) _).mpr (hy.2 w)⟩ }
+  have mem (n) (h : (SAdeleRing F T)ˣ) : h ∈ (M n).units ↔ h.val ∈ M n := by
+    refine ⟨fun hh ↦ hh.1, fun hh ↦ ⟨hh, ?_⟩⟩
+    have eq := congrArg (fun a : (SAdeleRing F T)ˣ ↦ a.val) (mul_inv_cancel h)
+    have eq₁ := congrArg Prod.fst eq
+    change h.val.1 * h⁻¹.val.1 = 1 at eq₁
+    rw [hh.1, one_mul] at eq₁
+    refine ⟨eq₁, fun w ↦ (mul_iff (hh.2 w) _).mp ?_⟩
+    have ew : h.val.2 w * h⁻¹.val.2 w = 1 := congrArg (fun a : SAdeleRing F T ↦ a.2 w) eq
+    exact (congrArg (· ∈ B n w) ew).mpr (one_mem' n w)
+  refine ⟨fun n ↦ (M n).units, ?_, ?_, mem⟩
+  · intro n
+    let : T2Space (SAdeleRing F T) := inferInstanceAs
+      (T2Space (((v : InfinitePlace F) → v.Completion) × ((w : T) → w.val.adicCompletion F)))
+    apply Submonoid.units_isCompact
+    have eq : (M n : Set (SAdeleRing F T)) = ({1} : Set (InfiniteAdeleRing F)) ×ˢ Set.univ.pi (B n) := by
+      ext x
+      simp only [Set.mem_prod, Set.mem_singleton_iff, Set.mem_univ_pi]
+      rfl
+    rw [eq]
+    apply isCompact_singleton.prod (isCompact_univ_pi fun w ↦ ?_)
+    obtain ⟨z, hz⟩ := w.val.valuedAdicCompletion_surjective F (WithZero.exp (-(n + 1 : ℤ)))
+    have hclosed : IsClosed (B n w) := by
+      have eq : B n w = {x | ‖x - 1‖ ≤ ‖z‖} := by
+        ext x
+        exact (Valued.toNormedField.norm_le_iff.trans (hz ▸ Iff.rfl)).symm
+      exact eq ▸ isClosed_le (continuous_id.sub continuous_const).norm continuous_const
+    exact (isCompact_iff_compactSpace.mpr (compactSpace_adicCompletionIntegers w.val)).of_isClosed_subset
+      hclosed fun x hx ↦ (val_one hx).le
+  · intro n m hnm h hh
+    obtain ⟨h₁, hw⟩ := (mem m h).mp hh
+    exact (mem n h).mpr ⟨h₁, fun w ↦ (hw w).trans (WithZero.exp_le_exp.mpr (by omega))⟩
+
+/-- Each level is contained in a Fréchet stage as soon as it has finitely many
+archimedean Schwartz generators. Each generator map factors through one stage
+of the strict LF presentation, so a single stage contains their finite sum. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_stage
+    (T : Finset V) (d : ℕ) (p : Fin d → ℬ(InfiniteAdeleRing F) →L[ℂ] ℬₛ(T)) :
+    ∃ M : Submodule ℂ (Θₛ(T)), IsFrechetTVS M ∧
+      ∀ a : Fin d → ℬ(InfiniteAdeleRing F), (Kₛ(T)).mkQ (∑ j, p j (a j)) ∈ M := by
+  classical
+  obtain ⟨hT, L, hmono, hL, hcov, _⟩ := sLocalAdelicThetaSpace_strictLF (F := F) (S := T)
+  let X := SchwartzMap (mixedEmbedding.mixedSpace F) ℂ
+  obtain ⟨J, -⟩ := archimedeanSchwartzBruhat_equiv (F := F)
+  have hX : IsFrechetTVS X := by
+    have : (uniformity X).IsCountablyGenerated := by
+      rw [uniformity_eq_comap_nhds_zero]
+      infer_instance
+    refine ⟨inferInstance, (schwartz_withSeminorms ℂ _ _).toPolynormableSpace,
+      UniformSpace.metrizableSpace, ?_⟩
+    rw [IsUniformAddGroup.rightUniformSpace_eq]
+    exact completeSpace_schwartzMap
+  let u (j : Fin d) := ((Kₛ(T)).mkQL.comp (p j)).comp J.toContinuousLinearMap
+  have fac (j : Fin d) : ∃ k, ∀ a, (Kₛ(T)).mkQ (p j a) ∈ L k := by
+    obtain ⟨k, v, hv⟩ := frechet_factorization hL (fun k ↦ (L k).subtypeL)
+      (fun _ ↦ Subtype.val_injective)
+      (fun k _ ⟨z, hz⟩ ↦ ⟨⟨z.val, hmono k.le_succ z.property⟩, hz⟩)
+      (fun x ↦ (hcov x).imp fun k hk ↦ ⟨⟨x, hk⟩, rfl⟩) hX (u j)
+    refine ⟨k, fun a ↦ ?_⟩
+    obtain ⟨x, rfl⟩ := J.surjective a
+    exact (DFunLike.congr_fun hv x) ▸ (v x).property
+  choose k hk using fac
+  refine ⟨L (Finset.univ.sup k), hL _, fun a ↦ ?_⟩
+  rw [map_sum]
+  exact Submodule.sum_mem _ fun j hj ↦ hmono (Finset.le_sup hj) (hk j (a j))
+
+/-- Local constancy of the dilation orbit at the identity gives one principal
+congruence subgroup fixing a local test. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_local
+    (v : V) (f : ℬ(v.adicCompletion F)) :
+    ∃ n : ℕ, ∀ u : (v.adicCompletion F)ˣ,
+      Valued.v (u.val - 1) ≤ WithZero.exp (-(n + 1 : ℤ)) → schwartzBruhatUnitTranslate u f = f := by
+  let K := v.adicCompletion F
+  let ν : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  have hnear : ∀ᶠ u : Kˣ in 𝓝 1, schwartzBruhatUnitTranslate u f = f := by
+    exact ((finiteTest_translate_locallyConstant v f).eventually_eq 1).mono
+      fun u hu ↦ hu.trans (DFunLike.congr_fun (unitTranslateEnd (R := K)).map_one f)
+  have hind : IsInducing (Units.val : Kˣ → K) := Units.isEmbedding_val₀.isInducing
+  rw [hind.nhds_eq_comap 1] at hnear
+  obtain ⟨U, hU, hu⟩ := Filter.mem_comap.mp hnear
+  obtain ⟨γ, hγ⟩ := Valued.mem_nhds.mp hU
+  let r := MonoidWithZeroHom.ValueGroup₀.embedding γ.val
+  have hr : r ≠ 0 := by simp [r]
+  refine ⟨(-WithZero.log r).toNat, fun u h ↦ hu (hγ ?_)⟩
+  apply ν.restrict_lt_iff_lt_embedding.mpr
+  refine lt_of_le_of_lt h ?_
+  change _ < r
+  exact lt_of_lt_of_eq ((WithZero.exp_lt_exp (b := WithZero.log r)).mpr (by
+    have := Int.self_le_toNat (-WithZero.log r)
+    omega)) (WithZero.exp_log hr)
+
+/-- A pure adelic tensor is fixed at the maximum of the levels of its finite
+factors. Tests fixed at some level form a subspace and pure tensors span. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_cover
+    (T : Finset V) (H : ℕ → Subgroup (SAdeleRing F T)ˣ) (hm : Antitone H)
+    (hmem : ∀ n (h : (SAdeleRing F T)ˣ), h ∈ H n → h.val.1 = 1 ∧
+      ∀ w : T, Valued.v (h.val.2 w - 1) ≤ WithZero.exp (-(n + 1 : ℤ))) (f : ℬₛ(T)) :
+    ∃ n, ∀ h ∈ H n, unitTranslateEnd h f = f := by
+  classical
+  let D : Submodule ℂ (ℬₛ(T)) :=
+    { carrier := {b | ∃ n, ∀ h ∈ H n, unitTranslateEnd h b = b}
+      zero_mem' := ⟨0, fun _ _ ↦ map_zero _⟩
+      add_mem' := by
+        rintro x y ⟨m, hx⟩ ⟨n, hy⟩
+        exact ⟨max m n, fun h hh ↦ (map_add _ _ _).trans
+          (congrArg₂ (· + ·) (hx h (hm (le_max_left _ _) hh)) (hy h (hm (le_max_right _ _) hh)))⟩
+      smul_mem' := by
+        rintro c x ⟨n, hx⟩
+        exact ⟨n, fun h hh ↦ (map_smul _ c x).trans (congrArg (c • ·) (hx h hh))⟩ }
+  obtain ⟨e, he⟩ := sAdeleSchwartz_inductiveTensor_equiv F T
+  have pure (a : ℬ(InfiniteAdeleRing F)) (b : ∀ w : T, ℬ(w.val.adicCompletion F)) :
+      e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w)) ∈ D := by
+    choose k hk using fun w : T ↦
+      sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_local w.val (b w)
+    refine ⟨Finset.univ.sup k, fun h hh ↦ ?_⟩
+    let t := e (a ⊗ₜ[ℂ] (⨂ₜ[ℂ] w, b w))
+    have h₁ := (hmem (Finset.univ.sup k) h⁻¹ ((H (Finset.univ.sup k)).inv_mem hh)).1
+    apply SchwartzBruhat.ext
+    intro x
+    refine (schwartzBruhatUnitTranslate_apply h t x.toAdd).trans ((he a b _).trans
+      (Eq.trans ?_ (he a b x.toAdd).symm))
+    rw [Prod.fst_mul, h₁, one_mul]
+    congr 1
+    refine Finset.prod_congr rfl fun w _ ↦ ?_
+    let u : (w.val.adicCompletion F)ˣ := Units.map ((Pi.evalRingHom _ w).comp (RingHom.snd _ _)).toMonoidHom h
+    have hu := hk w u ((hmem _ h (hm (Finset.le_sup (Finset.mem_univ w)) hh)).2 w)
+    exact (schwartzBruhatUnitTranslate_apply u (b w) (x.toAdd.2 w)).symm.trans
+      (congrArg (fun z : ℬ(w.val.adicCompletion F) ↦ z (Multiplicative.ofAdd (x.toAdd.2 w))) hu)
+  have heq := sLocalThetaPrincipalValue_transition_ext e D.mkQ LinearMap.id 0
+    (fun a b ↦ (Submodule.Quotient.mk_eq_zero D).mpr (pure a b))
+  exact (Submodule.Quotient.mk_eq_zero D).mp (LinearMap.congr_fun heq f)
+
+/-- At a fixed principal congruence level, finitely many archimedean Schwartz
+families represent all invariant theta functions. This is the finite-generation
+step of Theorem 5.2.1.1(1), p. 230, proved as
+`sLocalAdelicThetaSpace_strictLF_level_generators` in Sec2. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_generators
+    (S : Finset (HeightOneSpectrum (𝓞 F))) (n : ℕ) :
+    ∃ (d : ℕ) (p : Fin d →
+        (SchwartzBruhat (Multiplicative (InfiniteAdeleRing F)) →L[ℂ] ℬₛ(S))),
+      ∀ f : ℬₛ(S),
+        (∀ h g : (SAdeleRing F S)ˣ, h.val.1 = 1 →
+          (∀ w : S, Valued.v (h.val.2 w - 1) ≤ WithZero.exp (-(n + 1 : ℤ))) →
+          sLocalAdelicTheta F S f (h * g) = sLocalAdelicTheta F S f g) →
+        ∃ a : Fin d → SchwartzBruhat (Multiplicative (InfiniteAdeleRing F)),
+          sLocalAdelicTheta F S (∑ j, p j (a j)) = sLocalAdelicTheta F S f :=
+  sLocalAdelicThetaSpace_strictLF_level_generators (F := F) S n
+
+/-- Decompose theta classes by their finite unit conductors. Differences of the normalized
+averages over successive principal congruence subgroups give commuting projections. Each
+range lies in a single congruence level, which has a finite family of archimedean Schwartz
+generators as in the proof of Theorem 5.2.1.1(1), and is Fréchet. Each test has finite level. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels
+    (T : Finset V) :
+    let ρ := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose
+    ∃ P : ℕ → Θₛ(T) →L[ℂ] Θₛ(T),
+      (∀ x, ∃ I : Finset ℕ, (∑ n ∈ I, P n x) = x ∧ ∀ n ∉ I, P n x = 0) ∧
+      (∀ n, IsFrechetTVS (P n).toLinearMap.range) ∧
+      (∀ n x, P n (P n x) = P n x) ∧
+      ∀ n a x, P n (ρ a x) = ρ a (P n x) := by
+  classical
+  intro ρ
+  let π : (SAdeleRing F T)ˣ →* SIdeleQuotient F T := QuotientGroup.mk' _
+  let θ := sLocalAdelicTheta F T
+  let q := θ.ker.mkQ
+  have eq (f g : ℬₛ(T)) : q f = q g ↔ θ f = θ g := by
+    change Submodule.Quotient.mk f = (Submodule.Quotient.mk g : Θₛ(T)) ↔ _
+    rw [Submodule.Quotient.eq, LinearMap.mem_ker, map_sub, sub_eq_zero]
+  have invariant (h : (SAdeleRing F T)ˣ) (f : ℬₛ(T)) (hf : ρ (π h) (q f) = q f)
+      (g : (SAdeleRing F T)ˣ) : θ f (h * g) = θ f g := by
+    have he := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.2 h f
+    have ht := (eq _ _).mp (he.symm.trans hf)
+    exact ((sAdelePrincipalValue_preserves_thetaKernel_translate h (h * g) f).symm.trans
+      (DFunLike.congr_fun ht (h * g))).symm.trans (congrArg (θ f) (inv_mul_cancel_left h g))
+  obtain ⟨H, hcompact, hmono, hmem⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_groups (F := F) T
+  let : T2Space (Θₛ(T)) := (sLocalAdelicThetaSpace_strictLF (F := F) (S := T)).1
+  let : PolynormableSpace ℂ (Θₛ(T)) := sLocalAdelicThetaSpace_polynormable (F := F) (S := T)
+  have := isClosed_sProjectedDiagonal (F := F) (S := T)
+  let : T2Space (SIdeleQuotient F T) := inferInstanceAs (T2Space (_ ⧸ _))
+  apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_difference
+    sLocalAdelicThetaSpace_complete ρ (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.1
+    (fun n ↦ (H n).map π) (fun n ↦ (hcompact n).image continuous_quotient_mk')
+    (fun _ _ hij ↦ Subgroup.map_mono (hmono hij))
+  · intro x
+    obtain ⟨f, rfl⟩ := θ.ker.mkQ_surjective x
+    obtain ⟨n, hn⟩ :=
+      sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_cover
+        T H hmono (fun n h ↦ (hmem n h).mp) f
+    refine ⟨n, ?_⟩
+    rintro _ ⟨h, hh, rfl⟩
+    exact ((existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.2 h f).trans
+      (congrArg q (hn h hh))
+  · intro n
+    obtain ⟨d, p, hp⟩ :=
+      sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_generators (F := F) T n
+    obtain ⟨M, hM, ha⟩ :=
+      sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels_stage T d p
+    refine ⟨M, hM, fun x hx ↦ ?_⟩
+    obtain ⟨f, rfl⟩ := θ.ker.mkQ_surjective x
+    obtain ⟨a, hfa⟩ := hp f fun h g h₁ hw ↦
+      invariant h f (hx (π h) ⟨h, (hmem n h).mpr ⟨h₁, hw⟩, rfl⟩) g
+    exact (eq _ _).2 hfa ▸ ha a
+
+/-- The open mapping theorem on one Fréchet summand turns sequential closedness of the
+range into an inducing map. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_frechet
+    {E : Type*} [AddCommGroup E] [Module ℂ E] [TopologicalSpace E]
+    (hE : IsFrechetTVS E) (D : E →L[ℂ] E) (hi : Injective D)
+    (hs : IsSeqClosed (Set.range D)) : IsInducing D := by
+  obtain ⟨hadd, hpoly, hmetr, hcomp⟩ := hE
+  let : UniformSpace E := IsTopologicalAddGroup.rightUniformSpace E
+  let : IsUniformAddGroup E := isUniformAddGroup_of_addCommGroup
+  let : CompleteSpace E := hcomp
+  let R := D.toLinearMap.range
+  have hc : IsClosed (R : Set E) := isSeqClosed_iff_isClosed.mp hs
+  have hR : IsFrechetTVS R := by
+    let : UniformSpace R := IsTopologicalAddGroup.rightUniformSpace R
+    let : IsUniformAddGroup R := isUniformAddGroup_of_addCommGroup
+    have hi : IsInducing R.subtypeL := IsInducing.subtypeVal
+    have hu := AddMonoidHom.isUniformInducing_of_isInducing
+      (f := R.subtype.toAddMonoidHom) hi
+    have hr : range R.subtype.toAddMonoidHom = (R : Set E) :=
+      Set.ext fun x ↦ ⟨fun ⟨z, hz⟩ ↦ hz ▸ z.property, fun hx ↦ ⟨⟨x, hx⟩, rfl⟩⟩
+    exact ⟨inferInstance, inferInstance, IsEmbedding.subtypeVal.metrizableSpace,
+      hu.completeSpace (hr ▸ hc.isComplete)⟩
+  have ho := isOpenMap_of_surjective_toLF (isLFSpace_of_isFrechetTVS hR)
+    (X := fun _ ↦ E) (fun _ ↦ ⟨hadd, hpoly, hmetr, hcomp⟩) (fun _ ↦ ContinuousLinearMap.id ℂ E)
+    (fun _ ↦ Subset.rfl) (fun x ↦ ⟨0, x, rfl⟩) D.rangeRestrict D.toLinearMap.surjective_rangeRestrict
+  have hh := isHomeomorph_iff_isQuotientMap_injective.mpr
+    ⟨ho.isQuotientMap D.rangeRestrict.continuous D.toLinearMap.surjective_rangeRestrict,
+     fun x y e ↦ hi (congrArg Subtype.val e)⟩
+  exact IsInducing.subtypeVal.comp hh.isInducing
+
+/-- Add the inverse seminorm estimates on the finite conductor summands. Their sum is
+pointwise finite, so the supremum of its finite partial sums is continuous by barrelledness. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_sum
+    {E : Type*} [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
+    [PolynormableSpace ℂ E] [BarrelledSpace ℂ E] (D : E →L[ℂ] E) (P : ℕ → E →L[ℂ] E)
+    (hs : ∀ x, ∃ I : Finset ℕ, (∑ n ∈ I, P n x) = x ∧ ∀ n ∉ I, P n x = 0)
+    (hF : ∀ n, IsFrechetTVS (P n).toLinearMap.range) (hproj : ∀ n x, P n (P n x) = P n x)
+    (hi : Injective D) (hcomm : ∀ n x, P n (D x) = D (P n x))
+    (hlim : ∀ n (z : ℕ → (P n).toLinearMap.range) (y : (P n).toLinearMap.range),
+      Tendsto (fun j ↦ D (z j).val) atTop (𝓝 y.val) → y.val ∈ range D) :
+    IsOpenMap D.toLinearMap.rangeRestrict := by
+  classical
+  have hstage (n : ℕ) : IsInducing (D.comp (P n).toLinearMap.range.subtypeL) := by
+    let R := (P n).toLinearMap.range
+    let d : R →L[ℂ] R := D.restrict (p := R) (q := R) fun _ ⟨x, hx⟩ ↦ ⟨D x, hx ▸ hcomm n x⟩
+    have hd : IsInducing d := by
+      apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_frechet (hF n) d
+        (fun _ _ e ↦ Subtype.ext (hi (congrArg Subtype.val e)))
+      intro seq y hseq hy
+      choose z hz using hseq
+      have hl : Tendsto (fun j ↦ d (z j)) atTop (𝓝 y) := by simpa only [hz] using hy
+      obtain ⟨x, hx⟩ := hlim n z y ((continuous_subtype_val.tendsto y).comp hl)
+      refine ⟨(P n).rangeRestrict x, Subtype.ext ?_⟩
+      change D (P n x) = y.val
+      rw [← hcomm, hx]
+      obtain ⟨x', hx'⟩ := y.property
+      exact hx' ▸ hproj n x'
+    exact IsInducing.subtypeVal.comp hd
+  have hind : IsInducing D := by
+    rw [IsTopologicalAddGroup.isInducing_iff_nhds_zero]
+    refine le_antisymm (by simpa only [map_zero] using (D.continuous.tendsto 0).le_comap) ?_
+    intro U hU
+    obtain ⟨p, hp, hball⟩ := (PolynormableSpace.hasBasis_zero_ball ℂ E).mem_iff.mp hU
+    have hl (n : ℕ) : ∃ q : Seminorm ℂ E, Continuous q ∧ ∀ x, p (P n x) ≤ q (P n (D x)) := by
+      obtain ⟨q, hq, hle⟩ := Seminorm.exists_le_comp_of_isInducing
+        (p := p.comp (P n).toLinearMap.range.subtype) (hp.comp continuous_subtype_val)
+        (f := (D.comp (P n).toLinearMap.range.subtypeL).toLinearMap) (hstage n)
+      exact ⟨q, hq, fun x ↦ hcomm n x ▸ hle ((P n).rangeRestrict x)⟩
+    choose q hq hle using hl
+    let b (I : Finset ℕ) : Seminorm ℂ E := ∑ n ∈ I, (q n).comp (P n).toLinearMap
+    have hb (I : Finset ℕ) (x : E) : b I x = ∑ n ∈ I, q n (P n x) := by
+      induction I using Finset.induction_on with
+      | empty => simp [b]
+      | insert n I hn ih => simp [b, Finset.sum_insert hn] at ih ⊢
+    have hbd : BddAbove (range b) := by
+      apply Seminorm.bddAbove_range_iff.mpr
+      intro x
+      obtain ⟨I, -, hI⟩ := hs x
+      refine ⟨b I x, forall_mem_range.mpr fun J ↦ ?_⟩
+      rw [hb, hb]
+      calc ∑ n ∈ J, q n (P n x) = ∑ n ∈ J ∩ I, q n (P n x) := by
+            symm
+            exact Finset.sum_subset Finset.inter_subset_left fun n hn hni ↦ by
+              rw [hI n (fun hi ↦ hni (Finset.mem_inter.mpr ⟨hn, hi⟩)), map_zero]
+           _ ≤ _ := Finset.sum_le_sum_of_subset_of_nonneg Finset.inter_subset_right
+             (fun _ _ _ ↦ apply_nonneg _ _)
+    have hc := Seminorm.continuous_iSup b (fun I ↦ Seminorm.continuous_finsetSum
+      (fun n _ ↦ (hq n).comp (P n).continuous)) hbd
+    rw [← Seminorm.coe_iSup_eq hbd] at hc
+    refine ⟨(⨆ I, b I).ball 0 1, Seminorm.ball_mem_nhds hc one_pos, fun x hx ↦ hball ?_⟩
+    apply p.mem_ball_zero.mpr
+    obtain ⟨I, hI, -⟩ := hs x
+    calc p x = p (∑ n ∈ I, P n x) := congrArg p hI.symm
+         _ ≤ ∑ n ∈ I, p (P n x) := Finset.le_sum_of_subadditive p (map_zero p).le (map_add_le_add p) _ _
+         _ ≤ b I (D x) := (Finset.sum_le_sum fun n _ ↦ hle n x).trans_eq (hb I _).symm
+         _ ≤ (⨆ I, b I) (D x) := le_ciSup hbd I _
+         _ < 1 := (Seminorm.mem_ball_zero _).mp hx
+  have hr : IsInducing D.rangeRestrict :=
+    IsInducing.of_comp (g := Subtype.val) D.rangeRestrict.continuous continuous_subtype_val hind
+  have hs : Surjective D.rangeRestrict := D.toLinearMap.surjective_rangeRestrict
+  exact hr.isOpenMap (hs.range_eq.symm ▸ isOpen_univ)
+
+/-- A convergent sequence in the theta quotient has a subsequence represented by convergent
+tests. Bounded lifting for nuclear strict LF quotients puts representatives in a bounded
+set of one Fréchet test stage, where the Montel property gives a convergent subsequence. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_lift
+    (T : Finset V) (z : ℕ → Θₛ(T)) (y : Θₛ(T)) (hz : Tendsto z atTop (𝓝 y)) :
+    ∃ (φ : ℕ → ℕ) (a : ℕ → ℬₛ(T)) (f : ℬₛ(T)), StrictMono φ ∧ (∀ n, (Kₛ(T)).mkQ (a n) = z (φ n)) ∧
+      Tendsto a atTop (𝓝 f) ∧ (Kₛ(T)).mkQ f = y := by
+  let E := ℬₛ(T)
+  let K := Kₛ(T)
+  let : T2Space (Θₛ(T)) := sLocalAdelicThetaSpace_strictLF.1
+  obtain ⟨_, L, hL, hF, he, ht⟩ := sAdeleSchwartz_strictLF F T
+  let j (n : ℕ) := (L n).subtypeL.codRestrict (L (n + 1)) fun x ↦ hL n.le_succ x.property
+  have hj (n : ℕ) : IsEmbedding (j n) :=
+    IsEmbedding.of_comp (j n).continuous continuous_subtype_val IsEmbedding.subtypeVal
+  have hs : IsInjectiveLCLimit j (fun n ↦ (L n).subtypeL) :=
+    ⟨fun _ ↦ Subtype.val_injective, fun _ ↦ rfl, fun x ↦ (he x).imp fun n hx ↦ ⟨⟨x, hx⟩, rfl⟩, ht⟩
+  have hN : IsNuclearTVS.{0} ℬₛ(T) := sAdeleSchwartz_nuclear F T
+  have hlift := (liftsBoundedSets_quotient_of_nuclear_strictLF hs hj hF
+    (fun n ↦ isNuclearTVS_submodule hN (L n)) K sLocalAdelicTheta_ker_isClosed
+    sLocalAdelicThetaSpace_strictLF sLocalAdelicThetaSpace_nuclear).1
+  obtain ⟨A, hA, hcov⟩ := hlift _ (hz.isVonNBounded_range ℂ)
+  let : ∀ n, PolynormableSpace ℂ (L n) := fun n ↦ (hF n).2.1
+  let : ∀ n, TopologicalSpace.MetrizableSpace (L n) := fun n ↦ (hF n).2.2.1
+  have hclosed (n : ℕ) : IsClosedEmbedding (j n) := by
+    let : ∀ k, UniformSpace (L k) := fun k ↦ IsTopologicalAddGroup.rightUniformSpace _
+    let : ∀ k, IsUniformAddGroup (L k) := fun k ↦ isUniformAddGroup_of_addCommGroup
+    let : CompleteSpace (L n) := (hF n).2.2.2
+    exact (AddMonoidHom.isUniformEmbedding_of_isEmbedding (f := (j n).toLinearMap.toAddMonoidHom)
+      (hj n)).isClosedEmbedding
+  obtain ⟨k, B, hB, hBA⟩ := (isVonNBounded_iff_bounded_stage hs hclosed A).mp hA
+  have hpre (n : ℕ) : ∃ b ∈ B, K.mkQL (b : E) = z n := by
+    obtain ⟨a, ha, hq⟩ := hcov (mem_range_self n)
+    obtain ⟨b, hb, rfl⟩ := hBA.symm ▸ ha
+    exact ⟨b, hb, hq⟩
+  choose b hb heq using hpre
+  let : UniformSpace (L k) := IsTopologicalAddGroup.rightUniformSpace _
+  let : IsUniformAddGroup (L k) := isUniformAddGroup_of_addCommGroup
+  let : CompleteSpace (L k) := (hF k).2.2.2
+  have hC := isCompact_closure_of_isNuclearTVS (L k) (isNuclearTVS_submodule hN (L k)) hB
+  obtain ⟨w, -, φ, hφ, hw⟩ := hC.tendsto_subseq (fun n ↦ subset_closure (hb n))
+  have ha := (continuous_subtype_val.tendsto w).comp hw
+  refine ⟨φ, fun n ↦ (b (φ n)).val, w.val, hφ, fun n ↦ heq (φ n), ha, ?_⟩
+  have hq := (K.mkQL.continuous.tendsto w.val).comp ha
+  exact tendsto_nhds_unique hq (by simpa only [Function.comp_def, heq] using hz.comp hφ.tendsto_atTop)
+
+/-- Fourier uniqueness for the integrable function obtained by multiplying theta by the
+idele norm. Mellin evaluations on the single line of real part one separate theta classes. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_line
+    (T : Finset V) :
+    let c := fun χ : PontryaginDual (SIdeleQuotient F T) ↦
+      quasiCharacterNormTwist (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+        ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp χ) 1
+    let Z := fun (x : Θₛ(T)) χ ↦ (sLocalThetaMellin x).val ⟨c χ, sLocalOrderBound_positive χ (by norm_num)⟩
+    Injective Z := by
+  intro c Z
+  let : MeasurableSpace (SIdeleQuotient F T) := borel _
+  let : BorelSpace (SIdeleQuotient F T) := ⟨rfl⟩
+  let : LocallyCompactSpace (SAdeleRing F T)ˣ := (sIdeleGroup_description F T).2.2.1
+  have := isClosed_sProjectedDiagonal (F := F) (S := T)
+  let μ := sLocalQuotientTamagawaMeasure F T
+  have : μ.IsHaarMeasure := (sLocalQuotientTamagawaMeasure_isWeil (F := F) (S := T)).1
+  have : μ.Regular := (sLocalQuotientTamagawaMeasure_isWeil (F := F) (S := T)).2.1
+  intro x y he
+  apply sub_eq_zero.mp
+  obtain ⟨f, hf⟩ := (Kₛ(T)).mkQ_surjective (x - y)
+  rw [← hf]
+  apply (Submodule.Quotient.mk_eq_zero _).mpr
+  have hθ : sLocalAdelicThetaOnClasses F T f = 0 := by
+    refine eq_zero_of_weighted_integrals μ _ (c 1)
+      (sLocalThetaMellinIntegral_integrable f _ ⟨1, 1, by norm_num, rfl⟩) fun χ ↦ ?_
+    have hz : sLocalIdelicZFunction f (c χ) = 0 := by
+      change Z ((Kₛ(T)).mkQ f) χ = 0
+      rw [hf]
+      change (sLocalThetaMellin (x - y)).val _ = 0
+      rw [map_sub]
+      exact sub_eq_zero.mpr (congrFun he χ)
+    have hr : ∃ (ψ : PontryaginDual (SIdeleQuotient F T)) (s : ℂ), 0 < s.re ∧
+        c χ = quasiCharacterNormTwist _ _ ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp ψ) s :=
+      ⟨χ, 1, by norm_num, rfl⟩
+    rw [sLocalIdelicZFunction_eq_integral f hr, ← sLocalThetaMellinIntegral_eq_zeta f hr] at hz
+    refine (integral_congr_ae (.of_forall fun a ↦ ?_)).trans hz
+    change sLocalAdelicThetaOnClasses F T f a * (1 * _ ^ (1 : ℂ)) * (χ a : ℂ) =
+      sLocalAdelicThetaOnClasses F T f a * ((χ a : ℂ) * _ ^ (1 : ℂ))
+    rw [one_mul, mul_right_comm, mul_assoc]
+  exact LinearMap.mem_ker.mpr (ContinuousMap.ext fun a ↦
+    (sLocalAdelicThetaOnClasses_mk F T f a).symm.trans (DFunLike.congr_fun hθ _))
+
+/-- At nonzero real weight the distance of the dilation multiplier from zero has
+a positive lower bound independent of the unitary character. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_gap
+    (T : Finset V) (g : (SAdeleRing F T)ˣ) (hg : sIdeleNorm F T g ≠ 1)
+    (r : ℝ) (hr : r ≠ 0) :
+    ∃ ε : ℝ, 0 < ε ∧ ∀ χ : PontryaginDual (SIdeleQuotient F T),
+      let c := quasiCharacterNormTwist (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+        ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp χ) (r : ℂ)
+      ε ≤ ‖1 - c (QuotientGroup.mk g)‖ := by
+  let m : ℝ := (sIdeleNorm F T g).val
+  refine ⟨|1 - m ^ r|, abs_pos.mpr (sub_ne_zero.mpr fun he ↦ hg ?_), ?_⟩
+  · have hm : m ^ r = 1 ^ r := he.symm.trans (Real.one_rpow r).symm
+    exact Units.ext (NNReal.eq ((Real.rpow_left_inj (NNReal.coe_nonneg _) zero_le_one hr).mp hm))
+  · intro χ c
+    have hm : ‖c (QuotientGroup.mk g)‖ = m ^ r := by
+      change ‖(χ (QuotientGroup.mk g) : ℂ) * _ ^ (r : ℂ)‖ = _
+      rw [norm_mul, Circle.norm_coe, one_mul, sIdeleQuotientNorm_mk,
+        Complex.norm_cpow_eq_rpow_re_of_pos (NNReal.coe_pos.mpr (Units.zero_lt _)), Complex.ofReal_re]
+    simpa only [norm_one, hm] using abs_norm_sub_norm_le (1 : ℂ) (c (QuotientGroup.mk g))
+
+/-- Mellin evaluation of a dilation difference at any regular quasi-character. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_symbol
+    (T : Finset V) (g : (SAdeleRing F T)ˣ) (f : ℬₛ(T))
+    (d : {d : QuasiCharacter (SIdeleQuotient F T) // 0 ≤ sLocalIdelicOrderBound d}) :
+    let ρ := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose
+    let D := ContinuousLinearMap.id ℂ Θₛ(T) - ρ (QuotientGroup.mk g)
+    (sLocalThetaMellin (D ((Kₛ(T)).mkQ f))).val d =
+      (1 - d.val (QuotientGroup.mk g)) * sLocalIdelicZFunction f d.val := by
+  intro ρ D
+  change (sLocalThetaMellin ((Kₛ(T)).mkQ f - ρ _ ((Kₛ(T)).mkQ f))).val d = _
+  rw [show ρ (QuotientGroup.mk g) ((Kₛ(T)).mkQ f) = (Kₛ(T)).mkQ (schwartzBruhatUnitTranslate g f) from
+    (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.2 g f, map_sub]
+  change (sLocalIdelicMellin f).val d - (sLocalIdelicMellin (schwartzBruhatUnitTranslate g f)).val d = _
+  rw [sLocalIdelicMellin_unitTranslate, sub_mul, one_mul]
+  rfl
+
+section
+
+local notation "chartₜ(" T ", " χ ")" => quasiCharacterNormTwist (sIdeleQuotientNorm F T)
+  (IsProperMap.continuous (isProperMap_sIdeleQuotientNorm F T))
+  (ContinuousMonoidHom.comp (ContinuousMonoidHom.mk Circle.coeHom continuous_subtype_val : Circle →ₜ* ℂ) χ)
+
+/-- Schwartz seminorms of the restrictions to one vertical line on the elementary
+subgroup `H × ℝ` of the dual. The polynomials and derivatives act in the radial
+variable, and group seminorms on the finitely generated group supply angular weights. -/
+private def mellinSchwartzStage {D : Type*} [CommGroup D] (Z : ℕ → D → ℂ → ℂ)
+    (a : ℝ) (H : Subgroup D) : Prop :=
+  (∀ χ ∉ H, ∀ n (z : ℂ), z.re = a → Z n χ z = 0) ∧
+    ∀ (p : GroupSeminorm H) (k m j : ℕ), ∃ M : ℝ, ∀ (χ : H) n (z : ℂ), z.re = a →
+      (1 + p χ) ^ k * ‖iteratedDeriv j (fun s ↦ s ^ m * Z n χ.val s) z‖ ≤ M
+
+/-- The weighted Mellin transforms are bounded in the Bruhat–Schwartz space of the
+unitary dual on each line of real part greater than one. -/
+private def sLocalMellinSchwartzBounds (T : Finset V) (τ : ℝ≥0ˣ →ₜ* SIdeleQuotient F T)
+    (g : ℕ → ℬₛ(T))
+    (Z : ℬₛ(T) → QuasiCharacter (SIdeleQuotient F T) → ℂ := sLocalIdelicZFunction) : Prop :=
+  ∀ a : ℝ, 1 < a → ∃ H : Subgroup (PontryaginDual.map τ).ker, H.FG ∧
+    mellinSchwartzStage (fun n χ z ↦ Z (g n) (chartₜ(T, χ.val) z)) a H
+
+/-- Classical input: R. Meyer, *On a representation of the idele class group related to
+primes and zeros of L-functions*, Duke Math. J. 127 (2005), arXiv:math/0311468 (page numbers
+are those of the preprint). Used: Corollary 4.17, p. 34, with the summation map of §5.2,
+p. 38; Lemma 4.20, p. 36, at α = 1, with (12) and (15), p. 17, the reflection of weights on
+p. 25, Proposition 4.4 and (24), pp. 26–28; and the Fourier isomorphism and the bornologies of
+§4.1, pp. 23–24.
+The degree-zero isomorphism identifies the S-unit coinvariants, via summation, with
+`T(C_S)`. A family in the quotient bornology has representatives in one bounded set.
+With α = 1 the embedding tests this bornology on the weighted lines of real part > 1
+for the test and its additive Fourier transform (the involution J reflects the weight
+as s ↦ 1 − s). We write the Schwartz bornology on those lines on the Fourier side.
+A norm section splits the dual as a real line times the
+discrete group of characters trivial on the section. An elementary stage on this dual is
+supported on a finitely generated subgroup of the discrete factor. On that stage
+the ordinary Schwartz seminorms are polynomial weights in the discrete variable
+and derivatives of polynomially weighted functions on the real line. Every group
+seminorm is bounded by a multiple of word length, itself a group seminorm. The
+subgroup and the seminorm bounds may depend on the line.
+The paper states its results for bornological spaces and in the variable of the idele
+classes. Writing them for this library is the project's work and is not proved in Lean:
+that the bounded sets of the Schwartz–Bruhat space here are the paper's, that the kernel of
+the S-unit sum is the closed span the paper divides by, the normalizations of the Fourier
+transform and of the Haar measures, and the seminorms on the dual group. The integrator and
+an independent reviewer checked these steps against the paper (#7346); no specialist in
+the paper's framework has. -/
+private theorem sLocalMellinSchwartzBounds_meyer
+    (T : Finset V) (τ : ℝ≥0ˣ →ₜ* SIdeleQuotient F T) (hτ : RightInverse τ (sIdeleQuotientNorm F T))
+    (v : ℕ → ℬₛ(T)) :
+    (∃ A : Set ℬₛ(T), Bornology.IsVonNBounded ℂ A ∧
+      (range fun n ↦ (Kₛ(T)).mkQ (v n)) ⊆ (Kₛ(T)).mkQL '' A) ↔
+      sLocalMellinSchwartzBounds T τ v sLocalThetaMellinIntegral ∧
+        sLocalMellinSchwartzBounds T τ (fun n ↦ sAdeleSchwartzFourier (v n)) sLocalThetaMellinIntegral := by
+  sorry
+
+/-- Unfold the theta Mellin integral on the positive half-plane. Equality on a
+neighborhood of each point also identifies all the derivatives in the Schwartz bounds. -/
+private theorem sLocalMellinSchwartzBounds_unfold (T : Finset V)
+    (τ : ℝ≥0ˣ →ₜ* SIdeleQuotient F T) (v : ℕ → ℬₛ(T)) :
+    sLocalMellinSchwartzBounds T τ v sLocalThetaMellinIntegral ↔ sLocalMellinSchwartzBounds T τ v := by
+  have transfer (Z W : ℬₛ(T) → QuasiCharacter (SIdeleQuotient F T) → ℂ)
+      (h : ∀ g χ (z : ℂ), 0 < z.re → Z g (chartₜ(T, χ) z) = W g (chartₜ(T, χ) z)) :
+      sLocalMellinSchwartzBounds T τ v Z → sLocalMellinSchwartzBounds T τ v W := by
+    intro hZ a ha
+    obtain ⟨H, hH, hs, hb⟩ := hZ a ha
+    refine ⟨H, hH, ?_, ?_⟩
+    · intro χ hχ n z hz
+      exact (h (v n) χ.val z (hz ▸ zero_lt_one.trans ha)).symm.trans (hs χ hχ n z hz)
+    · intro p k m j
+      obtain ⟨B, hB⟩ := hb p k m j
+      refine ⟨B, fun χ n z hz ↦ ?_⟩
+      have he : (fun s : ℂ ↦ s ^ m * Z (v n) (chartₜ(T, χ.val.val) s)) =ᶠ[𝓝 z]
+          (fun s ↦ s ^ m * W (v n) (chartₜ(T, χ.val.val) s)) := by
+        filter_upwards [((isOpen_Ioi (a := (0 : ℝ))).preimage Complex.continuous_re).mem_nhds
+          (show 0 < z.re from hz ▸ zero_lt_one.trans ha)] with s hpos
+        exact congrArg (s ^ m * ·) (h (v n) χ.val.val s hpos)
+      exact (he.iteratedDeriv_eq j) ▸ hB χ n z hz
+  have h (g : ℬₛ(T)) (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ) (hz : 0 < z.re) :
+      sLocalThetaMellinIntegral g (chartₜ(T, χ) z) = sLocalIdelicZFunction g (chartₜ(T, χ) z) :=
+    (sLocalThetaMellinIntegral_eq_zeta g ⟨χ, z, hz, rfl⟩).trans
+      (sLocalIdelicZFunction_eq_integral g ⟨χ, z, hz, rfl⟩).symm
+  exact ⟨transfer _ _ h, transfer _ _ (fun g χ z hz ↦ (h g χ z hz).symm)⟩
+
+/-- Absorb the imaginary part of a norm twist into its unitary character. -/
+private theorem sLocalMellinSchwartzBounds_unitary
+    (T : Finset V) (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ) :
+    ∃ ψ : PontryaginDual (SIdeleQuotient F T), chartₜ(T, ψ) (z.re : ℂ) = chartₜ(T, χ) z := by
+  let d := chartₜ(T, χ) ((z.im : ℂ) * Complex.I)
+  have hp (g : SIdeleQuotient F T) : 0 < ((sIdeleQuotientNorm F T g : ℝ≥0) : ℝ) :=
+    NNReal.coe_pos.mpr (Units.zero_lt _)
+  have hd (g) : ‖d g‖ = 1 := by
+    change ‖(χ g : ℂ) * _ ^ ((z.im : ℂ) * Complex.I)‖ = 1
+    rw [norm_mul, Circle.norm_coe, Complex.norm_cpow_eq_rpow_re_of_pos (hp g)]
+    simp
+  let ψ : PontryaginDual (SIdeleQuotient F T) :=
+    { toFun := fun g ↦ ⟨d g, mem_sphere_zero_iff_norm.mpr (hd g)⟩
+      map_one' := Circle.ext d.map_one
+      map_mul' := fun x y ↦ Circle.ext (d.map_mul x y)
+      continuous_toFun := d.continuous.subtype_mk _ }
+  refine ⟨ψ, ContinuousMonoidHom.ext fun g ↦ ?_⟩
+  change ((χ g : ℂ) * _ ^ ((z.im : ℂ) * Complex.I)) * _ ^ (z.re : ℂ) = _
+  rw [mul_assoc, ← Complex.cpow_add _ _ (Complex.ofReal_ne_zero.mpr (hp g).ne'),
+    add_comm, Complex.re_add_im]
+  rfl
+
+/-- Meromorphic uniqueness extends the functional equation from the strip of convergence. -/
+private theorem sLocalMellinSchwartzBounds_equation
+    (T : Finset V) (χ : PontryaginDual (SIdeleQuotient F T)) (g : ℬₛ(T)) :
+    ∀ᶠ z : ℂ in codiscrete ℂ,
+      sLocalIdelicZFunction g (chartₜ(T, χ) z) = sLocalRhoFactor (chartₜ(T, χ) z) *
+        sLocalIdelicZFunction (sAdeleSchwartzFourier g) (chartₜ(T, χ⁻¹) (1 - z)) := by
+  let R (z : ℂ) := sLocalRhoFactor (chartₜ(T, χ) z)
+  let Z (g : ℬₛ(T)) (η : PontryaginDual (SIdeleQuotient F T)) (z : ℂ) :=
+    sLocalIdelicZFunction g (chartₜ(T, η) z)
+  have hm (g : ℬₛ(T)) (η : PontryaginDual (SIdeleQuotient F T)) : Meromorphic (Z g η) :=
+    fun z ↦ ((sLocalIdelicZFunction_meromorphic g η) (mem_univ z)).meromorphicAt
+  have hR : Meromorphic R := sLocalRhoFactor_meromorphic χ
+  let Δ (z : ℂ) := Z g χ z - R z * Z (sAdeleSchwartzFourier g) χ⁻¹ (1 - z)
+  have hΔ : MeromorphicOn Δ univ := fun z _ ↦ (hm g χ z).sub ((hR z).mul
+    ((hm _ _ (1 - z)).comp_analyticAt (g := fun s : ℂ ↦ 1 - s) (by fun_prop)))
+  have htop : meromorphicOrderAt Δ (1 / 2) = ⊤ := by
+    apply meromorphicOrderAt_eq_top_iff.mpr
+    have hs : ∀ᶠ z : ℂ in 𝓝[≠] (1 / 2 : ℂ), z.re ∈ Ioo (0 : ℝ) 1 :=
+      nhdsWithin_le_nhds ((isOpen_Ioo.preimage Complex.continuous_re).mem_nhds (by
+        norm_num [mem_preimage, mem_Ioo]))
+    filter_upwards [hs] with z hz
+    have hdual : dualQuasiCharacter (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+        (chartₜ(T, χ) z) = chartₜ(T, χ⁻¹) (1 - z) := by
+      exact sLocalNormTwistChart_dual χ z
+    change Z g χ z - R z * Z _ _ _ = 0
+    apply sub_eq_zero.mpr
+    have hd : 0 < (1 - z).re := by simpa using sub_pos.mpr hz.2
+    exact (sLocalIdelicZFunction_eq_integral g ⟨χ, z, hz.1, rfl⟩).trans
+      ((sLocalIdelicZetaIntegral_functionalEquation g χ z hz).trans (congrArg (R z * ·)
+        ((congrArg (sLocalIdelicZetaIntegral (sAdeleSchwartzFourier g)) hdual).trans
+          (sLocalIdelicZFunction_eq_integral _ ⟨χ⁻¹, 1 - z, hd, rfl⟩).symm)))
+  have he : Δ =ᶠ[codiscrete ℂ] 0 := eventuallyEq_codiscrete_iff_forall_eventuallyEq_nhdsNE.mpr
+    fun z ↦ meromorphicOrderAt_eq_top_iff.mp (hΔ.meromorphicOrderAt_eq_top_of_isPreconnected
+      isPreconnected_univ (mem_univ _) (mem_univ z) htop)
+  exact he.mono fun z hz ↦ sub_eq_zero.mp hz
+
+/-- Successive twists add their exponents. -/
+private theorem sLocalMellinSchwartzBounds_twist
+    {G : Type*} [CommGroup G] [TopologicalSpace G] (m : G →* ℝ≥0ˣ) (hm : Continuous m)
+    (c : QuasiCharacter G) (z w : ℂ) :
+    quasiCharacterNormTwist m hm (quasiCharacterNormTwist m hm c z) w =
+      quasiCharacterNormTwist m hm c (w + z) := by
+  ext1 a
+  let N : ℂ := (((m a : ℝ≥0) : ℝ) : ℂ)
+  change (c a * N ^ z) * N ^ w = c a * N ^ (w + z)
+  rw [add_comm, Complex.cpow_add _ _ (Complex.ofReal_ne_zero.mpr
+    (NNReal.coe_ne_zero.mpr (m a).ne_zero)), mul_assoc]
+
+/-- In a unitary chart the allowed order is nonnegative off a discrete set. -/
+private theorem sLocalMellinSchwartzBounds_regular
+    (T : Finset V) (χ : PontryaginDual (SIdeleQuotient F T)) :
+    ∀ᶠ z : ℂ in codiscrete ℂ, 0 ≤ sLocalIdelicOrderBound (chartₜ(T, χ) z) := by
+  let R (z : ℂ) := sLocalRhoFactor (chartₜ(T, χ) z)
+  have hR : Meromorphic R := sLocalRhoFactor_meromorphic χ
+  have hA := (meromorphicOn_univ.mpr hR).eventually_codiscreteWithin_analyticAt R
+  apply hA.mono
+  intro z hz
+  simp only [sLocalIdelicOrderBound,
+    sLocalMellinSchwartzBounds_twist]
+  change 0 ≤ min 0 (meromorphicOrderAt (fun w ↦ R (w + z)) 0)
+  rw [meromorphicOrderAt_fun_comp_add_const_eq_meromorphicOrderAt, zero_add]
+  exact le_min le_rfl hz.meromorphicOrderAt_nonneg
+
+/-- Away from a discrete subset of a norm chart the functional equation is a pointwise
+identity, the common factor is nonzero, and evaluation is allowed by the pole bound. -/
+private theorem sLocalMellinSchwartzBounds_reflection
+    (T : Finset V) (χ : PontryaginDual (SIdeleQuotient F T)) (g : ℬₛ(T)) :
+    ∀ᶠ z : ℂ in codiscrete ℂ,
+      0 ≤ sLocalIdelicOrderBound (chartₜ(T, χ) z) ∧ sLocalRhoFactor (chartₜ(T, χ) z) ≠ 0 ∧
+      sLocalIdelicZFunction g (chartₜ(T, χ) z) = sLocalRhoFactor (chartₜ(T, χ) z) *
+        sLocalIdelicZFunction (sAdeleSchwartzFourier g) (chartₜ(T, χ⁻¹) (1 - z)) := by
+  filter_upwards [sLocalMellinSchwartzBounds_regular T χ,
+    sLocalRhoFactor_mul_dual (F := F) (S := T) χ,
+    sLocalMellinSchwartzBounds_equation T χ g] with z hr hp he
+  exact ⟨hr, left_ne_zero_of_mul (hp.trans_ne ((Group.isUnit
+    (QuotientGroup.mk (-1 : (SAdeleRing F T)ˣ) : SIdeleQuotient F T)).map (chartₜ(T, χ) z)).ne_zero), he⟩
+
+/-- The convergent zeta integral is holomorphic on each positive half-plane chart. -/
+private theorem sLocalMellinSchwartzBounds_holomorphic
+    (T : Finset V) (g : ℬₛ(T)) (χ : PontryaginDual (SIdeleQuotient F T)) :
+    DifferentiableOn ℂ (fun z ↦ sLocalIdelicZFunction g (chartₜ(T, χ) z)) (Complex.re ⁻¹' Ioi 0) :=
+  (sLocalIdelicZetaIntegral_analyticOn g χ).differentiableOn.congr fun z hz ↦
+    sLocalIdelicZFunction_eq_integral g ⟨χ, z, hz, rfl⟩
+
+/-- Cancel the common Tate factor on a punctured vertical line. Continuity of the
+reflected integrals extends the bound across all exceptional points on that line. -/
+private theorem sLocalMellinSchwartzBounds_fourier
+    (T : Finset V) (b f : ℬₛ(T)) (r C : ℝ) (hr : 1 < r)
+    (h : ∀ (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ), z.re = 1 - r →
+      0 ≤ sLocalIdelicOrderBound (chartₜ(T, χ) z) →
+      ‖sLocalIdelicZFunction f (chartₜ(T, χ) z)‖ ≤ C * ‖sLocalIdelicZFunction b (chartₜ(T, χ) z)‖)
+    (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ) (hz : z.re = r) :
+    ‖sLocalIdelicZFunction (sAdeleSchwartzFourier f) (chartₜ(T, χ) z)‖ ≤
+      C * ‖sLocalIdelicZFunction (sAdeleSchwartzFourier b) (chartₜ(T, χ) z)‖ := by
+  let w (t : ℝ) := 1 - z + (t : ℂ) * Complex.I
+  have hw : Tendsto w (𝓝[≠] 0) (𝓝[≠] (1 - z)) := by
+    apply tendsto_nhdsWithin_iff.mpr
+    refine ⟨?_, ?_⟩
+    · have hc : Continuous w := by fun_prop
+      simpa [w] using (hc.tendsto 0).mono_left (y := 𝓝[≠] (0 : ℝ)) nhdsWithin_le_nhds
+    · filter_upwards [self_mem_nhdsWithin (s := ({0}ᶜ : Set ℝ)) (a := 0)] with t ht
+      simpa [w] using (show t ≠ 0 from ht)
+  have hlim : Tendsto (fun t ↦ 1 - w t) (𝓝[≠] 0) (𝓝 z) := by
+    simpa only [sub_sub_cancel] using (tendsto_const_nhds (x := (1 : ℂ))).sub (hw.mono_right nhdsWithin_le_nhds)
+  have hc (g : ℬₛ(T)) := (sLocalMellinSchwartzBounds_holomorphic
+    T (sAdeleSchwartzFourier g) χ).continuousOn.continuousAt
+    ((isOpen_Ioi.preimage Complex.continuous_re).mem_nhds (show 0 < z.re by linarith))
+  apply le_of_tendsto_of_tendsto (((hc f).tendsto.comp hlim).norm)
+    (tendsto_const_nhds.mul (((hc b).tendsto.comp hlim).norm))
+  have reg := sLocalMellinSchwartzBounds_reflection T χ⁻¹
+  filter_upwards [hw.eventually (nhdsNE_le_codiscrete _ (reg f)),
+    hw.eventually (nhdsNE_le_codiscrete _ (reg b))] with t hf hb
+  have hh := h χ⁻¹ (w t) (by simp [w, hz]) hf.1
+  rw [hf.2.2, hb.2.2, norm_mul, norm_mul, mul_left_comm C] at hh
+  let comp (η : PontryaginDual (SIdeleQuotient F T)) :=
+    ‖sLocalIdelicZFunction (sAdeleSchwartzFourier f) (chartₜ(T, η) (1 - w t))‖ ≤
+      C * ‖sLocalIdelicZFunction (sAdeleSchwartzFourier b) (chartₜ(T, η) (1 - w t))‖
+  exact (congrArg comp (inv_inv χ)).mp (le_of_mul_le_mul_left hh (norm_pos_iff.mpr hf.2.1))
+
+/-- Polynomially weighted edge bounds propagate across a strip by Phragmén–Lindelöf.
+Rapid decay provides the preliminary unweighted bound for each individual test. -/
+private theorem sLocalMellinSchwartzBounds_strip
+    (T : Finset V) (g : ℬₛ(T)) (χ : PontryaginDual (SIdeleQuotient F T)) (m : ℕ)
+    (a b A M : ℝ) (ha : 1 < a) (hab : a < b) (hA : 0 ≤ A)
+    (hedge : ∀ z : ℂ, z.re = a ∨ z.re = b →
+      A * ‖z ^ m * sLocalIdelicZFunction g (chartₜ(T, χ) z)‖ ≤ M)
+    (z : ℂ) (hz : z.re ∈ Icc a b) :
+    A * ‖z ^ m * sLocalIdelicZFunction g (chartₜ(T, χ) z)‖ ≤ M := by
+  let Z (s : ℂ) := sLocalIdelicZFunction g (chartₜ(T, χ) s)
+  let W (s : ℂ) := (A : ℂ) * Z s
+  have hW (s : ℂ) : ‖s ^ m * W s‖ = A * ‖s ^ m * Z s‖ := by
+    simp only [W, mul_left_comm (s ^ m) (A : ℂ), norm_mul, Complex.norm_of_nonneg hA]
+  have hD : DifferentiableOn ℂ W (Complex.re ⁻¹' Ioi 0) :=
+    (sLocalMellinSchwartzBounds_holomorphic T g χ).const_mul _
+  obtain ⟨C, hC, htail⟩ := sLocalIdelicZFunction_rapid_decay_on_positive_strip g χ a b
+    (zero_lt_one.trans ha) hab 1 (by decide)
+  obtain ⟨Y, hY⟩ := eventually_atTop.mp (eventually_comap.mp htail)
+  let R := max Y 1
+  let K := Complex.reProdIm (Icc a b) (Icc (-R) R)
+  have hK : IsCompact K := isCompact_Icc.reProdIm isCompact_Icc
+  have hc : ContinuousOn (fun s ↦ ‖W s‖) K :=
+    (hD.continuousOn.norm).mono fun s hs ↦ (zero_lt_one.trans ha).trans_le hs.1.1
+  obtain ⟨B, hB⟩ := hK.bddAbove_image hc
+  rw [← hW]
+  apply norm_pow_mul_le_on_verticalStrip hab _ (M := max B (A * C)) _ m
+    (fun s hs ↦ (hW s).le.trans (hedge s (.inl hs)))
+    (fun s hs ↦ (hW s).le.trans (hedge s (.inr hs))) z hz
+  · apply DifferentiableOn.diffContOnCl
+    rw [Complex.closure_preimage_re, closure_Ioo hab.ne]
+    exact hD.mono fun s hs ↦ (zero_lt_one.trans ha).trans_le hs.1
+  · intro s hs
+    by_cases hy : |s.im| ≤ R
+    · exact (hB (mem_image_of_mem _ (show s ∈ K from ⟨hs, abs_le.mp hy⟩))).trans (le_max_left _ _)
+    · have hR := le_of_lt (lt_of_not_ge hy)
+      have hdec := hY |s.im| ((le_max_left _ _).trans hR) s.im rfl s.re hs
+      rw [Complex.re_add_im, pow_one] at hdec
+      have hZ := hdec.trans (div_le_self hC.le ((le_max_right _ _).trans hR))
+      exact (norm_mul_le _ _).trans ((mul_le_mul_of_nonneg_left hZ (norm_nonneg (A : ℂ))).trans
+        (by rw [Complex.norm_of_nonneg hA]; exact le_max_right _ _))
+
+/-- Cauchy's estimate on a circle between two neighboring weight lines bounds each
+radial derivative, uniformly in the angular character and in the test index. -/
+private theorem sLocalMellinSchwartzBounds_derivatives
+    (T : Finset V) {ι : Type*} (g : ι → ℬₛ(T)) (χ : ι → PontryaginDual (SIdeleQuotient F T))
+    (A : ι → ℝ) (hA : ∀ i, 0 ≤ A i) (m j : ℕ)
+    (r d : ℝ) (hd : 0 < d) (hl : 1 < r - d)
+    (h : ∀ a : ℝ, a = r - d ∨ a = r + d → ∃ M : ℝ, ∀ i (z : ℂ), z.re = a →
+      A i * ‖z ^ m * sLocalIdelicZFunction (g i) (chartₜ(T, χ i) z)‖ ≤ M) :
+    ∃ M : ℝ, ∀ i (z : ℂ), z.re = r → A i * ‖iteratedDeriv j
+      (fun s ↦ s ^ m * sLocalIdelicZFunction (g i) (chartₜ(T, χ i) s)) z‖ ≤ M := by
+  obtain ⟨L, hL⟩ := h (r - d) (.inl rfl)
+  obtain ⟨R, hR⟩ := h (r + d) (.inr rfl)
+  refine ⟨j.factorial * max L R / d ^ j, fun i z hz ↦ ?_⟩
+  let Z (s : ℂ) := s ^ m * sLocalIdelicZFunction (g i) (chartₜ(T, χ i) s)
+  let W (s : ℂ) := (A i : ℂ) * Z s
+  have hball (w : ℂ) (hw : w ∈ Metric.closedBall z d) : w.re ∈ Icc (r - d) (r + d) := by
+    have hdist : ‖w - z‖ ≤ d := by simpa only [dist_eq_norm] using Metric.mem_closedBall.mp hw
+    have he := (Complex.abs_re_le_norm (w - z)).trans hdist
+    rw [Complex.sub_re, hz, abs_le] at he
+    exact ⟨by linarith [he.1], by linarith [he.2]⟩
+  have hdiff : DifferentiableOn ℂ W (Complex.re ⁻¹' Ioi 0) := ((differentiableOn_id.pow m).mul
+    (sLocalMellinSchwartzBounds_holomorphic T (g i) (χ i))).const_mul _
+  have hb := Complex.norm_iteratedDeriv_le_of_forall_mem_sphere_norm_le (f := W) j hd
+    (hdiff.diffContOnCl_ball (fun w hw ↦ (zero_lt_one.trans hl).trans_le (hball w hw).1)) (C := max L R) (by
+      intro w hw
+      change ‖(A i : ℂ) * Z w‖ ≤ _
+      rw [norm_mul, Complex.norm_of_nonneg (hA i)]
+      apply sLocalMellinSchwartzBounds_strip
+        T (g i) (χ i) m (r - d) (r + d) (A i) _ hl (by linarith) (hA i) _ w
+        (hball w (Metric.sphere_subset_closedBall hw))
+      rintro u (hu | hu)
+      · exact (hL i u hu).trans (le_max_left _ _)
+      · exact (hR i u hu).trans (le_max_right _ _))
+  simpa only [W, iteratedDeriv_const_mul_field, norm_mul, Complex.norm_of_nonneg (hA i)] using hb
+
+/-- A zeroth-order Schwartz bound extends to a larger angular subgroup by zero.
+Pointwise comparison transfers that bound with its line constant. -/
+private theorem sLocalMellinSchwartzBounds_edge
+    {D : Type*} [CommGroup D] (H K : Subgroup D) (hi : H ≤ K) (U W : ℕ → D → ℂ → ℂ)
+    (a C : ℝ) (hU : mellinSchwartzStage U a H)
+    (h : ∀ n χ (z : ℂ), z.re = a → ‖W n χ z‖ ≤ C * ‖U n χ z‖)
+    (p : GroupSeminorm K) (k m : ℕ) :
+    ∃ M : ℝ, ∀ (χ : K) n (z : ℂ), z.re = a → (1 + p χ) ^ k * ‖z ^ m * W n χ.val z‖ ≤ M := by
+  obtain ⟨B, hB⟩ := hU.2 (p.comp (Subgroup.inclusion hi)) k m 0
+  refine ⟨max C 0 * max B 0, fun χ n z hz ↦ ?_⟩
+  have hu : (1 + p χ) ^ k * ‖z ^ m * U n χ.val z‖ ≤ max B 0 := by
+    by_cases hx : χ.val ∈ H
+    · exact (hB ⟨χ.val, hx⟩ n z hz).trans (le_max_left _ _)
+    · rw [hU.1 χ.val hx n z hz, mul_zero, norm_zero, mul_zero]
+      exact le_max_right _ _
+  have hV := (h n χ.val z hz).trans (mul_le_mul_of_nonneg_right (le_max_left C 0) (norm_nonneg _))
+  have hW : 0 ≤ (1 + p χ) ^ k := pow_nonneg (by linarith [apply_nonneg p χ]) _
+  rw [norm_mul] at hu ⊢
+  calc (1 + p χ) ^ k * (‖z ^ m‖ * ‖W n χ.val z‖) ≤
+        (1 + p χ) ^ k * (‖z ^ m‖ * (max C 0 * ‖U n χ.val z‖)) :=
+          mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hV (norm_nonneg _)) hW
+       _ = max C 0 * ((1 + p χ) ^ k * (‖z ^ m‖ * ‖U n χ.val z‖)) := by ring
+       _ ≤ max C 0 * max B 0 := mul_le_mul_of_nonneg_left hu (le_max_right _ _)
+
+/-- Choose a single elementary stage for the central line and both edges. The value
+comparison controls angular support there, and Cauchy's estimate controls each radial
+derivative on the central line. -/
+private theorem sLocalMellinSchwartzBounds_transfer
+    (T : Finset V) (τ : ℝ≥0ˣ →ₜ* SIdeleQuotient F T) (b f : ℕ → ℬₛ(T))
+    (hb : sLocalMellinSchwartzBounds T τ b)
+    (h : ∀ r : ℝ, 1 < r → ∃ C : ℝ, ∀ n (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ), z.re = r →
+      ‖sLocalIdelicZFunction (f n) (chartₜ(T, χ) z)‖ ≤ C * ‖sLocalIdelicZFunction (b n) (chartₜ(T, χ) z)‖) :
+    sLocalMellinSchwartzBounds T τ f := by
+  intro r hr
+  let d := (r - 1) / 2
+  have hd : 0 < d := half_pos (sub_pos.mpr hr)
+  have hl : 1 < r - d := by dsimp [d]; linarith
+  obtain ⟨H, hH, hc⟩ := hb r hr
+  obtain ⟨L, hL, hleft⟩ := hb (r - d) hl
+  have hr' : 1 < r + d := by linarith
+  obtain ⟨R, hR, hright⟩ := hb (r + d) hr'
+  let K := H ⊔ (L ⊔ R)
+  have hHK : H ≤ K := le_sup_left
+  have hLK : L ≤ K := le_sup_left.trans (le_sup_right (a := H))
+  have hRK : R ≤ K := le_sup_right.trans (le_sup_right (a := H))
+  refine ⟨K, hH.sup (hL.sup hR), ?_, ?_⟩
+  · intro χ hχ n z hz
+    obtain ⟨C, hC⟩ := h r hr
+    have he := hC n χ.val z hz
+    have heq : sLocalIdelicZFunction (b n) (chartₜ(T, χ.val) z) = 0 :=
+      hc.1 χ (fun hx ↦ hχ (hHK hx)) n z hz
+    rw [heq, norm_zero, mul_zero, norm_le_zero_iff] at he
+    exact he
+  · intro p k m j
+    have edge (a : ℝ) (ha : 1 < a) (J : Subgroup (PontryaginDual.map τ).ker) (hi : J ≤ K)
+        (hJ : mellinSchwartzStage (fun n χ z ↦ sLocalIdelicZFunction (b n) (chartₜ(T, χ.val) z)) a J) :
+        ∃ M : ℝ, ∀ i : K × ℕ, ∀ z : ℂ, z.re = a →
+          (1 + p i.1) ^ k * ‖z ^ m * sLocalIdelicZFunction (f i.2) (chartₜ(T, i.1.val.val) z)‖ ≤ M := by
+      obtain ⟨C, hC⟩ := h a ha
+      obtain ⟨M, hM⟩ := sLocalMellinSchwartzBounds_edge
+        J K hi _ (fun n χ z ↦ sLocalIdelicZFunction (f n) (chartₜ(T, χ.val) z)) a C hJ
+        (fun n χ ↦ hC n χ.val) p k m
+      exact ⟨M, fun i ↦ hM i.1 i.2⟩
+    obtain ⟨M, hM⟩ := sLocalMellinSchwartzBounds_derivatives
+      T (fun i : K × ℕ ↦ f i.2) (fun i ↦ i.1.val.val) (fun i ↦ (1 + p i.1) ^ k)
+      (fun i ↦ pow_nonneg (by linarith [apply_nonneg p i.1]) _) m j r d hd hl
+      (by
+        rintro a (rfl | rfl)
+        · exact edge _ hl L hLK hleft
+        · exact edge _ hr' R hRK hright)
+    exact ⟨M, fun χ n ↦ hM (χ, n)⟩
+
+/-- If the Mellin transforms of a sequence are dominated on every nonzero weight line
+by the transforms of bounded tests, their theta classes are bounded. The functional
+equation transfers the comparison to the Fourier transforms. Bounds on neighboring
+lines control all Schwartz seminorms in Meyer's description of the coinvariants. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_bounded
+    (T : Finset V) (b f : ℕ → ℬₛ(T)) (hb : Bornology.IsVonNBounded ℂ (range b))
+    (h : ∀ r : ℝ, r ≠ 0 → ∃ C : ℝ, ∀ n (χ : PontryaginDual (SIdeleQuotient F T)),
+      let c := quasiCharacterNormTwist (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+        ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp χ) (r : ℂ)
+      0 ≤ sLocalIdelicOrderBound c → ‖sLocalIdelicZFunction (f n) c‖ ≤ C * ‖sLocalIdelicZFunction (b n) c‖) :
+    Bornology.IsVonNBounded ℂ (range fun n ↦ (Kₛ(T)).mkQ (f n)) := by
+  obtain ⟨τ, hτ⟩ := sIdeleQuotientNorm_exists_section F T
+  have hm (v : ℕ → ℬₛ(T)) := (sLocalMellinSchwartzBounds_meyer T τ hτ v).trans
+    (and_congr (sLocalMellinSchwartzBounds_unfold T τ v) (sLocalMellinSchwartzBounds_unfold T τ _))
+  have hpair := (hm b).mp ⟨range b, hb, forall_mem_range.mpr (fun n ↦ ⟨b n, mem_range_self n, rfl⟩)⟩
+  suffices hs : sLocalMellinSchwartzBounds T τ f ∧
+      sLocalMellinSchwartzBounds T τ (fun n ↦ sAdeleSchwartzFourier (f n)) by
+    obtain ⟨A, hA, hcov⟩ := (hm f).mpr hs
+    exact (hA.image (Kₛ(T)).mkQL).subset hcov
+  have hline (r : ℝ) (hr : r ≠ 0) : ∃ C : ℝ,
+      ∀ n (χ : PontryaginDual (SIdeleQuotient F T)) (z : ℂ), z.re = r →
+        0 ≤ sLocalIdelicOrderBound (chartₜ(T, χ) z) →
+        ‖sLocalIdelicZFunction (f n) (chartₜ(T, χ) z)‖ ≤ C * ‖sLocalIdelicZFunction (b n) (chartₜ(T, χ) z)‖ := by
+    obtain ⟨C, hC⟩ := h r hr
+    refine ⟨C, fun n χ z hz hreg ↦ ?_⟩
+    obtain ⟨ψ, he⟩ := sLocalMellinSchwartzBounds_unitary T χ z
+    rw [hz] at he
+    exact he ▸ hC n ψ (he.symm ▸ hreg)
+  constructor
+  · apply sLocalMellinSchwartzBounds_transfer T τ b f hpair.1
+    intro r hr
+    obtain ⟨C, hC⟩ := hline r (zero_lt_one.trans hr).ne'
+    exact ⟨C, fun n χ z hz ↦ hC n χ z hz (sLocalOrderBound_positive χ (hz ▸ (zero_lt_one.trans hr)))⟩
+  · apply sLocalMellinSchwartzBounds_transfer T τ _ _ hpair.2
+    intro r hr
+    obtain ⟨C, hC⟩ := hline (1 - r) (sub_ne_zero.mpr hr.ne)
+    exact ⟨C, fun n ↦ sLocalMellinSchwartzBounds_fourier
+      T (b n) (f n) r C hr (hC n)⟩
+
+end
+
+/-- Sequential closedness of Mellin divisibility on Schwartz–Bruhat tests. On the line
+of unitary characters times the norm, divide by the nowhere-zero dilation multiplier.
+If a convergent sequence of tests has quotients represented by tests, the quotient for
+its limit is represented by a test. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (u : ((S : Set V).integer F)ˣ) :
+    let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+      (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+    let c := fun χ : PontryaginDual (SIdeleQuotient F T) ↦
+      quasiCharacterNormTwist (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+        ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp χ) 1
+    sIdeleNorm F T g ≠ 1 → IsSeqClosed {h : ℬₛ(T) | ∃ f : ℬₛ(T), ∀ χ,
+      sLocalIdelicZFunction f (c χ) = sLocalIdelicZFunction h (c χ) / (1 - c χ (QuotientGroup.mk g))} := by
+  intro g c hg b h hb hlim
+  clear_value g
+  choose f hf using hb
+  let q := (Kₛ(T)).mkQL
+  let a : SIdeleQuotient F T := QuotientGroup.mk g
+  let ρ := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose
+  let D := ContinuousLinearMap.id ℂ Θₛ(T) - ρ a
+  obtain ⟨ε, hε, hgap⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_gap T g hg 1 one_ne_zero
+  have den (χ) : 1 - c χ a ≠ 0 :=
+    norm_pos_iff.mp (hε.trans_le (by simpa only [Complex.ofReal_one] using hgap χ))
+  have symbol := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_symbol T g
+  let Z (x : Θₛ(T)) (χ : PontryaginDual (SIdeleQuotient F T)) :=
+    (sLocalThetaMellin x).val ⟨c χ, sLocalOrderBound_positive χ (s := 1) (by norm_num)⟩
+  have hZ : Injective Z := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_line T
+  have eqn (n : ℕ) : D (q (f n)) = q (b n) := by
+    apply hZ
+    funext χ
+    change (sLocalThetaMellin (D (q (f n)))).val _ = sLocalIdelicZFunction (b n) (c χ)
+    exact (symbol (f n) ⟨c χ, sLocalOrderBound_positive χ (s := 1) (by norm_num)⟩).trans
+      ((mul_comm ..).trans ((eq_div_iff (den χ)).mp (hf n χ)))
+  have hbounded := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_bounded
+    T b f (hlim.isVonNBounded_range ℂ) (by
+      intro r hr
+      obtain ⟨δ, hδ, hδχ⟩ :=
+        sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division_gap T g hg r hr
+      refine ⟨δ⁻¹, ?_⟩
+      intro n χ d hd
+      have he := symbol (f n) ⟨d, hd⟩
+      change (sLocalThetaMellin (D (q (f n)))).val ⟨d, hd⟩ = _ at he
+      rw [eqn n] at he
+      change sLocalIdelicZFunction (b n) d = (1 - d a) * sLocalIdelicZFunction (f n) d at he
+      rw [he, norm_mul, ← mul_assoc]
+      exact le_mul_of_one_le_left (norm_nonneg _) ((inv_mul_cancel₀ hδ.ne').symm.le.trans
+        (mul_le_mul_of_nonneg_left (hδχ χ) (inv_nonneg.mpr hδ.le))))
+  let : T2Space (Θₛ(T)) := sLocalAdelicThetaSpace_strictLF.1
+  let : MontelSpace ℂ (Θₛ(T)) := sLocalAdelicThetaSpace_montel
+  have hc := MontelSpace.isCompact_of_isClosed_of_isVonNBounded ℂ isClosed_closure hbounded.closure
+  obtain ⟨y, _, hy⟩ := (hc.image D.continuous).isClosed.mem_of_tendsto
+    ((q.continuous.tendsto h).comp hlim) (Eventually.of_forall fun n ↦
+      ⟨q (f n), subset_closure (mem_range_self n), eqn n⟩)
+  obtain ⟨x, rfl⟩ := (Kₛ(T)).mkQ_surjective y
+  refine ⟨x, fun χ ↦ (eq_div_iff (den χ)).mpr ?_⟩
+  have he := symbol x ⟨c χ, sLocalOrderBound_positive χ (s := 1) (by norm_num)⟩
+  change (sLocalThetaMellin (D (q x))).val _ = _ at he
+  rw [show D (q x) = q h from hy] at he
+  exact (mul_comm ..).trans he.symm
+
+/-- On the stage with the selected finite place removed, take the translation by
+the projection of a diagonal S-unit. When its modulus changes, the difference
+between the identity and that translation is open onto its image on theta classes. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (u : ((S : Set V).integer F)ˣ) :
+    let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+      (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+    let ρ := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose
+    let D := ContinuousLinearMap.id ℂ Θₛ(T) - ρ (QuotientGroup.mk g)
+    sIdeleNorm F T g ≠ 1 → IsOpenMap D.toLinearMap.rangeRestrict := by
+  intro g ρ D hg
+  let : PolynormableSpace ℂ Θₛ(T) := sLocalAdelicThetaSpace_polynormable
+  let : BarrelledSpace ℂ Θₛ(T) := sLocalAdelicThetaSpace_barrelled
+  let c (χ : PontryaginDual (SIdeleQuotient F T)) := quasiCharacterNormTwist
+    (sIdeleQuotientNorm F T) (isProperMap_sIdeleQuotientNorm F T).continuous
+    ((⟨Circle.coeHom, continuous_subtype_val⟩ : Circle →ₜ* ℂ).comp χ) 1
+  let Z (x : Θₛ(T)) (χ : PontryaginDual (SIdeleQuotient F T)) :=
+    (sLocalThetaMellin x).val ⟨c χ, sLocalOrderBound_positive χ (by norm_num)⟩
+  have hZ : Injective Z := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_line T
+  have hmod (χ) : ‖c χ (QuotientGroup.mk g)‖ = ((sIdeleNorm F T g).val : ℝ) := by
+    change ‖(χ (QuotientGroup.mk g) : ℂ) * _ ^ (1 : ℂ)‖ = _
+    rw [Complex.cpow_one, norm_mul, Circle.norm_coe, one_mul, sIdeleQuotientNorm_mk,
+      Complex.norm_real, Real.norm_of_nonneg (NNReal.coe_nonneg _)]
+  have hgap (χ) : |1 - ((sIdeleNorm F T g).val : ℝ)| ≤ ‖1 - c χ (QuotientGroup.mk g)‖ := by
+    simpa only [norm_one, hmod] using abs_norm_sub_norm_le (1 : ℂ) (c χ (QuotientGroup.mk g))
+  have hden (χ) : 1 - c χ (QuotientGroup.mk g) ≠ 0 :=
+    norm_pos_iff.mp ((abs_pos.mpr (sub_ne_zero.mpr (fun he ↦ hg (Units.ext (NNReal.eq he.symm))))).trans_le
+      (hgap χ))
+  have hDZ (x : Θₛ(T)) (χ) : Z (D x) χ = (1 - c χ (QuotientGroup.mk g)) * Z x χ := by
+    obtain ⟨f, rfl⟩ := (Kₛ(T)).mkQ_surjective x
+    have he : D ((Kₛ(T)).mkQ f) = (Kₛ(T)).mkQ f - (Kₛ(T)).mkQ (schwartzBruhatUnitTranslate g f) :=
+      congrArg ((Kₛ(T)).mkQ f - ·) ((existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.2 g f)
+    rw [he]
+    dsimp only [Z]
+    rw [map_sub]
+    change (sLocalIdelicMellin f).val _ - (sLocalIdelicMellin (schwartzBruhatUnitTranslate g f)).val _ = _
+    have h := sLocalIdelicMellin_unitTranslate g f ⟨c χ, sLocalOrderBound_positive χ (by norm_num)⟩
+    exact (congrArg ((sLocalIdelicMellin f).val _ - ·) h).trans (by
+      change _ - c χ _ * Z ((Kₛ(T)).mkQ f) χ = (1 - c χ _) * Z ((Kₛ(T)).mkQ f) χ
+      rw [sub_mul, one_mul]
+      rfl)
+  have hi : Injective D := fun x y e ↦ hZ (funext fun χ ↦
+    mul_left_cancel₀ (hden χ) ((hDZ x χ).symm.trans ((congrArg (fun z ↦ Z z χ) e).trans (hDZ y χ))))
+  obtain ⟨P, hsum, hF, hproj, hρ⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_levels (F := F) T
+  have hcomm (n x) : P n (D x) = D (P n x) := by
+    change P n (x - ρ _ x) = P n x - ρ _ (P n x)
+    rw [map_sub, hρ]
+  apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_sum D P hsum hF hproj hi hcomm
+  intro n z y hl
+  obtain ⟨φ, a, h, -, ha, halim, hy⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_lift T _ _ hl
+  have hdiv := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation_division v i hv u hg
+  have hd (j : ℕ) : ∃ f : ℬₛ(T), ∀ χ, sLocalIdelicZFunction f (c χ) =
+      sLocalIdelicZFunction (a j) (c χ) / (1 - c χ (QuotientGroup.mk g)) := by
+    obtain ⟨f, hf⟩ := (Kₛ(T)).mkQ_surjective (z (φ j)).val
+    refine ⟨f, fun χ ↦ (eq_div_iff (hden χ)).mpr ?_⟩
+    change Z ((Kₛ(T)).mkQ f) χ * _ = Z ((Kₛ(T)).mkQ (a j)) χ
+    rw [hf, ha, hDZ, mul_comm]
+  obtain ⟨f, hf⟩ := hdiv hd halim
+  refine ⟨(Kₛ(T)).mkQ f, hZ (funext fun χ ↦ ?_)⟩
+  rw [hDZ, ← hy]
+  change (1 - c χ _) * sLocalIdelicZFunction f (c χ) = sLocalIdelicZFunction h (c χ)
+  exact (congrArg ((1 - c χ (QuotientGroup.mk g)) * ·) (hf χ)).trans (mul_div_cancel₀ _ (hden χ))
+
+/-- A translation by a diagonal S-unit gives the identity on S-local theta classes. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_diagonal
+    {S : Finset V} (u : ((S : Set V).integer F)ˣ) (f : ℬₛ(S)) :
+    f - schwartzBruhatUnitTranslate (sUnitEmbedding F S u) f ∈ Kₛ(S) := by
+  have he := (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose_spec.2
+  have hq : (QuotientGroup.mk (sUnitEmbedding F S u) : SIdeleQuotient F S) = 1 :=
+    (QuotientGroup.eq_one_iff _).mpr ⟨_, ⟨u, rfl⟩, rfl⟩
+  have h := he (sUnitEmbedding F S u) f
+  rw [hq, map_one] at h
+  exact (Submodule.Quotient.eq _).mp h
+
+/-- The diagonal action on the face is the projection of the same S-unit to the
+remaining coordinates. -/
+private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_translate
+    {T S : Finset V} (v : S) (i : T ⊆ S) (hv : ∀ w : S, w.val ∉ T ↔ w = v)
+    (u : ((S : Set V).integer F)ˣ) (r : ℬₛ(S) →L[ℂ] ℬₛ(T))
+    (hr : ∀ f (x : SAdeleRing F S), x.2 v = 0 →
+      r f (Multiplicative.ofAdd (x.1, fun w : T ↦ x.2 ⟨w.val, i w.property⟩)) =
+        f (Multiplicative.ofAdd x)) (f : ℬₛ(S)) :
+    let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+      (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+    r (schwartzBruhatUnitTranslate (sUnitEmbedding F S u) f) = schwartzBruhatUnitTranslate g (r f) := by
+  classical
+  intro g
+  let a := sUnitEmbedding F S u
+  let old (x : SAdeleRing F S) : SAdeleRing F T := (x.1, fun w ↦ x.2 ⟨w.val, i w.property⟩)
+  apply SchwartzBruhat.ext
+  intro y
+  let x : SAdeleRing F S := (y.toAdd.1, fun w ↦ if h : w.val ∈ T then y.toAdd.2 ⟨w.val, h⟩ else 0)
+  have hx : x.2 v = 0 := dite_eq_right ((hv v).mpr rfl)
+  have hy : old x = y.toAdd := Prod.ext rfl (funext fun w ↦ dite_eq_left w.property)
+  have hmul : old (a.inv * x) = g.inv * old x := rfl
+  have hz : (a.inv * x).2 v = 0 := by change _ * x.2 v = 0; rw [hx, mul_zero]
+  change r (schwartzBruhatUnitTranslate a f) (Multiplicative.ofAdd y.toAdd) = _
+  rw [← hy, hr _ _ hx, schwartzBruhatUnitTranslate_apply]
+  exact (hr f _ hz).symm.trans (congrArg (fun p ↦ r f (Multiplicative.ofAdd p))
+    (hmul.trans (congrArg (g.inv * ·) hy)))
+
 /-- Paper: Lemma 5.3.1.5, p. 242.
 Restrict theta-null tests to the face `x_v = 0`, giving the space of all traces the
 quotient topology from tests. This restriction is open onto its image. Equivalently, for
@@ -2486,7 +4259,76 @@ private theorem sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_tra
     {S : Finset V} (v : S) (Z : Submodule ℂ ℬₛ(S))
     (hZ : ∀ f, f ∈ Z ↔ ∀ x : SAdeleRing F S, x.2 v = 0 → f (Multiplicative.ofAdd x) = 0) :
     IsOpenMap (Z.mkQ.comp (Kₛ(S)).subtype).rangeRestrict := by
-  sorry
+  classical
+  let T := S.erase v.val
+  have i : T ⊆ S := Finset.erase_subset _ _
+  have hv (w : S) : w.val ∉ T ↔ w = v := by
+    change w.val ∉ S.erase v.val ↔ w = v
+    rw [Finset.mem_erase, and_iff_left w.property, not_not, Subtype.ext_iff]
+  obtain ⟨r, hker, hrj, hface⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_restrict v i hv Z hZ
+  obtain ⟨u, hnorm, hshell⟩ :=
+    sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_shells v i hv r hface
+  let g := Units.map ((adeleProjection F T).comp (integralAdelesOutside F S).subtype).toMonoidHom
+    (Units.map (integralAdeleDiagonal F S).toMonoidHom u)
+  let q := (Kₛ(T)).mkQL
+  let ρ := (existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose
+  let D := ContinuousLinearMap.id ℂ Θₛ(T) - ρ (QuotientGroup.mk g)
+  let B := D.toLinearMap.range
+  let δ : Θₛ(T) →L[ℂ] B := D.codRestrict B (fun c ↦ ⟨c, rfl⟩)
+  let d := δ.comp q
+  have hopen : IsOpenMap d :=
+    (sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_dilation v i hv u hnorm).comp
+      (Kₛ(T)).isOpenMap_mkQ
+  let J : ℬₛ(T) →L[ℂ] ℬₛ(S) :=
+    ⟨sAdeleSchwartzTransition F i, (sAdeleSchwartzTransition_isEmbedding F i).continuous⟩
+  let A : ℬₛ(T) →L[ℂ] ℬₛ(T) :=
+    ⟨unitTranslateEnd g, continuous_sAdeleSchwartz_unitTranslate.comp (continuous_const.prodMk continuous_id)⟩
+  let U : ℬₛ(S) →L[ℂ] ℬₛ(S) :=
+    ⟨unitTranslateEnd (sUnitEmbedding F S u),
+      continuous_sAdeleSchwartz_unitTranslate.comp (continuous_const.prodMk continuous_id)⟩
+  have hd (c : ℬₛ(T)) : D (q c) = q (c - A c) := by
+    rw [map_sub]
+    exact congrArg (q c - ·) ((existsUnique_sLocalThetaAction (F := F) (S := T)).exists.choose_spec.2 g c)
+  let R := Z.liftQL r hker.ge
+  let m := Z.mkQ.comp (Kₛ(S)).subtype
+  let h := R.comp m.range.subtypeL
+  have ht (y : m.range) : q (h y) ∈ B := by
+    obtain ⟨_, ⟨k, hk⟩, rfl⟩ := y
+    obtain ⟨I, a, ha, hsum⟩ := hshell k hk
+    obtain ⟨c, hc⟩ := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_telescope
+      unitTranslateEnd g (Kₛ(T)) I a _ hsum
+    rw [← ha] at hc
+    exact ⟨q c, (hd c).trans ((Submodule.Quotient.eq _).mpr hc).symm⟩
+  let t := (q.comp h).codRestrict B ht
+  let H := (h.comp (ContinuousLinearMap.fst ℂ m.range ℬₛ(T))) +
+    (A.comp (ContinuousLinearMap.snd ℂ m.range ℬₛ(T)))
+  let l := J.comp H - (U.comp J).comp (ContinuousLinearMap.snd ℂ m.range ℬₛ(T))
+  apply sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_lift
+    (Kₛ(S)) Z.mkQ t d hopen l
+  intro y c heq
+  have hy : q (h y) = q (c - A c) := (congrArg Subtype.val heq).trans (hd c)
+  have hk : h y - (c - A c) ∈ Kₛ(T) := (Submodule.Quotient.eq _).mp hy
+  have hl : l (y, c) = J (h y + A c) - U (J c) := rfl
+  rw [hl]
+  constructor
+  · have hJ := sLocalThetaTransition_preserves_kernel (F := F) i hk
+    have hU := sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_diagonal u (J c)
+    convert (Kₛ(S)).add_mem hJ hU using 1
+    change J (h y + A c) - U (J c) = J (h y - (c - A c)) + (J c - U (J c))
+    simp only [map_add, map_sub]
+    abel
+  · obtain ⟨_, ⟨k, hk⟩, rfl⟩ := y
+    apply (Submodule.Quotient.eq Z).mpr
+    apply hker.le
+    change r (J (r k + A c) - U (J c) - k) = 0
+    rw [map_sub, map_sub, show r (J (r k + A c)) = r k + A c from hrj _]
+    have hU : r (U (J c)) = A c :=
+      (sLocalThetaPrincipalValue_isClosedEmbedding_difference_bound_trace_translate v i hv u r hface
+        (J c)).trans (congrArg A (hrj c))
+    rw [hU, add_sub_cancel_right]
+    exact sub_self _
+
 
 /-- Paper: Lemma 5.3.1.5, p. 242.
 On theta functions invariant under the integer units at one finite place, every continuous
@@ -3015,7 +4857,8 @@ private theorem globalThetaPrincipalValue_isotypicAverage_emptyTensor
     (Subsingleton.elim L (fun i ↦ (LinearMap.id : N i →ₗ[ℂ] N i)))).trans PiTensorProduct.map_id
   exact globalThetaPrincipalValue_isotypicAverage_tensor e LinearMap.id P rfl hp
 
-private theorem globalThetaPrincipalValue_isotypicAverage_emptyTest :
+/-- With no places in `S`, the adelic principal value projection is the identity. -/
+theorem globalThetaPrincipalValue_isotypicAverage_emptyTest :
     adelePrincipalValue F ∅ = LinearMap.id := by
   unfold adelePrincipalValue
   with_reducible_and_instances
