@@ -241,6 +241,249 @@ theorem heckePrimePowerLogTail_normTwist (χ : U[F]) (t₀ : ℝ)
             error t - ∑' n : ℕ, heckePrimePowerTailOscillationTerm t₀ x ⟨1, t⟩ n := by
   sorry
 
+/-- Summation by parts on an integer interval: the weighted sum of first differences
+telescopes to boundary terms plus a sum against the successive weight differences. -/
+private theorem abel_Ico_identity (R w : ℕ → ℂ) {M N : ℕ} (hM : 1 ≤ M) (hN : M ≤ N) :
+    ∑ n ∈ Finset.Ico M (N + 1), (R (n - 1) - R n) * w n =
+      R (M - 1) * w M - R N * w N +
+        ∑ n ∈ Finset.Ico M N, R n * (w (n + 1) - w n) := by
+  induction N, hN using Nat.le_induction with
+  | base =>
+      rw [Finset.sum_Ico_succ_top (le_refl M)]
+      simp
+      ring
+  | succ N hN ih =>
+      rw [Finset.sum_Ico_succ_top (show M ≤ N by omega),
+        Finset.sum_Ico_succ_top (show M ≤ N + 1 by omega), ih]
+      simp only [Nat.add_sub_cancel]
+      ring
+
+/-- Uniform Abel summation for a tail with weights `1 / log n`. If `b n = R (n-1) - R n`
+for `n ≥ M` and the remainders `R n` are bounded by `δ` on `K` for `n ≥ M - 1`, then the
+weighted tail from `M` has a sum `T` whose partial sums converge uniformly on `K`; the sum
+is continuous there and bounded by `2 δ / log M`. -/
+private theorem abelTail_uniform (b : ℕ → ℝ → ℂ) (R : ℕ → ℝ → ℂ) (K : Set ℝ)
+    {δ : ℝ} (hδ : 0 ≤ δ) {M : ℕ} (hM : 2 ≤ M)
+    (hR : ∀ n ≥ M - 1, ∀ t ∈ K, ‖R n t‖ ≤ δ)
+    (hb : ∀ n ≥ M, ∀ t, b n t = R (n - 1) t - R n t)
+    (hcont : ∀ n, ContinuousOn (b n) K) :
+    ∃ T : ℝ → ℂ,
+      (∀ t ∈ K, HasSum (fun n : ℕ ↦ if (M : ℝ) ≤ n then b n t / Real.log n else 0)
+        (T t) (SummationFilter.conditional ℕ)) ∧
+      TendstoUniformlyOn
+        (fun N : ℕ ↦ fun t ↦ ∑ n ∈ Finset.range N,
+          if (M : ℝ) ≤ n then b n t / Real.log n else 0) T atTop K ∧
+      ContinuousOn T K ∧
+      ∀ t ∈ K, ‖T t‖ ≤ 2 * δ / Real.log M := by
+  classical
+  let w : ℕ → ℝ := fun n ↦ (Real.log n)⁻¹
+  have hlog2 (n : ℕ) (hn : 2 ≤ n) : 0 < Real.log n := Real.log_pos (by exact_mod_cast hn)
+  have hanti (n : ℕ) (hn : 2 ≤ n) : w (n + 1) ≤ w n := by
+    apply inv_anti₀ (hlog2 n hn)
+    exact Real.log_le_log (by positivity) (by exact_mod_cast Nat.le_succ n)
+  have hΔnn (n : ℕ) (hn : 2 ≤ n) : 0 ≤ w n - w (n + 1) := sub_nonneg.mpr (hanti n hn)
+  -- The telescoping weight differences sum to the first weight.
+  have htele (P : ℕ) (hP : 2 ≤ P) :
+      HasSum (fun k : ℕ ↦ (w (k + P) - w (k + 1 + P) : ℝ)) (w P) := by
+    have hnn (k : ℕ) : 0 ≤ w (k + P) - w (k + 1 + P) := by
+      have := hanti (k + P) (by omega)
+      simpa [show k + 1 + P = (k + P) + 1 by omega] using this
+    have hsum : Summable (fun k ↦ w (k + P) - w (k + 1 + P)) := by
+      refine summable_of_sum_range_le (c := w P) hnn fun n ↦ ?_
+      rw [Finset.sum_range_sub', zero_add]
+      exact sub_le_self _ (inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega)))
+    have ht : Tendsto (fun n ↦ ∑ k ∈ Finset.range n, (w (k + P) - w (k + 1 + P)))
+        atTop (𝓝 (w P)) := by
+      have heq : (fun n ↦ ∑ k ∈ Finset.range n, (w (k + P) - w (k + 1 + P))) =
+          fun n ↦ w P - w (n + P) := by
+        funext n
+        rw [Finset.sum_range_sub', zero_add]
+      rw [heq]
+      have hinv : Tendsto (fun n : ℕ ↦ w (n + P)) atTop (𝓝 0) :=
+        tendsto_inv_atTop_zero.comp (Real.tendsto_log_atTop.comp
+          (tendsto_natCast_atTop_atTop.comp (tendsto_add_atTop_nat P)))
+      simpa [sub_zero] using (tendsto_const_nhds (x := w P)).sub hinv
+    exact hsum.hasSum_iff_tendsto_nat.mpr ht
+  have hΔr (P : ℕ) (hP : 2 ≤ P) :
+      Summable (fun k : ℕ ↦ (w (k + P) - w (k + P + 1) : ℝ)) := by
+    convert (htele P hP).summable using 1
+    funext k
+    simp only [show k + 1 + P = k + P + 1 by omega]
+  have hΔc (P : ℕ) (hP : 2 ≤ P) :
+      Summable (fun k : ℕ ↦ ((w (k + P) - w (k + P + 1) : ℝ) : ℂ)) :=
+    Complex.summable_ofReal.mpr (hΔr P hP)
+  -- The remainder-weighted difference series is summable, with a uniform tail bound.
+  have hRΔ (t : ℝ) (ht : t ∈ K) (P : ℕ) (hP : M ≤ P) :
+      Summable (fun k : ℕ ↦ R (k + P) t * ((w (k + P) - w (k + P + 1) : ℝ) : ℂ)) := by
+    refine Summable.of_norm_bounded ((hΔr P (by omega)).mul_left δ) fun k ↦ ?_
+    have hd := hΔnn (k + P) (by omega)
+    calc ‖R (k + P) t * ((w (k + P) - w (k + P + 1) : ℝ) : ℂ)‖
+        = ‖R (k + P) t‖ * (w (k + P) - w (k + P + 1)) := by
+          rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hd]
+      _ ≤ δ * (w (k + P) - w (k + P + 1)) :=
+          mul_le_mul_of_nonneg_right (hR (k + P) (by omega) t ht) hd
+  have htailbound (P : ℕ) (hP : M ≤ P) (t : ℝ) (ht : t ∈ K) :
+      ‖∑' k : ℕ, R (k + P) t * ((w (k + P) - w (k + P + 1) : ℝ) : ℂ)‖ ≤ δ * w P := by
+    refine (norm_tsum_le_tsum_norm (hRΔ t ht P hP).norm).trans ?_
+    refine (Summable.tsum_le_tsum (fun k ↦ ?_) (hRΔ t ht P hP).norm
+      ((hΔr P (by omega)).mul_left δ)).trans ?_
+    · have hd := hΔnn (k + P) (by omega)
+      calc ‖R (k + P) t * ((w (k + P) - w (k + P + 1) : ℝ) : ℂ)‖
+          = ‖R (k + P) t‖ * (w (k + P) - w (k + P + 1)) := by
+            rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hd]
+        _ ≤ δ * (w (k + P) - w (k + P + 1)) :=
+            mul_le_mul_of_nonneg_right (hR (k + P) (by omega) t ht) hd
+    · have := (htele P (by omega)).const_smul δ
+      have hcast : (fun k ↦ δ • (w (k + P) - w (k + 1 + P))) =
+          fun k ↦ δ * (w (k + P) - w (k + P + 1)) := by
+        funext k
+        simp only [smul_eq_mul, show k + 1 + P = k + P + 1 by omega]
+      rw [hcast] at this
+      rw [this.tsum_eq, smul_eq_mul]
+  let T : ℝ → ℂ := fun t ↦ R (M - 1) t * (w M : ℂ) -
+    ∑' k : ℕ, R (k + M) t * ((w (k + M) - w (k + M + 1) : ℝ) : ℂ)
+  have hTbound (t : ℝ) (ht : t ∈ K) : ‖T t‖ ≤ 2 * δ / Real.log M := by
+    have hwM : 0 ≤ w M := inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega))
+    have h1 : ‖R (M - 1) t * (w M : ℂ)‖ ≤ δ * w M := by
+      rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hwM]
+      exact mul_le_mul_of_nonneg_right (hR (M - 1) (by omega) t ht) hwM
+    calc ‖T t‖ ≤ ‖R (M - 1) t * (w M : ℂ)‖ +
+        ‖∑' k : ℕ, R (k + M) t * ((w (k + M) - w (k + M + 1) : ℝ) : ℂ)‖ := norm_sub_le _ _
+      _ ≤ δ * w M + δ * w M := add_le_add h1 (htailbound M (le_refl M) t ht)
+      _ = 2 * δ / Real.log M := by simp only [w]; ring
+  -- Partial sums of the weighted tail, expressed through the remainders.
+  have hpartial (P : ℕ) (hP : M + 1 ≤ P) (t : ℝ) :
+      ∑ n ∈ Finset.range P, (if (M : ℝ) ≤ n then b n t / Real.log n else 0) =
+        R (M - 1) t * (w M : ℂ) - R (P - 1) t * (w (P - 1) : ℂ) -
+          ∑ n ∈ Finset.Ico M (P - 1), R n t * ((w n - w (n + 1) : ℝ) : ℂ) := by
+    calc ∑ n ∈ Finset.range P, (if (M : ℝ) ≤ n then b n t / Real.log n else 0)
+        = ∑ n ∈ Finset.Ico M P, b n t * (w n : ℂ) := by
+          have hfilter : (Finset.range P).filter (fun n : ℕ ↦ (M : ℝ) ≤ n) = Finset.Ico M P := by
+            ext n
+            simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Ico, Nat.cast_le]
+            omega
+          rw [← Finset.sum_filter, hfilter]
+          apply Finset.sum_congr rfl
+          intro n hn
+          simp only [w, div_eq_mul_inv, Complex.ofReal_inv]
+      _ = R (M - 1) t * (w M : ℂ) - R (P - 1) t * (w (P - 1) : ℂ) -
+          ∑ n ∈ Finset.Ico M (P - 1), R n t * ((w n - w (n + 1) : ℝ) : ℂ) := by
+          have hid := abel_Ico_identity (fun n ↦ R n t) (fun n ↦ (w n : ℂ))
+            (by omega : 1 ≤ M) (show M ≤ P - 1 by omega)
+          rw [show (P - 1) + 1 = P by omega] at hid
+          have hsum : ∑ n ∈ Finset.Ico M P, b n t * (w n : ℂ) =
+              ∑ n ∈ Finset.Ico M P, (R (n - 1) t - R n t) * (w n : ℂ) := by
+            apply Finset.sum_congr rfl
+            intro n hn
+            rw [hb n (Finset.mem_Ico.mp hn).1 t]
+          rw [hsum, hid]
+          have hneg : ∑ n ∈ Finset.Ico M (P - 1), R n t * (↑(w (n + 1)) - ↑(w n)) =
+              -∑ n ∈ Finset.Ico M (P - 1), R n t * ((w n - w (n + 1) : ℝ) : ℂ) := by
+            have hfun : (fun n ↦ R n t * (↑(w (n + 1)) - ↑(w n))) =
+                (fun n ↦ -(R n t * ((w n - w (n + 1) : ℝ) : ℂ))) := by
+              funext n
+              push_cast
+              ring
+            rw [hfun, Finset.sum_neg_distrib]
+          rw [hneg]
+          ring
+  have hdiff (P : ℕ) (hP : M + 1 ≤ P) (t : ℝ) (ht : t ∈ K) :
+      T t - ∑ n ∈ Finset.range P, (if (M : ℝ) ≤ n then b n t / Real.log n else 0) =
+        R (P - 1) t * (w (P - 1) : ℂ) -
+          ∑' k : ℕ, R (k + (P - 1)) t * ((w (k + (P - 1)) - w (k + (P - 1) + 1) : ℝ) : ℂ) := by
+    simp only [T]
+    rw [hpartial P hP t]
+    have hsplit := Summable.sum_add_tsum_nat_add (P - 1 - M) (hRΔ t ht M (le_refl M))
+    have hshift : ∑ k ∈ Finset.range (P - 1 - M),
+        R (k + M) t * ((w (k + M) - w (k + M + 1) : ℝ) : ℂ) =
+        ∑ n ∈ Finset.Ico M (P - 1), R n t * ((w n - w (n + 1) : ℝ) : ℂ) := by
+      have hbij : Finset.Ico M (P - 1) = (Finset.range (P - 1 - M)).image (· + M) := by
+        ext n
+        simp only [Finset.mem_Ico, Finset.mem_image, Finset.mem_range]
+        constructor
+        · rintro ⟨h1, h2⟩
+          refine ⟨n - M, ?_, by omega⟩
+          omega
+        · rintro ⟨k, hk, rfl⟩
+          omega
+      rw [hbij, Finset.sum_image]
+      · intro a _ b _ hab
+        simp only at hab
+        exact Nat.add_right_cancel hab
+    have hcast : (fun k ↦ R (k + (P - 1 - M) + M) t *
+        ((w (k + (P - 1 - M) + M) - w (k + (P - 1 - M) + M + 1) : ℝ) : ℂ)) =
+        fun k ↦ R (k + (P - 1)) t * ((w (k + (P - 1)) - w (k + (P - 1) + 1) : ℝ) : ℂ) := by
+      funext k
+      simp only [show k + (P - 1 - M) + M = k + (P - 1) by omega]
+    rw [hcast] at hsplit
+    rw [← hsplit, hshift]
+    ring
+  have hdiffbound (P : ℕ) (hP : M + 1 ≤ P) (t : ℝ) (ht : t ∈ K) :
+      ‖T t - ∑ n ∈ Finset.range P, (if (M : ℝ) ≤ n then b n t / Real.log n else 0)‖ ≤
+        2 * δ * w (P - 1) := by
+    rw [hdiff P hP t ht]
+    refine (norm_sub_le _ _).trans ?_
+    have hw : 0 ≤ w (P - 1) := inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega))
+    have h1 : ‖R (P - 1) t * (w (P - 1) : ℂ)‖ ≤ δ * w (P - 1) := by
+      rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hw]
+      exact mul_le_mul_of_nonneg_right (hR (P - 1) (by omega) t ht) hw
+    have h2 := htailbound (P - 1) (by omega) t ht
+    linarith
+  have hTUO : TendstoUniformlyOn
+      (fun P : ℕ ↦ fun t ↦ ∑ n ∈ Finset.range P,
+        if (M : ℝ) ≤ n then b n t / Real.log n else 0) T atTop K := by
+    rw [Metric.tendstoUniformlyOn_iff]
+    intro ε' hε'
+    have hw : Tendsto (fun P : ℕ ↦ 2 * δ * w (P - 1)) atTop (𝓝 0) := by
+      have hlog : Tendsto (fun P : ℕ ↦ Real.log ((P - 1 : ℕ) : ℝ)) atTop atTop :=
+        Real.tendsto_log_atTop.comp
+          (tendsto_natCast_atTop_atTop.comp (tendsto_sub_atTop_nat 1))
+      have hinv : Tendsto (fun P : ℕ ↦ w (P - 1)) atTop (𝓝 0) :=
+        tendsto_inv_atTop_zero.comp hlog
+      simpa using tendsto_const_nhds.mul hinv
+    obtain ⟨N, hN⟩ := Metric.tendsto_atTop.mp hw ε' hε'
+    filter_upwards [Filter.eventually_ge_atTop (max N (M + 1))] with P hP
+    have hPN : N ≤ P := le_trans (le_max_left _ _) hP
+    have hPM : M + 1 ≤ P := le_trans (le_max_right _ _) hP
+    intro t ht
+    have hbound := hdiffbound P hPM t ht
+    have hε : 2 * δ * w (P - 1) < ε' := by
+      have hnn : 0 ≤ 2 * δ * w (P - 1) :=
+        mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) hδ)
+          (inv_nonneg.mpr (Real.log_nonneg (by norm_cast; omega)))
+      have := hN P hPN
+      rwa [Real.dist_eq, sub_zero, abs_of_nonneg hnn] at this
+    have hdist : dist (T t) (∑ n ∈ Finset.range P,
+        if (M : ℝ) ≤ n then b n t / Real.log n else 0) ≤ 2 * δ * w (P - 1) := by
+      rw [dist_eq_norm]
+      exact hdiffbound P hPM t ht
+    have hlt : dist (T t) (∑ n ∈ Finset.range P,
+        if (M : ℝ) ≤ n then b n t / Real.log n else 0) < ε' := lt_of_le_of_lt hdist hε
+    simpa [dist_comm] using hlt
+  have hcontP (P : ℕ) : ContinuousOn
+      (fun t ↦ ∑ n ∈ Finset.range P, if (M : ℝ) ≤ n then b n t / Real.log n else 0) K := by
+    induction P with
+    | zero =>
+        simp
+        exact continuousOn_const
+    | succ P ih =>
+        simp only [Finset.sum_range_succ]
+        refine ih.add ?_
+        by_cases hMn : (M : ℝ) ≤ P
+        · simp only [hMn, ↓reduceIte]
+          exact (hcont P).div continuousOn_const fun t ht ↦
+            Complex.ofReal_ne_zero.mpr (ne_of_gt (hlog2 P (by
+              have hMP : M ≤ P := by exact_mod_cast hMn
+              omega)))
+        · simp only [hMn, ↓reduceIte]
+          exact continuousOn_const
+  refine ⟨T, ?_, hTUO, hTUO.continuousOn ?_, hTbound⟩
+  · intro t ht
+    have hp := hTUO.tendsto_at ht
+    rw [HasSum, SummationFilter.conditional_filter_eq_map_range, Filter.tendsto_map'_iff]
+    exact hp
+  · exact (Filter.Eventually.of_forall hcontP).frequently
+
 /-- Paper: Theorem B.7.2.1(2), pp. 649–651. For a character nontrivial on
 the norm-one subgroup the grouped tail converges uniformly on each compact set
 on the 1-line. Its limit is continuous and uniformly smaller than `2 ε / log x`.
@@ -256,7 +499,154 @@ theorem heckePrimePowerLogTail_of_nontrivial_on_normOne (χ : U[F])
         (fun t : ℝ ↦ heckePrimePowerLogTail χ x ⟨1, t⟩) atTop K ∧
       ContinuousOn (fun t : ℝ ↦ heckePrimePowerLogTail χ x ⟨1, t⟩) K ∧
       ∀ t ∈ K, ‖heckePrimePowerLogTail χ x ⟨1, t⟩‖ < 2 * ε / Real.log x := by
-  sorry
+  classical
+  obtain ⟨L, hL, hSeries⟩ := finiteHeckeL_exists_continuation χ
+  let φ : ℝ → ℂ := fun t ↦ ⟨1, t⟩
+  have hφc : Continuous φ := by
+    have : φ = fun t : ℝ ↦ (1 : ℂ) + (t : ℂ) * Complex.I := by
+      funext t
+      simp [φ, Complex.ext_iff]
+    rw [this]
+    continuity
+  have hKline : φ '' K ⊆ Complex.re ⁻¹' ({1} : Set ℝ) := by
+    rintro _ ⟨t, ht, rfl⟩
+    rfl
+  obtain ⟨err, herr, herr0⟩ := heckeLogDerivPolynomial_of_nontrivial_on_normOne χ hχ L hL hSeries
+    (φ '' K) (hK.image hφc) hKline (b := 1 / 2) (by norm_num)
+  -- Extract a uniform bound on the Perron remainder at integer cutoffs.
+  rw [Metric.tendstoUniformlyOn_iff] at herr0
+  have hev := herr0 (ε / 2) (half_pos hε)
+  have hev' : ∃ X : ℝ, ∀ x ≥ X, x ∈ perronCutoffSet (1 / 2) →
+      ∀ t ∈ K, ‖err x (φ t)‖ < ε / 2 := by
+    rw [Filter.eventually_iff, Filter.mem_inf_iff_superset] at hev
+    obtain ⟨a, ha, bset, hbset, hab⟩ := hev
+    rw [Filter.mem_principal] at hbset
+    obtain ⟨X, hX⟩ := Filter.eventually_atTop.mp ha
+    refine ⟨X, fun x hx hxJ t ht ↦ ?_⟩
+    have := hab (Set.mem_inter (hX x hx) (hbset hxJ)) (φ t) ⟨t, ht, rfl⟩
+    simpa [dist_eq_norm] using this
+  obtain ⟨X, hX⟩ := hev'
+  refine ⟨max X 2 + 2, by linarith [le_max_right X 2], fun x hx ↦ ?_⟩
+  have hx1 : 1 < x := by linarith [le_max_right X 2]
+  set M := ⌈x⌉₊ with hMdef
+  have hM4 : 4 ≤ M := by
+    have : (4 : ℝ) ≤ M := by linarith [le_max_right X 2, Nat.le_ceil x]
+    exact_mod_cast this
+  have hM2 : 2 ≤ M := by omega
+  have hMx : x ≤ M := Nat.le_ceil x
+  let b : ℕ → ℝ → ℂ := fun n t ↦
+    LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) (φ t) n
+  let R : ℕ → ℝ → ℂ := fun n t ↦ if 2 ≤ n then -err (n : ℝ) (φ t) else 0
+  have hR : ∀ n ≥ M - 1, ∀ t ∈ K, ‖R n t‖ ≤ ε / 2 := by
+    intro n hn t ht
+    have hn2 : 2 ≤ n := by omega
+    have hnX : (n : ℝ) ≥ X := by
+      have hcast : ((M - 1 : ℕ) : ℝ) = (M : ℝ) - 1 := by
+        rw [Nat.cast_sub (show 1 ≤ M by omega), Nat.cast_one]
+      have hmn : ((M - 1 : ℕ) : ℝ) ≤ (n : ℝ) := by exact_mod_cast hn
+      linarith [le_max_left X 2, Nat.le_ceil x]
+    have hnJ : (n : ℝ) ∈ perronCutoffSet (1 / 2) :=
+      (perronCutoffSet_integer_half_integer (by norm_num : (0 : ℝ) < 1 / 2) n).1
+    simp only [R, hn2, ↓reduceIte, norm_neg]
+    exact le_of_lt (hX (n : ℝ) hnX hnJ t ht)
+  have hb : ∀ n ≥ M, ∀ t, b n t = R (n - 1) t - R n t := by
+    intro n hn t
+    have hn3 : 3 ≤ n := by omega
+    have hn1 : 1 < (n : ℝ) := by exact_mod_cast (by omega : 1 < n)
+    have hn1' : 1 < ((n - 1 : ℕ) : ℝ) := by
+      have : 2 ≤ n - 1 := by omega
+      exact_mod_cast (by omega : 1 < n - 1)
+    have hpoly (j : ℕ) (hj : 1 < (j : ℝ)) :
+        heckeLogDerivPolynomial χ (j : ℝ) (φ t) = -logDeriv L (φ t) + err (j : ℝ) (φ t) :=
+      (herr (j : ℝ) hj).2 (φ t) (by simp [φ])
+    have hpoly_nat (j : ℕ) : heckeLogDerivPolynomial χ (j : ℝ) (φ t) =
+        ∑ k ∈ Finset.Icc 1 j,
+          LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) (φ t) k := by
+      simp [heckeLogDerivPolynomial]
+    have hdiff : b n t = heckeLogDerivPolynomial χ (n : ℝ) (φ t) -
+        heckeLogDerivPolynomial χ ((n - 1 : ℕ) : ℝ) (φ t) := by
+      simp only [b]
+      rw [hpoly_nat, hpoly_nat]
+      have hsum : ∑ k ∈ Finset.Icc 1 n,
+          LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) (φ t) k =
+          ∑ k ∈ Finset.Icc 1 (n - 1),
+            LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) (φ t) k +
+          LSeries.term (heckeLogDerivCoefficient (ideleClassNormTwist χ 0)) (φ t) n := by
+        conv_lhs => rw [show n = (n - 1) + 1 by omega,
+          Finset.sum_Icc_succ_top (show 1 ≤ (n - 1) + 1 by omega)]
+        rw [show (n - 1) + 1 = n by omega]
+      rw [hsum]
+      ring
+    rw [hdiff, hpoly n hn1, hpoly (n - 1) hn1']
+    simp only [R, show 2 ≤ n - 1 by omega, show 2 ≤ n by omega, ↓reduceIte]
+    ring
+  have hcont : ∀ n, ContinuousOn (b n) K := by
+    intro n
+    by_cases hn0 : n = 0
+    · subst hn0
+      have : b 0 = fun _ ↦ 0 := by
+        funext t
+        simp [b, LSeries.term_zero]
+      rw [this]
+      exact continuousOn_const
+    · have hb' : b n = fun t ↦
+        heckeLogDerivCoefficient (ideleClassNormTwist χ 0) n / (n : ℂ) ^ (φ t) := by
+        funext t
+        simp only [b]
+        rw [LSeries.term_of_ne_zero hn0]
+      rw [hb']
+      refine ContinuousOn.div continuousOn_const ?_ fun t ht ↦ ?_
+      · exact hφc.continuousOn.const_cpow (Or.inl (Nat.cast_ne_zero.mpr hn0))
+      · exact Complex.cpow_ne_zero_iff.mpr (Or.inl (Nat.cast_ne_zero.mpr hn0))
+  obtain ⟨T, hThas, hTUO, hTcont, hTbound⟩ :=
+    abelTail_uniform b R K (half_pos hε).le hM2 hR hb hcont
+  have hcong (t : ℝ) : (fun n : ℕ ↦ if (M : ℝ) ≤ n then b n t / Real.log n else 0) =
+      heckePrimePowerLogTailTerm χ x (φ t) := by
+    funext n
+    simp only [heckePrimePowerLogTailTerm, b]
+    by_cases hn : x ≤ (n : ℝ)
+    · have hMn : (M : ℝ) ≤ n := by
+        rw [hMdef, Nat.cast_le]
+        exact Nat.ceil_le.mpr hn
+      have hn0 : n ≠ 0 := by
+        rintro rfl
+        norm_num at hn
+        linarith
+      simp only [hn, hMn, ↓reduceIte]
+      rw [LSeries.term_of_ne_zero hn0, LSeries.term_of_ne_zero hn0, heckePrimePowerLogCoefficient]
+      rw [div_div, div_div, mul_comm (Real.log n : ℂ)]
+    · have hMn : ¬(M : ℝ) ≤ n := by
+        rw [hMdef, Nat.cast_le]
+        exact fun h ↦ hn (Nat.ceil_le.mp h)
+      simp only [hn, hMn, ↓reduceIte]
+  have htail_eq (t : ℝ) (ht : t ∈ K) : heckePrimePowerLogTail χ x (φ t) = T t := by
+    have := (hThas t ht).congr_fun (congrFun (hcong t).symm)
+    delta heckePrimePowerLogTail
+    exact this.tsum_eq
+  have hTUO' : TendstoUniformlyOn
+      (fun N : ℕ ↦ fun t : ℝ ↦
+        ∑ n ∈ Finset.range N, heckePrimePowerLogTailTerm χ x ⟨1, t⟩ n)
+      (fun t : ℝ ↦ heckePrimePowerLogTail χ x ⟨1, t⟩) atTop K := by
+    have := hTUO.congr (Filter.Eventually.of_forall fun N ↦ by
+      intro t ht
+      apply Finset.sum_congr rfl
+      intro n hn
+      exact congrFun (hcong t) n)
+    exact this.congr_right (fun t ht ↦ (htail_eq t ht).symm)
+  have hcont' : ContinuousOn (fun t : ℝ ↦ heckePrimePowerLogTail χ x ⟨1, t⟩) K :=
+    hTcont.congr (fun t ht ↦ htail_eq t ht)
+  have hbound (t : ℝ) (ht : t ∈ K) : ‖heckePrimePowerLogTail χ x (φ t)‖ < 2 * ε / Real.log x := by
+    rw [htail_eq t ht]
+    have hlogx : 0 < Real.log x := Real.log_pos hx1
+    have hlogM : Real.log x ≤ Real.log M := Real.log_le_log (by linarith) hMx
+    calc ‖T t‖ ≤ 2 * (ε / 2) / Real.log M := hTbound t ht
+      _ = ε / Real.log M := by ring
+      _ ≤ ε / Real.log x := by gcongr
+      _ < 2 * ε / Real.log x := by
+        have hpos : 0 < ε / Real.log x := div_pos hε hlogx
+        rw [show (2 : ℝ) * ε / Real.log x = 2 * (ε / Real.log x) by ring]
+        linarith
+  exact ⟨hTUO', hcont', fun t ht ↦ hbound t ht⟩
 
 -- TODO(paper-gap): The proof on p. 651 uses a uniform bound for the Perron error
 -- on the entire 1-line. The compact-set estimates of §B.7.1 suffice here.
