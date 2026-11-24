@@ -128,7 +128,34 @@ local notation "π(" hT ", " η ")" => (D(hT, η)).mkQL.comp (q(η))
 /-- Paper: Equations (8.1.0.1) and (8.1.0.3), p. 382.
 The map to the ambient orbital quotient kills the source relations. -/
 theorem sLocalOrbitalSupportRelations_le_ker (hT : T ⊆ S) (η : PontryaginDual J₁(S)) :
-    sLocalOrbitalSupportRelations hT η ≤ ((π(hT, η)).comp (U(S, T)).subtypeL).ker := by sorry
+    sLocalOrbitalSupportRelations hT η ≤ ((π(hT, η)).comp (U(S, T)).subtypeL).ker := by
+  have key : ∀ f : U(S, T),
+      f ∈ ((sLocalHomogeneousAdelicThetaLinearMap F S η).domRestrict (U(S, T))).ker →
+        ((π(hT, η)).comp (U(S, T)).subtypeL) f = 0 := by
+    intro f hf
+    have hθ : sLocalHomogeneousAdelicThetaLinearMap F S η f.val = 0 := by
+      simpa using hf
+    have hq : q(η) f.val = 0 := by
+      rw [Submodule.mkQL_apply, Submodule.mkQ_apply]
+      exact (Submodule.Quotient.mk_eq_zero _).mpr hθ
+    simp only [ContinuousLinearMap.comp_apply, Submodule.subtypeL_apply]
+    rw [hq, map_zero]
+  intro f hf
+  simp only [sLocalOrbitalSupportRelations] at hf
+  obtain ⟨a, ha, b, hb, rfl⟩ := Submodule.mem_sup.mp hf
+  have ha0 := key a ha
+  have hb0 : ((π(hT, η)).comp (U(S, T)).subtypeL) b = 0 := by
+    obtain ⟨g, rfl⟩ := hb
+    simp only [ContinuousLinearMap.comp_apply, Submodule.subtypeL_apply]
+    have hmem : q(η) (sAdelePrincipalValue F hT g.val) ∈
+        (sLocalHomogeneousThetaPrincipalValue (F := F) hT η).range := by
+      refine ⟨q(η) g.val, ?_⟩
+      simp only [Submodule.mkQL_apply, Submodule.mkQ_apply]
+      exact sLocalHomogeneousThetaPrincipalValue_mk hT η g.val
+    rw [Submodule.mkQL_apply, Submodule.mkQ_apply]
+    exact (Submodule.Quotient.mk_eq_zero _).mpr hmem
+  change ((π(hT, η)).comp (U(S, T)).subtypeL) (a + b) = 0
+  rw [map_add, ha0, hb0, add_zero]
 
 /-- Paper: Equations (8.1.0.1) and (8.1.0.3), p. 382.
 The comparison is the continuous linear map induced by including restricted tests
