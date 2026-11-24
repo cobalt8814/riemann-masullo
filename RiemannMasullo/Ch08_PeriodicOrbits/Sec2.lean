@@ -583,28 +583,48 @@ theorem sAdeleNormOneOrbitUnion_secondCountable :
   have := secondCountableTopology_sAdeleRing F S
   infer_instance
 
+/-- The adele ring is second countable: the archimedean factor is a finite product of
+completions that embed isometrically into `ℂ`, and the finite adele ring is second
+countable by `secondCountableTopology_finiteAdeleRing`. -/
+private theorem secondCountableTopology_adeleRing :
+    SecondCountableTopology 𝔸[F] := by
+  haveI (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  haveI : SecondCountableTopology (RestrictedProduct
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite) :=
+    secondCountableTopology_finiteAdeleRing F
+  exact inferInstanceAs (SecondCountableTopology (((w : InfinitePlace F) → w.Completion) ×
+    RestrictedProduct (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+      (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite))
+
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is second-countable. -/
 theorem adeleNormOneOrbitUnion_secondCountable :
     SecondCountableTopology (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := secondCountableTopology_adeleRing F
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is perfectly normal. -/
 theorem sAdeleNormOneOrbitUnion_perfectlyNormal :
     PerfectlyNormalSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := sAdeleNormOneOrbitUnion_metrizableSpace F S
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is perfectly normal. -/
 theorem adeleNormOneOrbitUnion_perfectlyNormal :
     PerfectlyNormalSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := adeleNormOneOrbitUnion_metrizableSpace F
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is separable. -/
 theorem sAdeleNormOneOrbitUnion_separableSpace : SeparableSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := sAdeleNormOneOrbitUnion_secondCountable F S
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is separable. -/
 theorem adeleNormOneOrbitUnion_separableSpace : SeparableSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := adeleNormOneOrbitUnion_secondCountable F
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is locally compact. -/
 theorem sAdeleNormOneOrbitUnion_locallyCompactSpace :
