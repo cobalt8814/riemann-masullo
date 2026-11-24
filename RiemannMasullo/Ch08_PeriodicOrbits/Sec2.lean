@@ -306,19 +306,115 @@ theorem adeleNormOneOrbitUnion_t2Space : T2Space (adeleNormOneOrbitUnion F) := b
   have := t2Space_adeleRing F
   infer_instance
 
+/-- The S-adele ring is metrizable: a finite product of metrizable completions of `F`,
+routed through the definition as for `t2Space_sAdeleRing`. -/
+private theorem metrizableSpace_sAdeleRing : MetrizableSpace (SAdeleRing F S) := by
+  change MetrizableSpace (((w : InfinitePlace F) → w.Completion) × ((v : S) → (v.val.adicCompletion F)))
+  infer_instance
+
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is metrizable. -/
 theorem sAdeleNormOneOrbitUnion_metrizableSpace :
     MetrizableSpace (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := metrizableSpace_sAdeleRing F S
+  infer_instance
+
+/-- The nonzero prime ideals of the ring of integers form a countable type: the ring is
+countable, its ideals are finitely generated, and a height-one spectrum element is
+determined by its underlying ideal. -/
+private theorem countable_heightOneSpectrum : Countable (HeightOneSpectrum (𝓞 F)) := by
+  haveI : Countable F := (Module.finBasis ℚ F).equivFun.injective.countable
+  haveI : Countable (𝓞 F) := RingOfIntegers.coe_injective.countable
+  haveI : Countable (Ideal (𝓞 F)) := by
+    refine Function.Surjective.countable
+      (f := fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) ?_
+    intro I
+    exact (IsNoetherian.noetherian I : I.FG)
+  exact HeightOneSpectrum.asIdeal_injective.countable
+
+/-- A restricted product over a countable index type, with open distinguished subsets,
+is second countable: the pieces where the coordinates lie in the distinguished subsets
+outside a fixed finite set form a countable open cover by second countable subspaces. -/
+private theorem secondCountableTopology_restrictedProduct_cofinite
+    {ι : Type*} [Countable ι] (R : ι → Type*) [∀ i, TopologicalSpace (R i)]
+    [∀ i, SecondCountableTopology (R i)] (A : ∀ i, Set (R i))
+    (hA : ∀ i, IsOpen (A i)) :
+    SecondCountableTopology (RestrictedProduct R A Filter.cofinite) := by
+  have hS (T : Finset ι) : Filter.cofinite ≤ Filter.principal ((T : Set ι)ᶜ) :=
+    Filter.le_principal_iff.2 (T.finite_toSet.compl_mem_cofinite)
+  haveI (T : Finset ι) : SecondCountableTopology
+      (RestrictedProduct R A (Filter.principal ((T : Set ι)ᶜ))) :=
+    RestrictedProduct.isEmbedding_coe_of_principal.secondCountableTopology
+  have he (T : Finset ι) : IsOpenEmbedding (RestrictedProduct.inclusion R A (hS T)) :=
+    RestrictedProduct.isOpenEmbedding_inclusion_principal hA (hS T)
+  haveI (T : Finset ι) : SecondCountableTopology
+      (Set.range (RestrictedProduct.inclusion R A (hS T))) :=
+    (he T).isEmbedding.toHomeomorph.symm.secondCountableTopology
+  refine secondCountableTopology_of_countable_cover (fun T => (he T).isOpen_range) ?_
+  refine Set.eq_univ_of_forall fun x => Set.mem_iUnion.2 ?_
+  have hx : {i | ¬ x i ∈ A i}.Finite := Filter.eventually_cofinite.1 x.2
+  refine ⟨hx.toFinset, ?_⟩
+  refine RestrictedProduct.exists_inclusion_eq_of_eventually R A (hS _) ?_
+  intro i hi
+  by_contra h
+  exact hi (by simpa [Set.Finite.mem_toFinset] using h)
+
+/-- The finite adele ring is second countable: the local completions are proper metric
+spaces, hence second countable, and the restricted product is taken over a countable
+index with open integer subrings. -/
+private theorem secondCountableTopology_finiteAdeleRing :
+    SecondCountableTopology (FiniteAdeleRing (𝓞 F) F) := by
+  haveI : Countable (HeightOneSpectrum (𝓞 F)) := countable_heightOneSpectrum F
+  haveI (v : HeightOneSpectrum (𝓞 F)) : ProperSpace (v.adicCompletion F) :=
+    properSpace_adicCompletion v
+  change SecondCountableTopology (RestrictedProduct
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+    (fun v : HeightOneSpectrum (𝓞 F) => (v.adicCompletionIntegers F : Set (v.adicCompletion F)))
+    Filter.cofinite)
+  exact secondCountableTopology_restrictedProduct_cofinite
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+    (fun v : HeightOneSpectrum (𝓞 F) => (v.adicCompletionIntegers F : Set (v.adicCompletion F)))
+    (fun _ ↦ Valued.isOpen_valuationSubring _)
+
+/-- The adele ring is metrizable. The infinite part is a finite product of metrizable
+completions. The finite part is second countable and weakly locally compact (the integer
+subrings are compact open), hence regular; with T0 this gives T3, and Urysohn's
+metrization theorem applies. -/
+private theorem metrizableSpace_adeleRing : MetrizableSpace 𝔸[F] := by
+  haveI (v : HeightOneSpectrum (𝓞 F)) : ProperSpace (v.adicCompletion F) :=
+    properSpace_adicCompletion v
+  haveI (v : HeightOneSpectrum (𝓞 F)) : CompactSpace (v.adicCompletionIntegers F) :=
+    compactSpace_adicCompletionIntegers v
+  haveI : Fact (∀ v : HeightOneSpectrum (𝓞 F),
+      IsOpen (v.adicCompletionIntegers F : Set (v.adicCompletion F))) :=
+    ⟨fun _ ↦ Valued.isOpen_valuationSubring _⟩
+  haveI : SecondCountableTopology (RestrictedProduct
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+    (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite) :=
+    secondCountableTopology_finiteAdeleRing F
+  exact inferInstanceAs (MetrizableSpace (((w : InfinitePlace F) → w.Completion) ×
+    RestrictedProduct (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletion F)
+      (fun v : HeightOneSpectrum (𝓞 F) => v.adicCompletionIntegers F) Filter.cofinite))
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is metrizable. -/
 theorem adeleNormOneOrbitUnion_metrizableSpace : MetrizableSpace (adeleNormOneOrbitUnion F) := by
-  sorry
+  have := metrizableSpace_adeleRing F
+  infer_instance
+
+/-- The S-adele ring is second countable: the archimedean completions embed isometrically
+into `ℂ`, and the finite completions in `S` are proper metric spaces. -/
+private theorem secondCountableTopology_sAdeleRing :
+    SecondCountableTopology (SAdeleRing F S) := by
+  change SecondCountableTopology (((w : InfinitePlace F) → w.Completion) × ((v : S) → (v.val.adicCompletion F)))
+  haveI (w : InfinitePlace F) : SecondCountableTopology w.Completion :=
+    (InfinitePlace.Completion.isometry_extensionEmbedding w).isEmbedding.secondCountableTopology
+  haveI (v : S) : ProperSpace (v.val.adicCompletion F) := properSpace_adicCompletion v.val
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The S-local norm-one orbit union is second-countable. -/
 theorem sAdeleNormOneOrbitUnion_secondCountable :
     SecondCountableTopology (sAdeleNormOneOrbitUnion F S) := by
-  sorry
+  have := secondCountableTopology_sAdeleRing F S
+  infer_instance
 
 /-- Paper: Lemma 8.2.0.3, p. 385. The global norm-one orbit union is second-countable. -/
 theorem adeleNormOneOrbitUnion_secondCountable :
