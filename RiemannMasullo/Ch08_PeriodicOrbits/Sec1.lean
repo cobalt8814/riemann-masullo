@@ -93,10 +93,28 @@ The corrected test subspaces in (8.1.0.2) and (8.1.0.4) are closed in the S-adel
 Schwartz–Bruhat topology. -/
 theorem sLocalOrbitalSupportTests_isClosed : IsClosed (↑U(S, T) : Set B(S)) := by sorry
 
+/-- The principal value acts on a pure tensor of the generating family by applying the local
+principal value in the selected finite factors and the identity in the others; it therefore
+preserves the generating family, hence the spanned test space. -/
+private theorem sAdelePrincipalValue_mem_sLocalOrbitalSupportTests (hT : T ⊆ S)
+    {x : B(S)} (hx : x ∈ U(S, T)) : sAdelePrincipalValue F hT x ∈ U(S, T) := by
+  have hle : U(S, T) ≤ (U(S, T)).comap (sAdelePrincipalValue F hT) := by
+    refine Submodule.span_le.mpr ?_
+    rintro f ⟨a, b, hb, rfl⟩
+    refine Submodule.subset_span ⟨a,
+      (fun w : S ↦ if w.val ∈ T then finitePlacePrincipalValue w.val (b w) else b w),
+      ?_, ?_⟩
+    · intro w hw
+      simp only [hw, ite_false]
+      exact hb w hw
+    · exact (sAdelePrincipalValue_tmul hT a.val b).symm
+  exact hle hx
+
 /-- Paper: Equations (8.1.0.1) and (8.1.0.3), p. 382.
 Principal value on the selected places preserves the restricted test space. -/
 theorem sLocalOrbitalSupportTests_principalValue (hT : T ⊆ S) (f : U(S, T)) :
-    sAdelePrincipalValue F hT f.val ∈ U(S, T) := by sorry
+    sAdelePrincipalValue F hT f.val ∈ U(S, T) :=
+  sAdelePrincipalValue_mem_sLocalOrbitalSupportTests hT f.property
 
 /-- Paper: Equations (8.1.0.1) and (8.1.0.3), p. 382.
 The source quotient imposes the homogeneous theta kernel and the principal-value
