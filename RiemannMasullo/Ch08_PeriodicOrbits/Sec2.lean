@@ -212,7 +212,9 @@ theorem adeleNormOneOrbitMap_continuous : Continuous (adeleNormOneOrbitMap F) :=
 /-- Paper: Lemma 8.2.0.3(2), p. 385. Every point in the global norm-one orbit union
 has a preimage under the orbit map. -/
 theorem adeleNormOneOrbitMap_surjective : Surjective (adeleNormOneOrbitMap F) := by
-  sorry
+  rintro ⟨x, hx⟩
+  obtain ⟨g, z, hgz⟩ := (mem_adeleNormOneOrbitUnion_iff F x).mp hx
+  exact ⟨(g, z), Subtype.ext hgz⟩
 
 /-- Paper: Lemma 8.2.0.3(2), p. 385. The global orbit map is an open quotient map
 for its coinduced topology.
