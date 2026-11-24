@@ -49,11 +49,41 @@ def sLocalOrbitalArchimedeanFlatTests :
   let coords := LinearMap.funLeft ℂ ℂ (fun x : ArchCoordinates ↦ Multiplicative.ofAdd (assemble(x)))
   flat.comap (coords.comp (schwartzBruhatSubmodule (Multiplicative (InfiniteAdeleRing F))).subtype)
 
+/-- An archimedean-flat test vanishes at every point meeting a coordinate hyperplane. -/
+private theorem sLocalOrbitalArchimedeanFlatTests_apply_eq_zero
+    (f : sLocalOrbitalArchimedeanFlatTests F) (z : ArchCoordinates)
+    (hz : (∃ i : RealPlaces, z.1 i = 0) ∨ (∃ j : ComplexPlaces, z.2 j = 0)) :
+    f.val (Multiplicative.ofAdd (assemble(z))) = 0 := by
+  have hprop := f.property
+  simp only [sLocalOrbitalArchimedeanFlatTests, Submodule.mem_comap] at hprop
+  obtain ⟨g, hg, hgy⟩ := Submodule.mem_map.mp hprop
+  simp only [archimedeanFlatSchwartz, Submodule.mem_iInf, LinearMap.mem_ker] at hg
+  have h0 := hg ⟨z, hz⟩ 0 (fun i ↦ i.elim0)
+  have hval : f.val (Multiplicative.ofAdd (assemble(z))) = g z := by
+    have h := congrFun hgy z
+    change g z = f.val (Multiplicative.ofAdd (assemble(z))) at h
+    exact h.symm
+  rw [hval]
+  simpa using h0
+
 /-- Paper: Equations (8.1.0.2) and (8.1.0.4), p. 382.
 Every archimedean-flat test in the displayed tensor products vanishes at the origin. -/
 theorem sLocalOrbitalArchimedeanFlatTests_zero
     (f : sLocalOrbitalArchimedeanFlatTests F) :
-    f.val (Multiplicative.ofAdd 0) = 0 := by sorry
+    f.val (Multiplicative.ofAdd 0) = 0 := by
+  obtain ⟨w⟩ := (inferInstance : Nonempty (InfinitePlace F))
+  have hz : assemble((0 : ArchCoordinates)) = 0 := by
+    change assemble((0 : ArchCoordinates)) = (fun _ ↦ 0 : InfiniteAdeleRing F)
+    funext w'
+    by_cases hw : w'.IsReal <;> simp [hw]
+  have hx : (∃ i : RealPlaces, (0 : ArchCoordinates).1 i = 0) ∨
+      (∃ j : ComplexPlaces, (0 : ArchCoordinates).2 j = 0) := by
+    by_cases hw : w.IsReal
+    · exact Or.inl ⟨⟨w, hw⟩, rfl⟩
+    · exact Or.inr ⟨⟨w, InfinitePlace.not_isReal_iff_isComplex.mp hw⟩, rfl⟩
+  have h := sLocalOrbitalArchimedeanFlatTests_apply_eq_zero (F := F) f 0 hx
+  rw [hz] at h
+  simpa using h
 
 /-- Paper: Equations (8.1.0.2) and (8.1.0.4), p. 382.
 These are the restricted S-adelic tests, with the fibre or singleton entered as T.
@@ -232,6 +262,25 @@ theorem sLocalOrbitalSupportComparison_mk (hT : T ⊆ S) (η : PontryaginDual J�
     LinearMap.comp_apply, Submodule.liftQ_apply]
   rfl
 
+/-- The comparison has the range of the map it induces: quotienting by the source relations
+loses no image point. -/
+private theorem sLocalOrbitalSupportComparison_range (hT : T ⊆ S)
+    (η : PontryaginDual J₁(S)) :
+    LinearMap.range (sLocalOrbitalSupportComparison (F := F) hT η).toLinearMap =
+      (U(S, T)).map (π(hT, η)).toLinearMap := by
+  refine le_antisymm ?_ ?_
+  · rintro y hy
+    obtain ⟨x, rfl⟩ := LinearMap.mem_range.mp hy
+    obtain ⟨m, rfl⟩ := Submodule.mkQ_surjective
+      (p := sLocalOrbitalSupportRelations hT η) x
+    exact Submodule.mem_map.mpr
+      ⟨m.val, m.property, (sLocalOrbitalSupportComparison_mk hT η m).symm⟩
+  · rintro y hy
+    obtain ⟨m, hm, rfl⟩ := Submodule.mem_map.mp hy
+    exact LinearMap.mem_range.mpr
+      ⟨(sLocalOrbitalSupportRelations hT η).mkQL ⟨m, hm⟩,
+        sLocalOrbitalSupportComparison_mk hT η ⟨m, hm⟩⟩
+
 -- TODO(paper-gap): On p. 383 the identity Λ/L_out = L_S omits the factor regularizing
 -- the trivial norm-one component. Moreover the surjectivity argument on pp. 383–384
 -- passes from zero-moment to unrestricted tests, and from archimedean entire Mellin
@@ -255,7 +304,9 @@ theorem sLocalPrimaryOrbitalSupportComparison_range (p : Vℚ)
     let η := sLocalNormOneCharacter S ω hω
     let A : (↥U(S, T) ⧸ sLocalOrbitalSupportRelations hT η) →L[ℂ]
         SLocalPrimaryOrbitalQuotient p η := sLocalOrbitalSupportComparison hT η
-    LinearMap.range A.toLinearMap = (U(S, T)).map (π(hT, η)).toLinearMap := by sorry
+    LinearMap.range A.toLinearMap = (U(S, T)).map (π(hT, η)).toLinearMap := by
+  dsimp only
+  exact sLocalOrbitalSupportComparison_range _ _
 
 /-- Paper: Theorem 8.1.0.1(2), p. 382.
 The range of the single-place comparison consists of the orbital classes that admit
@@ -268,7 +319,9 @@ theorem sLocalPlaceOrbitalSupportComparison_range (v : S) (_hPic : PicTrivial(S)
     let hT : T ⊆ S := Finset.singleton_subset_iff.mpr v.property
     let η := sLocalNormOneCharacter S ω hω
     LinearMap.range (sLocalOrbitalSupportComparison hT η).toLinearMap =
-      (U(S, T)).map (π(hT, η)).toLinearMap := by sorry
+      (U(S, T)).map (π(hT, η)).toLinearMap := by
+  dsimp only
+  exact sLocalOrbitalSupportComparison_range _ _
 
 -- TODO(later): needs §§8.2–8.3 for the announced stack description and the
 -- support of the transposed dual basis elements (Theorem 8.3.0.1, p. 387).
